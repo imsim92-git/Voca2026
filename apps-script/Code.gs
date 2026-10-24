@@ -210,14 +210,25 @@ function log_(req) {
   if (!total) return {ok: true};   // 카드 넘기기처럼 점수가 없는 연습은 남기지 않음
   const wrong = (Array.isArray(req.wrong) ? req.wrong : []).slice(0, 200).map(w => String(w).slice(0, 80)).filter(Boolean);
   const when = req.at ? new Date(req.at) : new Date();
-  addPractice_(sid, {at: (isNaN(when) ? new Date() : when).toISOString(), pageTitle: String(req.pageTitle || '').slice(0, 60), mode: String(req.mode || '').slice(0, 20),
+  const me = addPractice_(sid, {at: (isNaN(when) ? new Date() : when).toISOString(), pageTitle: String(req.pageTitle || '').slice(0, 60), mode: String(req.mode || '').slice(0, 20),
     score: Math.min(score, total), total: total, page: String(req.page || '').slice(0, 30), wrong: wrong});
-  return {ok: true};
+  return {ok: true, me: me};   // 학생 화면이 '내 기록'을 바로 새로 고칠 수 있게 함께 보냄
 }
 
+/* 내 기록: 연습할 때마다 서버 캐시에 새로 넣어 두므로 보통은 시트를 열지 않음 */
 function me_(req) {
   const sid = checkToken_(req.token, 's');
-  return Object.assign({ok: true, student: studentInfo_(sid)}, statsFor_(sid));
+  const c = CacheService.getScriptCache().get('me_' + sid);
+  if (c) return Object.assign({ok: true}, JSON.parse(c));
+  const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
+  if (!row) fail_('학생 정보를 찾을 수 없어요. 다시 로그인해 주세요.', 'auth');
+  const r = sh.getRange(row, 1, 1, S_COLS).getValues()[0];
+  return Object.assign({ok: true}, meCachePut_(sid, String(r[1]), rowStats_(r)));
+}
+function meCachePut_(sid, name, st) {
+  const me = {student: {sid: sid, name: name}, stats: {sessions: st.sessions, questions: st.questions, correct: st.correct}, wrong: st.wrong.slice(0, 60)};
+  try { CacheService.getScriptCache().put('me_' + sid, JSON.stringify(me), STU_CACHE_SEC); } catch (e) {}
+  return me;
 }
 
 /* ---------------- 관리자 ---------------- */
@@ -260,7 +271,7 @@ function admin_(req) {
 function adminStudent_(req) {
   checkToken_(req.token, 'a');
   const sid = cleanSid_(req.sid);
-  return Object.assign({ok: true, student: studentInfo_(sid)}, statsFor_(sid));
+  return Object.assign({ok: true}, statsFor_(sid));
 }
 
 function adminReset_(req) {
@@ -280,8 +291,9 @@ function adminReset_(req) {
 function statsFor_(sid) {
   const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
   if (!row) fail_('학생 정보를 찾을 수 없어요.', 'auth');
-  const st = rowStats_(sh.getRange(row, 1, 1, S_COLS).getValues()[0]);
+  const r = sh.getRange(row, 1, 1, S_COLS).getValues()[0], st = rowStats_(r);
   return {
+    student: {sid: sid, name: String(r[1])},
     stats: {sessions: st.sessions, questions: st.questions, correct: st.correct},
     recent: st.recent.slice().reverse().map(e => Object.assign({sid: sid}, e)),
     wrong: st.wrong.slice(0, 60)
@@ -352,7 +364,7 @@ function addPractice_(sid, entry) {
     const st = mergeStats_(rowStats_(r), [entry]);
     sh.getRange(row, 7, 1, 8).setValues([statsCells_(st)]);
     sh.getRange(row, 4).setValue(new Date());   // 최근 접속
-    return st;
+    return meCachePut_(sid, String(r[1]), st);
   });
 }
 /* 예전 '기록' 탭(연습 한 번에 한 줄)을 학생 줄에 합치고 탭 이름을 '지난 기록'으로 바꿈 */
