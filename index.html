@@ -352,6 +352,9 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 .fchip.custom{display:inline-flex;align-items:center;gap:2px;font-weight:700;cursor:text}
 .tabs.scroll .tab{flex:none;padding-inline:14px}
 
+.archive{padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+.archive select{font:inherit;font-size:13px;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+
 </style>
 </head>
 <body>
@@ -386,6 +389,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 let toastT;
 function toast(msg){ const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 1800); }
+let VIEWSEQ = 0;   // lets a slow answer know whether its screen is still showing
 const store = {
   get(k, d){ try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch(e){ return d; } },
   set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
@@ -487,7 +491,7 @@ async function api(action, data){
   return res;
 }
 function setAuth(a){ AUTH = a; store.set('wordroom-auth', a); viewHome.synced = false; }
-function logout(){ setAuth(null); LOGIN ? viewLogin(route) : route(); }
+function logout(){ if (AUTH) store.set('wordroom-me-' + AUTH.sid, null); setAuth(null); LOGIN ? viewLogin(route) : route(); }   // a shared device keeps nothing of the last student
 function onAuthError(e, retry){
   if (e && e.code === 'auth') { setAuth(null); toast('다시 로그인해 주세요'); viewLogin(retry || route); return true; }
   return false;
@@ -561,7 +565,8 @@ function viewLogin(next, startMode){
       if (mode === 'register' && pw !== v('a-pw2')) return say('비밀번호 확인이 달라요.');
       const go = document.getElementById('af-go'); go.disabled = true; go.textContent = '확인하는 중…'; say('');
       try {
-        const r = await api(mode, {sid, name, pw});
+        const r = await api(mode, {sid, name, pw, v: setsV()});
+        applySets(r.setsPack);
         setAuth({token: r.token, sid: r.student.sid, name: r.student.name});
         store.set('wordroom-last-sid', r.student.sid);
         toast(mode === 'login' ? `${r.student.name}님, 반가워요` : '등록했어요');
@@ -601,8 +606,10 @@ function viewLogin(next, startMode){
     document.getElementById('tf-go').onclick = async e => {
       e.target.disabled = true; e.target.textContent = '입장하는 중…';
       try {
-        const r = await api('teamLogin', {cls: pickCls, team: pickTeam});
+        const r = await api('teamLogin', {cls: pickCls, team: pickTeam, v: setsV()});
+        applySets(r.setsPack);
         setTeam({token: r.token, cls: r.team.cls, team: r.team.team, exp: Date.now() + 9.5 * 3600e3});
+        store.set('wordroom-races-' + r.team.cls + '|' + r.team.team, {races: r.races, at: Date.now()});   // the race list arrives with the login
         store.set('wordroom-last-cls', pickCls);
         toast(`${pickCls} ${pickTeam}, 반가워요`);
         viewTeamHome();
@@ -627,10 +634,19 @@ async function viewMe(){
   if (!AUTH) return viewLogin(viewMe);
   $app.innerHTML = `${header('<button class="link" id="up">← 처음으로</button>')}${userBar()}<h2>내 기록</h2><div class="panel empty">기록을 불러오는 중…</div>`;
   document.getElementById('up').onclick = () => route(); bindUserBar();
+  const mk = 'v-me-' + (++VIEWSEQ), ck = 'wordroom-me-' + AUTH.sid, cached = store.get(ck, null);
+  $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
+  if (cached) show(cached);
   await flushQueue();
   let r;
   try { r = await api('me', {token: AUTH.token}); }
-  catch(e){ if (onAuthError(e, viewMe)) return; $app.querySelector('.empty').textContent = e.error || '기록을 불러오지 못했어요.'; return; }
+  catch(e){ if (onAuthError(e, viewMe)) return; const el = $app.querySelector('.empty'); if (el && !cached) el.textContent = e.error || '기록을 불러오지 못했어요.'; return; }
+  if (!document.getElementById(mk)) return;
+  store.set(ck, r); show(r);
+  return;
+  function show(r){
+  const MK = '<i hidden id="' + mk + '"></i>';
+
   const wrong = r.wrong.map(w => ({w: lookupWord(w.en, w.page), count: w.count, page: w.page, last: w.last}));
   $app.innerHTML = `${header('<button class="link" id="up">← 처음으로</button>')}${userBar()}
   <h2>내 기록</h2>
@@ -650,6 +666,9 @@ async function viewMe(){
   const d = document.getElementById('drill');
   if (d) d.onclick = () => { SET = {id: 'mywrong', t: '내가 자주 틀린 단어', w: wrong.slice(0, 20).map(x => x.w).filter(w => w[1])}; origin = 'me'; viewHome(); };
   scrollTo(0, 0);
+
+    $app.insertAdjacentHTML('beforeend', MK);
+  }
 }
 
 /* ---------- teacher: practice records ---------- */
@@ -676,9 +695,20 @@ async function viewAdmin(next){
   }
   $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('records')}<h2>학생 기록</h2><div class="panel empty">기록을 불러오는 중…</div>`;
   document.getElementById('up').onclick = () => route(); bindAdminNav();
+  const mk = 'v-admin-' + (++VIEWSEQ), ck = 'wordroom-admin-cache', cached = store.get(ck, null);
+  $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
+  if (cached) show(cached);
   let r;
   try { r = await api('admin', {token: ADMIN.token}); }
-  catch(e){ if (e.code === 'auth') { ADMIN = null; store.set('wordroom-admin', null); return viewAdmin(); } $app.querySelector('.empty').textContent = e.error || '불러오지 못했어요.'; return; }
+  catch(e){ if (e.code === 'auth') { ADMIN = null; store.set('wordroom-admin', null); return viewAdmin(); } const el = $app.querySelector('.empty'); if (el && !cached) el.textContent = e.error || '불러오지 못했어요.'; return; }
+  if (!document.getElementById(mk)) return;
+  const keep = {tab: store.get('wordroom-admin-tab', 'students'), filter: ($app.querySelector('#flt') || {}).value || '', y: scrollY};
+  store.set(ck, r); show(r);
+  if (cached) { const f = $app.querySelector('#flt'); if (f && keep.filter) { f.value = keep.filter; f.dispatchEvent(new Event('input')); } scrollTo(0, keep.y); }
+  return;
+  function show(r){
+  const MK = '<i hidden id="' + mk + '"></i>';
+
   const today = new Date().toDateString();
   const practicedToday = new Set(r.recent.filter(l => l.total > 0 && new Date(l.at).toDateString() === today).map(l => l.sid)).size;
   const sessions = r.students.reduce((a, s) => a + s.sessions, 0);
@@ -701,7 +731,7 @@ async function viewAdmin(next){
   <div id="detail"></div>`;
   document.getElementById('up').onclick = () => route(); bindAdminNav();
   document.getElementById('rf').onclick = viewAdmin;
-  document.getElementById('ao').onclick = () => { ADMIN = null; store.set('wordroom-admin', null); route(); };
+  document.getElementById('ao').onclick = () => { ADMIN = null; ['wordroom-admin', 'wordroom-admin-cache', 'wordroom-raceadmin'].forEach(k => store.set(k, null)); route(); };
   const tb = document.getElementById('tb'), flt = document.getElementById('flt');
   const match = (sid, name) => !filter || String(sid).includes(filter) || String(name).includes(filter);
   const draw = () => {
@@ -760,6 +790,9 @@ async function viewAdmin(next){
         catch(e){ toast(e.error || '초기화하지 못했어요'); }
       };
     };
+  }
+
+    $app.insertAdjacentHTML('beforeend', MK);
   }
 }
 
@@ -893,14 +926,23 @@ function toSet(s){
   const heads = (s.words || []).map(w => { const h = [String(w[0]), String(w[1]), String(w[2] || '')]; const rel = relFromNote(h[2]); if (rel.length) h[3] = rel; h.pid = s.id; return h; });
   return {id: s.id, t: s.name, kind: 'passage', heads, w: heads.flatMap(h => [h, ...(h[3] || []).map(r => relWord(h, r, s.id)).filter(x => x[1])])};
 }
+/* the server sends a short version with every passage bundle; words travel only when it changed */
+const setsV = () => (SETS.length || store.get('wordroom-sets', null)) ? store.get('wordroom-sets-v', '') : '';
+let setsFreshAt = 0;   // when the passages were last confirmed with the server
+function applySets(pack){
+  if (!pack) return false;
+  setsLoaded = true; setsFreshAt = Date.now();
+  if (pack.same) return false;
+  const before = store.get('wordroom-sets-v', '');
+  store.set('wordroom-sets', pack.sets); store.set('wordroom-sets-v', pack.v);
+  SETS = pack.sets.map(toSet);
+  return before !== pack.v;
+}
 async function loadSets(){
   if (!API) return false;
-  try {
-    const r = await api('sets', {});
-    const before = JSON.stringify(store.get('wordroom-sets', null));
-    store.set('wordroom-sets', r.sets); SETS = r.sets.map(toSet); setsLoaded = true;
-    return before !== JSON.stringify(r.sets);
-  } catch(e){ setsLoaded = true; return false; }
+  if (Date.now() - setsFreshAt < 5000) return false;   // just got them with another answer
+  try { const r = await api('sets', {v: setsV()}); return applySets(r); }
+  catch(e){ setsLoaded = true; return false; }
 }
 const hasBook = () => PAGES.length > 0;
 const hasRoot = () => ACCOUNTS && (SETS.length > 0 || !setsLoaded);   // no passages registered: the first screen is the 교과서 pages
@@ -972,7 +1014,7 @@ async function viewSetsAdmin(){
     $app.querySelectorAll('[data-up],[data-down]').forEach(b => b.onclick = async () => {
       const i = +(b.dataset.up ?? b.dataset.down), j = b.dataset.up !== undefined ? i - 1 : i + 1;
       const ids = SETS.map(s => s.id); [ids[i], ids[j]] = [ids[j], ids[i]];
-      try { await api('adminSetOrder', {token: ADMIN.token, ids}); await loadSets(); draw(); }
+      try { applySets((await api('adminSetOrder', {token: ADMIN.token, ids})).setsPack); draw(); }
       catch(e){ if (!adminErr(e, viewSetsAdmin)) toast(e.error || '순서를 바꾸지 못했어요'); }
     });
     $app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
@@ -980,14 +1022,14 @@ async function viewSetsAdmin(){
       li.querySelector('.sl-act').innerHTML = `<span class="small">"${esc(s.t)}"을(를) 지울까요? 학생 기록은 남아요.</span><button class="btn ghost small" data-no>취소</button><button class="btn danger small" data-yes>삭제</button>`;
       li.querySelector('[data-no]').onclick = () => draw();
       li.querySelector('[data-yes]').onclick = async () => {
-        try { await api('adminSetDelete', {token: ADMIN.token, id: s.id}); await loadSets(); toast('지문을 지웠어요'); draw(); }
+        try { applySets((await api('adminSetDelete', {token: ADMIN.token, id: s.id})).setsPack); toast('지문을 지웠어요'); draw(); }
         catch(e){ if (!adminErr(e, viewSetsAdmin)) toast(e.error || '지우지 못했어요'); }
       };
     });
     scrollTo(0, 0);
   };
-  draw(setsLoaded ? '' : '불러오는 중…');
-  await loadSets(); draw();
+  draw(setsLoaded || SETS.length ? '' : '불러오는 중…');
+  await loadSets(); if (document.getElementById('sl')) draw();
 }
 
 /* photo → smaller JPEG (long side 2000px) so it uploads quickly from a phone */
@@ -1072,8 +1114,8 @@ function viewSetEdit(set){
     if (!r.words.length) return toast('단어를 먼저 넣어 주세요');
     const go = $('se-save'); go.disabled = true; go.textContent = '저장하는 중…';
     try {
-      await api('adminSetSave', {token: ADMIN.token, id: set ? set.id : '', name, words: r.words});
-      store.set(draftKey, null); await loadSets();
+      const saved = await api('adminSetSave', {token: ADMIN.token, id: set ? set.id : '', name, words: r.words});
+      store.set(draftKey, null); applySets(saved.setsPack);
       toast(r.bad.length ? `저장했어요. 읽지 못한 ${r.bad.length}줄은 빠졌어요` : '저장했어요');
       viewSetsAdmin();
     } catch(err){
@@ -1127,15 +1169,25 @@ function matchRounds(words){
 const fmtSec = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${m}분 ${r.toFixed(1).padStart(4, '0')}초` : `${r.toFixed(1)}초`; };
 
 /* ---------- team: the open races ---------- */
-async function viewTeamHome(){
+async function viewTeamHome(force){
   stopTimers();
   if (!TEAM) return viewLogin(route, 'team');
   const bar = `<div class="userbar"><span><b>${esc(TEAM.cls)} · ${esc(TEAM.team)}</b> <span class="muted">모둠으로 입장</span></span><button class="link" id="tleave">나가기</button></div>`;
   $app.innerHTML = `${header()}${bar}<div class="setcard"><div class="eyebrow">모둠 레이스</div><h1>레이스를 골라요</h1><div class="meta">모둠당 한 번만 달릴 수 있어요. 준비되면 출발하세요.</div></div><div class="panel empty">레이스를 불러오는 중…</div>`;
   document.getElementById('tleave').onclick = teamLeave;
+  const mk = 'v-team-' + (++VIEWSEQ), ck = 'wordroom-races-' + TEAM.cls + '|' + TEAM.team, cached = store.get(ck, null);
+  $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
+  if (cached) show(cached);
+  if (force !== true && cached && cached.at && Date.now() - cached.at < 5000) return;   // came with the team login a moment ago
   let r;
-  try { await loadSets(); r = await api('races', {token: TEAM.token}); }
-  catch(e){ if (e.code === 'auth') return teamLeave(); $app.querySelector('.empty').textContent = e.error || '레이스를 불러오지 못했어요.'; return; }
+  try { r = await api('races', {token: TEAM.token, v: setsV()}); applySets(r.setsPack); }
+  catch(e){ if (e.code === 'auth') return teamLeave(); const el = $app.querySelector('.empty'); if (el && !cached) el.textContent = e.error || '레이스를 불러오지 못했어요.'; return; }
+  if (!document.getElementById(mk)) return;
+  store.set(ck, r); show(r);
+  return;
+  function show(r){
+  const MK = '<i hidden id="' + mk + '"></i>';
+
   const tile = x => {
     const m = x.mine, n = raceWords(x).length;
     const state = m && m.status === '완료' ? `<span class="chip ok">완료 · ${fmtSec(m.seconds)}</span>` : m ? '<span class="chip run">달리는 중 · 이어 하기</span>' : x.status === '마감' ? '<span class="chip">마감</span>' : '<span class="chip go">출발 가능</span>';
@@ -1146,9 +1198,11 @@ async function viewTeamHome(){
   ${r.races.length ? `<div class="pages">${r.races.map(tile).join('')}</div>` : '<div class="panel empty">아직 열린 레이스가 없어요. 선생님이 레이스를 열면 여기에 나와요.</div>'}
   <div class="foot"><button class="link" id="trefresh">새로고침</button></div>`;
   document.getElementById('tleave').onclick = teamLeave;
-  document.getElementById('trefresh').onclick = viewTeamHome;
+  document.getElementById('trefresh').onclick = () => viewTeamHome(true);
   $app.querySelectorAll('[data-race]').forEach(b => b.onclick = () => viewRaceReady(r.races.find(x => x.id === b.dataset.race)));
   scrollTo(0, 0);
+  $app.insertAdjacentHTML('beforeend', MK);
+  }
 }
 
 function viewRaceReady(race){
@@ -1325,10 +1379,36 @@ function viewRaceResult(race, r, R, localSec){
 /* =====================================================================
    선생님: 반·모둠 등록, 레이스 만들기, 순위판
    ===================================================================== */
+
+/* 지난 레이스 기록 정리: N일 지난 레이스 기록을 '지난 레이스 기록' 탭으로 */
+function archivePanel(a){
+  if (!a) return '';
+  const days = a.days || 90, opts = [30, 60, 90, 120, 180, 365];
+  return `<div class="panel archive"><div><b>지난 레이스 기록 정리</b><div class="muted small">오래된 레이스 기록을 구글 시트 '지난 레이스 기록' 탭으로 옮겨 순위판을 가볍게 해요. 옮긴 기록도 시트에 그대로 남아요.</div></div>
+    <div class="row small"><label for="ar-days" class="small">기준</label><select id="ar-days">${opts.map(d => `<option value="${d}" ${d === days ? 'selected' : ''}>${d}일 지난 기록</option>`).join('')}</select>
+      <label class="check small"><input type="checkbox" id="ar-auto" ${a.auto ? 'checked' : ''}><span>매일 새벽 자동으로 옮기기</span></label></div>
+    <div class="row small"><button class="btn ghost small" id="ar-save">설정 저장</button><button class="btn ghost small" id="ar-now">지금 옮기기</button>
+      <span class="muted small" id="ar-msg">레이스 기록 ${a.raceRows}줄 · 지난 레이스 기록 ${a.oldRows}줄${a.last ? ` · 마지막 정리 ${esc(fmtTime(a.last))}` : ''}</span></div></div>`;
+}
+function bindArchivePanel(){
+  const $ = id => document.getElementById(id); if (!$('ar-save')) return;
+  const go = async (now, btn) => {
+    if (now && btn.dataset.sure !== '1') { btn.dataset.sure = '1'; btn.textContent = `정말 ${$('ar-days').value}일 지난 기록 옮기기`; return; }
+    btn.disabled = true;
+    try {
+      const r = await api('adminArchive', {token: ADMIN.token, days: +$('ar-days').value, auto: $('ar-auto').checked, save: true, now});
+      RACE_ADMIN.archive = r.archive; store.set('wordroom-raceadmin', RACE_ADMIN);
+      toast(now ? `레이스 기록 ${r.moved.race}줄을 옮겼어요` : ($('ar-auto').checked ? '매일 새벽 3시쯤 자동으로 옮겨요' : '설정을 저장했어요'));
+      viewRaceAdmin();
+    } catch(e){ btn.disabled = false; if (!adminErr(e, viewRaceAdmin)) toast(e.error || '하지 못했어요'); }
+  };
+  $('ar-save').onclick = e => go(false, e.target);
+  $('ar-now').onclick = e => go(true, e.target);
+}
 let RACE_ADMIN = {classes: [], races: []};
 const raceClassNames = (race, teams) => race.classes.includes('*') ? (teams || RACE_ADMIN.classes).map(c => c.name) : race.classes;
 const raceClassLabel = race => race.classes.includes('*') ? '전체 반' : race.classes.join(', ');
-async function loadRaceAdmin(){ const r = await api('adminRaces', {token: ADMIN.token}); RACE_ADMIN = {classes: r.classes, races: r.races}; return r; }
+async function loadRaceAdmin(){ const r = await api('adminRaces', {token: ADMIN.token, v: setsV()}); applySets(r.setsPack); RACE_ADMIN = {classes: r.classes, races: r.races, archive: r.archive}; return r; }
 const STATUS_CHIP = {'준비': '<span class="chip">준비</span>', '진행': '<span class="chip go">열림</span>', '마감': '<span class="chip">마감</span>'};
 
 async function viewRaceAdmin(){
@@ -1336,8 +1416,17 @@ async function viewRaceAdmin(){
   if (needAdmin(viewRaceAdmin)) return;
   $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('race')}<h2>모둠 레이스</h2><div class="panel empty">불러오는 중…</div>`;
   document.getElementById('up').onclick = () => route(); bindAdminNav();
-  try { await loadSets(); await loadRaceAdmin(); }
-  catch(e){ if (!adminErr(e, viewRaceAdmin)) $app.querySelector('.empty').textContent = e.error || '불러오지 못했어요.'; return; }
+  const mk = 'v-race-' + (++VIEWSEQ), cached = store.get('wordroom-raceadmin', null);
+  $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
+  if (cached) { RACE_ADMIN = cached; show(); }
+  try { await loadRaceAdmin(); }
+  catch(e){ if (!adminErr(e, viewRaceAdmin)) { const el = $app.querySelector('.empty'); if (el && !cached) el.textContent = e.error || '불러오지 못했어요.'; } return; }
+  if (!document.getElementById(mk)) return;
+  store.set('wordroom-raceadmin', RACE_ADMIN); show();
+  return;
+  function show(r){
+  const MK = '<i hidden id="' + mk + '"></i>';
+
   const C = RACE_ADMIN.classes;
   let fcls = store.get('wordroom-race-filter', '');
   if (fcls && !C.some(c => c.name === fcls)) fcls = '';
@@ -1359,9 +1448,11 @@ async function viewRaceAdmin(){
         <button class="btn ghost small" data-del="${i}">삭제</button></div></li>`).join('')}
     ${!races.length ? `<li class="muted">${fcls ? `${esc(fcls)}에 해당하는 레이스가 없어요.` : '아직 만든 레이스가 없어요.'}</li>` : ''}
   </ul></div>
-  <p class="help">모둠은 로그인 화면의 <b>모둠 입장</b> 탭에서 반과 모둠을 골라 들어와요. 열린 레이스만 모둠 화면에 보여요.</p>`;
+  <p class="help">모둠은 로그인 화면의 <b>모둠 입장</b> 탭에서 반과 모둠을 골라 들어와요. 열린 레이스만 모둠 화면에 보여요.</p>
+  ${archivePanel(RACE_ADMIN.archive)}`;
   document.getElementById('up').onclick = () => route(); bindAdminNav();
   document.getElementById('teams').onclick = viewTeamsAdmin;
+  bindArchivePanel();
   $app.querySelectorAll('[data-fc]').forEach(b => b.onclick = () => { store.set('wordroom-race-filter', b.dataset.fc); viewRaceAdmin(); });
   document.getElementById('new').onclick = () => viewRaceEdit(null);
   $app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => viewRaceEdit(races[+b.dataset.edit]));
@@ -1378,6 +1469,8 @@ async function viewRaceAdmin(){
     act.querySelector('[data-yes]').onclick = async () => { try { await api('adminRaceDelete', {token: ADMIN.token, id: x.id}); toast('레이스를 지웠어요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '지우지 못했어요'); } };
   });
   scrollTo(0, 0);
+  $app.insertAdjacentHTML('beforeend', MK);
+  }
 }
 
 function viewTeamsAdmin(){
