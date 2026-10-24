@@ -533,6 +533,14 @@ async function sendLog(entry){
   const q = store.get(QKEY, []); q.push(Object.assign({token: AUTH.token, sid: AUTH.sid, at: new Date().toISOString()}, entry)); store.set(QKEY, q.slice(-100));
   return flushQueue();
 }
+/* the saved copy of 내 기록: replaced only by numbers at least as new (more practice sessions) */
+let ME_LIVE = null;
+function keepMe(me){
+  if (!AUTH || !me || !me.stats || (me.student && me.student.sid !== AUTH.sid)) return;
+  const ck = 'wordroom-me-' + AUTH.sid, cur = store.get(ck, null);
+  if (cur && cur.stats && cur.stats.sessions > me.stats.sessions) return;
+  store.set(ck, me); if (ME_LIVE) ME_LIVE(me);
+}
 let flushing = null;
 function flushQueue(){
   if (!API) return Promise.resolve('off');
@@ -542,7 +550,7 @@ function flushQueue(){
     while (q.length) {
       const item = q[0];
       if (!AUTH || item.sid !== AUTH.sid) { q.shift(); store.set(QKEY, q); continue; }   // another student's leftover on a shared device
-      try { await api('log', Object.assign({}, item, {token: AUTH.token})); q.shift(); store.set(QKEY, q); }
+      try { const r = await api('log', Object.assign({}, item, {token: AUTH.token})); q.shift(); store.set(QKEY, q); if (r && r.me) keepMe(r.me); }
       catch(e){ if (e.code === 'auth') { q.shift(); store.set(QKEY, q); status = 'auth'; } else { status = 'queued'; break; } }
     }
     return status;
@@ -691,12 +699,11 @@ async function viewMe(){
   const mk = 'v-me-' + (++VIEWSEQ), ck = 'wordroom-me-' + AUTH.sid, cached = store.get(ck, null);
   $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
   if (cached) show(cached);
-  await flushQueue();
-  let r;
-  try { r = await api('me', {token: AUTH.token}); }
-  catch(e){ if (onAuthError(e, viewMe)) return; const el = $app.querySelector('.empty'); if (el && !cached) el.textContent = e.error || '기록을 불러오지 못했어요.'; return; }
-  if (!document.getElementById(mk)) return;
-  store.set(ck, r); show(r);
+  /* the saved copy shows at once; the server copy and any practice still being sent update it as they arrive */
+  ME_LIVE = me => { if (document.getElementById(mk)) show(me); else ME_LIVE = null; };
+  flushQueue();
+  try { keepMe(await api('me', {token: AUTH.token})); }
+  catch(e){ if (onAuthError(e, viewMe)) return; const el = $app.querySelector('.empty'); if (el && !store.get(ck, null) && document.getElementById(mk)) el.textContent = e.error || '기록을 불러오지 못했어요.'; }
   return;
   function show(r){
   const MK = '<i hidden id="' + mk + '"></i>';
@@ -712,10 +719,7 @@ async function viewMe(){
   <div class="section-label">자주 틀리는 단어</div>
   ${wrong.length ? `<button class="btn mark" id="drill">자주 틀린 단어 ${Math.min(20, wrong.length)}개로 연습하기</button>
     <div class="panel"><ul class="wl">${wrong.map(x => `<li><span class="en">${esc(x.w[0])}</span><span class="cnt">${x.count}번</span><span class="ko">${esc(x.w[1])}</span><span class="note">${esc(pageName(x.page))}${x.w[2] ? ' · ' + esc(x.w[2]) : ''}</span></li>`).join('')}</ul></div>`
-    : '<div class="panel empty">아직 틀린 단어가 없어요. 뜻 고르기나 철자 쓰기를 해 보면 여기에 모여요.</div>'}
-  <div class="section-label">최근 연습</div>
-  ${r.recent.length ? `<div class="panel"><ul class="log">${r.recent.map(l => `<li><span>${esc(fmtTime(l.at))}</span><span>${esc(pageName(l.page) || l.pageTitle)} · ${esc(l.mode)}</span><b>${l.score}/${l.total}</b></li>`).join('')}</ul></div>`
-    : '<div class="panel empty">아직 연습 기록이 없어요.</div>'}`;
+    : '<div class="panel empty">아직 틀린 단어가 없어요. 뜻 고르기나 철자 쓰기를 해 보면 여기에 모여요.</div>'}`;
   document.getElementById('up').onclick = () => route(); bindUserBar();
   const d = document.getElementById('drill');
   if (d) d.onclick = () => { SET = {id: 'mywrong', t: '내가 자주 틀린 단어', w: wrong.slice(0, 20).map(x => x.w).filter(w => w[1])}; origin = 'me'; viewHome(); };
