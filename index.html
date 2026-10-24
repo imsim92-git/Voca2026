@@ -670,7 +670,28 @@ const wordsToText = ws => ws.map(w => `${w[0]} - ${w[1]}${w[2] ? ' ' + w[2] : ''
 /* photo text (OCR) → "영어 - 뜻" lines. A worksheet table comes back cell by cell or row by row,
    so read it as a stream: English words start an entry, Korean words are its meaning, and
    =, ↔, v), a), n), adv) start the related-word part that belongs to the same entry. */
+const HEADER_WORDS = /^(단어|뜻|의미|번호|영어|우리말|한글|No\.?|word|words|meaning)$/i;
+const isNumTok = t => /^\(?\d{1,3}[.)]?$/.test(t);
+/* a table read column by column: all English cells, then all meaning cells → pair them in order */
+function columnPairs(text){
+  const lines = String(text || '').replace(/\u00a0/g, ' ').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    .filter(l => !HEADER_WORDS.test(l) && !/^\(?\d{1,3}[.)]?$/.test(l));
+  const isK = l => /[가-힣]/.test(l), isMark = l => /^(=|↔|adv\)|[vna]\))\s/.test(normMarkers(l));
+  let run = 0, maxRun = 0;
+  lines.forEach(l => { if (!isK(l) && /[A-Za-z]/.test(l) && !isMark(l)) { run++; maxRun = Math.max(maxRun, run); } else run = 0; });
+  if (maxRun < 3) return null;
+  const en = [], ko = [];
+  lines.forEach(l => {
+    if (isK(l)) ko.push(l);
+    else if (isMark(l) && ko.length) ko[ko.length - 1] += ' ' + l;   // "= only" under its meaning
+    else if (/[A-Za-z]/.test(l)) en.push(l);
+  });
+  if (en.length < 3 || en.length !== ko.length) return null;
+  return en.map((e, i) => `${e} - ${ko[i]}`);
+}
 function ocrToLines(text){
+  const cols = columnPairs(text);
+  if (cols) return cols;
   const isK = t => /[가-힣]/.test(t), isL = t => /[A-Za-z]/.test(t) && !isK(t);
   const MARK = /^(=|↔|adv\)|[vna]\))$/;
   const GLUE = /^(of|to|in|out|on|off|up|down|for|with|from|into|about|against|a|an|the|be|one’s|one's|~)$/i;
@@ -678,7 +699,7 @@ function ocrToLines(text){
   const start = () => { cur = {en: [], ko: [], note: []}; entries.push(cur); state = 'en'; };
   String(text || '').replace(/ /g, ' ').split(/\r?\n/).forEach(line => {
     if (/^\s*(학습지|단원|과)?\s*\d+([\s~-]*\d+)?\s*(페이지|쪽|p\.?|번|단원|과)?\s*$/i.test(line) || /^\s*학습지/.test(line) || /^\s*(Lesson|Unit)\s*\d+/i.test(line)) { state = 'none'; return; }   // headings and page numbers
-    const toks = normMarkers(line).split(' ').filter(Boolean);
+    const toks = normMarkers(line.replace(/\t/g, ' ')).split(' ').filter(t => t && !isNumTok(t) && !HEADER_WORDS.test(t));
     if (state === 'note') state = 'afternote';               // a line break ends a related-word part
     toks.forEach((t, i) => {
       const next = toks[i + 1] || '';
@@ -872,7 +893,12 @@ function viewSetEdit(set){
         const data = await shrinkImage(files[k]);
         const r = await api('adminOcr', {token: ADMIN.token, data, mime: 'image/jpeg'});
         const lines = ocrToLines(r.text);
-        if (!lines.length) { status.className = 'savestate wait'; status.textContent = `사진 ${k + 1}에서 단어를 찾지 못했어요. 더 밝고 반듯하게 찍어 다시 올려 주세요.`; continue; }
+        if (!lines.length) {
+          const raw = String(r.text || '').trim();
+          if (!raw) { status.className = 'savestate wait'; status.textContent = `사진 ${k + 1}에서 글자를 하나도 읽지 못했어요. 단어표 부분만 잘라서 다시 올려 주세요.`; continue; }
+          txt.value = (txt.value.trim() ? txt.value.trim() + '\n' : '') + raw; upd();
+          status.className = 'savestate wait'; status.textContent = `사진 ${k + 1}의 글자는 읽었지만 단어와 뜻을 나누지 못했어요. 아래에 읽은 글자를 그대로 넣었으니 "영어 - 뜻" 모양으로 고쳐 주세요.`; continue;
+        }
         txt.value = (txt.value.trim() ? txt.value.trim() + '\n' : '') + lines.join('\n');
         upd();
         status.className = 'savestate ok'; status.textContent = `사진 ${k + 1}에서 ${lines.length}줄을 읽었어요. 아래에서 확인해 주세요.`;
