@@ -13,22 +13,42 @@
 body{margin:0}
 img{max-width:100%}
 [hidden]{display:none!important}
-/* Layout: one narrow study column (max 560px) — a navy set card on top, mode tiles, then one exercise at a time. */
+/* Layout: one narrow study column (max 560px) — a plain title on top, then colour-coded choice tiles, one exercise at a time. */
 :root{
   --paper:#f3f4f8; --surface:#ffffff; --ink:#151a33; --muted:#5d6380; --line:#dcdfea;
   --navy:#1b2550; --navy-fg:#f3f4f8; --mark:#ffd84a; --mark-ink:#2a2200;
   --good:#1f8a5b; --good-bg:#e3f4ec; --bad:#c2413a; --bad-bg:#fbe7e5;
+  --c1-bg:#e8eeff; --c1-fg:#2442a8; --c1-line:#c7d3fb;
+  --c2-bg:#e2f4ea; --c2-fg:#18704a; --c2-line:#bfe3ce;
+  --c3-bg:#fff0d4; --c3-fg:#8a5200; --c3-line:#f0d39b;
+  --c4-bg:#fce7ee; --c4-fg:#a62b57; --c4-line:#f2c3d3;
+  --c5-bg:#eee9ff; --c5-fg:#5435b0; --c5-line:#d6cbfa;
+  --c6-bg:#ddf2f1; --c6-fg:#0f6766; --c6-line:#b6e0de;
   --f-word:"Young Serif",Georgia,"Times New Roman",serif;
   --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --paper:#0f1222; --surface:#181c33; --ink:#eceef7; --muted:#9aa0bd; --line:#2b3150;
   --navy:#232e66; --navy-fg:#f3f4f8; --mark:#f5cf3d; --mark-ink:#241d00;
-  --good:#5fd19c; --good-bg:#16332a; --bad:#ff8a80; --bad-bg:#3a1d1f; color-scheme:dark}}
+  --good:#5fd19c; --good-bg:#16332a; --bad:#ff8a80; --bad-bg:#3a1d1f;
+  --c1-bg:#1b2550; --c1-fg:#a9bcff; --c1-line:#2e3e80;
+  --c2-bg:#13362a; --c2-fg:#86ddb0; --c2-line:#1f5240;
+  --c3-bg:#3a2c10; --c3-fg:#f5c670; --c3-line:#5a4419;
+  --c4-bg:#3c1a28; --c4-fg:#f5a3c0; --c4-line:#5c2a3f;
+  --c5-bg:#281f4d; --c5-fg:#c3b3ff; --c5-line:#3e3175;
+  --c6-bg:#0f3433; --c6-fg:#7fd6d2; --c6-line:#1b504e;
+  color-scheme:dark}}
 :root[data-theme="dark"]{
   --paper:#0f1222; --surface:#181c33; --ink:#eceef7; --muted:#9aa0bd; --line:#2b3150;
   --navy:#232e66; --navy-fg:#f3f4f8; --mark:#f5cf3d; --mark-ink:#241d00;
-  --good:#5fd19c; --good-bg:#16332a; --bad:#ff8a80; --bad-bg:#3a1d1f; color-scheme:dark}
+  --good:#5fd19c; --good-bg:#16332a; --bad:#ff8a80; --bad-bg:#3a1d1f;
+  --c1-bg:#1b2550; --c1-fg:#a9bcff; --c1-line:#2e3e80;
+  --c2-bg:#13362a; --c2-fg:#86ddb0; --c2-line:#1f5240;
+  --c3-bg:#3a2c10; --c3-fg:#f5c670; --c3-line:#5a4419;
+  --c4-bg:#3c1a28; --c4-fg:#f5a3c0; --c4-line:#5c2a3f;
+  --c5-bg:#281f4d; --c5-fg:#c3b3ff; --c5-line:#3e3175;
+  --c6-bg:#0f3433; --c6-fg:#7fd6d2; --c6-line:#1b504e;
+  color-scheme:dark}
 *{box-sizing:border-box}
 html,body{min-height:100%}
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
@@ -41,10 +61,10 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 .brand{font-weight:700;font-size:14px;letter-spacing:.02em;color:var(--muted)}
 .link{background:none;border:0;padding:4px 0;color:var(--muted);font-size:14px;text-decoration:underline;text-underline-offset:3px}
 /* set card */
-.setcard{background:var(--navy);color:var(--navy-fg);border-radius:18px;padding:22px 22px 20px;display:flex;flex-direction:column;gap:6px}
-.setcard .eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
-.setcard h1{font-size:28px;font-weight:700}
-.setcard .meta{font-size:14px;opacity:.8}
+.setcard{color:var(--ink);padding:6px 2px 4px;display:flex;flex-direction:column;gap:4px}
+.setcard .eyebrow{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.setcard h1{font-size:28px;font-weight:700;line-height:1.25}
+.setcard .meta{font-size:14px;color:var(--muted)}
 /* modes */
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mode{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:left;display:flex;flex-direction:column;gap:2px;transition:transform .12s,border-color .12s}
@@ -115,10 +135,6 @@ textarea{min-height:260px;resize:vertical;font-size:14px;line-height:1.6}
 .page b{font-size:22px;font-variant-numeric:tabular-nums}
 .page .pc{font-size:13px;color:var(--muted)}
 .page .best{font-size:12px;color:var(--good);font-weight:700}
-.page.all{grid-column:1/-1;background:var(--navy);color:var(--navy-fg);border-color:var(--navy)}
-.page.all .pn,.page.all .pc{color:var(--navy-fg);opacity:.8}
-.page.all .best{color:var(--mark)}
-.page.all:hover{border-color:var(--mark)}
 .note{font-size:13px;color:var(--muted)}
 .wl .note{grid-column:1}
 .wl.hideko .note{visibility:hidden}
@@ -244,6 +260,23 @@ tr.event td{color:var(--muted)}
 .up-icon svg{width:22px;height:22px}
 .badlines{background:var(--bad-bg);border-radius:10px;padding:10px 14px;font-size:13px}
 .badlines ul{margin:6px 0 0;padding-left:18px}
+
+/* colour-coded choice tiles: each option gets its own hue so options never look like the title */
+.c1{--t-bg:var(--c1-bg);--t-fg:var(--c1-fg);--t-line:var(--c1-line)}
+.c2{--t-bg:var(--c2-bg);--t-fg:var(--c2-fg);--t-line:var(--c2-line)}
+.c3{--t-bg:var(--c3-bg);--t-fg:var(--c3-fg);--t-line:var(--c3-line)}
+.c4{--t-bg:var(--c4-bg);--t-fg:var(--c4-fg);--t-line:var(--c4-line)}
+.c5{--t-bg:var(--c5-bg);--t-fg:var(--c5-fg);--t-line:var(--c5-line)}
+.c6{--t-bg:var(--c6-bg);--t-fg:var(--c6-fg);--t-line:var(--c6-line)}
+.page[class*=" c"],.mode[class*=" c"]{background:var(--t-bg);border-color:var(--t-line);color:var(--ink)}
+.page[class*=" c"] b,.mode[class*=" c"] b{color:var(--t-fg)}
+.page[class*=" c"] .pn{color:var(--t-fg);opacity:.85}
+.page[class*=" c"] .pc,.mode[class*=" c"] span{color:var(--ink);opacity:.72}
+.page[class*=" c"]:hover,.mode[class*=" c"]:not(:disabled):hover{border-color:var(--t-fg)}
+.page[class*=" c"] .best{color:var(--t-fg);opacity:1}
+.page.wide{grid-column:1/-1}
+.page b,.mode b{word-break:keep-all;overflow-wrap:anywhere;line-height:1.3}
+.mode[class*=" c"]:disabled:hover{border-color:var(--t-line)}
 
 </style>
 </head>
@@ -766,8 +799,8 @@ function viewRoot(){
   $app.innerHTML = `${header()}${userBar()}${speechBanner()}
   <div class="setcard"><div class="eyebrow">단어 연습</div><h1>지문을 골라요</h1><div class="meta">연습할 지문을 누르면 단어 연습 메뉴가 열려요.</div></div>
   <div class="pages">
-    ${hasBook() ? `<button class="page all" data-root="book"><span class="pn">기본 목록</span><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
-    ${SETS.map(s => `<button class="page" data-root="${esc(s.id)}"><span class="pn">지문</span><b>${esc(s.t)}</b><span class="pc">${countLine(s)}</span>${last(s.id)}</button>`).join('')}
+    ${hasBook() ? `<button class="page wide c1" data-root="book"><span class="pn">기본 목록</span><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
+    ${SETS.map((s, i) => `<button class="page c${2 + i % 5}" data-root="${esc(s.id)}"><span class="pn">지문</span><b>${esc(s.t)}</b><span class="pc">${countLine(s)}</span>${last(s.id)}</button>`).join('')}
     ${!setsLoaded && !SETS.length ? '<div class="panel empty" style="grid-column:1/-1">지문 목록을 불러오는 중…</div>' : ''}
     ${!hasBook() && setsLoaded && !SETS.length ? '<div class="panel empty" style="grid-column:1/-1">아직 연습할 지문이 없어요.</div>' : ''}
   </div>`;
@@ -937,8 +970,8 @@ function viewPages(){
   $app.innerHTML = `${header(hasRoot() ? '<button class="link" id="toRoot">← 지문 고르기</button>' : '')}${userBar()}${speechBanner()}
   <div class="setcard"><div class="eyebrow">${esc(BOOK)}</div><h1>학습지 페이지를 골라요</h1><div class="meta">${countLine(ALL)} · ${PAGES.length}개 구간</div></div>
   <div class="pages">
-    ${PAGES.map(p => `<button class="page" data-id="${p.id}"><span class="pn">학습지</span><b>${esc(p.t.replace('학습지 ', ''))}</b><span class="pc">${countLine(p)}</span>${last(p.id)}</button>`).join('')}
-    <button class="page all" data-id="all"><span class="pn">한꺼번에</span><b>전체 페이지</b><span class="pc">${ALL.w.length}개를 섞어서</span>${last('all')}</button>
+    ${PAGES.map((p, i) => `<button class="page c${1 + i % 6}" data-id="${p.id}"><span class="pn">학습지</span><b>${esc(p.t.replace('학습지 ', ''))}</b><span class="pc">${countLine(p)}</span>${last(p.id)}</button>`).join('')}
+    <button class="page wide c${1 + PAGES.length % 6}" data-id="all"><span class="pn">한꺼번에</span><b>전체 페이지</b><span class="pc">${ALL.w.length}개를 섞어서</span>${last('all')}</button>
   </div>`;
   $app.querySelectorAll('[data-id]').forEach(b => b.onclick = () => { SET = b.dataset.id === 'all' ? ALL : PAGES.find(p => p.id === b.dataset.id); viewHome(); });
   const tr = document.getElementById('toRoot'); if (tr) tr.onclick = viewRoot;
@@ -982,7 +1015,8 @@ const scopeWords = () => SCOPE === 'conf' ? confIn(SET.w) : SET.w;
 function viewHome(){
   const backTo = origin === 'link' ? '' : `<button class="link" id="up">← ${origin === 'maker' ? '단어장 편집' : origin === 'me' ? '내 기록' : origin === 'root' ? '지문 고르기' : origin === 'setedit' ? '지문 편집' : '페이지 고르기'}</button>`;
   const conf = confIn(SET.w), words = scopeWords();
-  const tile = (go, title, sub, min) => `<button class="mode" data-go="${go}" ${words.length < (min || 1) ? 'disabled' : ''}><b>${title}</b><span>${sub}</span></button>`;
+  const MODE_C = {list: 1, cards: 2, choice: 3, pick: 4, spell: 5, match: 6};
+  const tile = (go, title, sub, min) => `<button class="mode c${MODE_C[go]}" data-go="${go}" ${words.length < (min || 1) ? 'disabled' : ''}><b>${title}</b><span>${sub}</span></button>`;
   $app.innerHTML = `${header(backTo)}${userBar()}${speechBanner()}
   <div class="setcard"><div class="eyebrow">${SET.kind === 'passage' ? '지문' : SET.id === 'custom' ? '단어장' : esc(BOOK)}</div><h1>${esc(SET.t)}</h1><div class="meta">${countLine(SET)}</div></div>
   <div class="tabs" role="tablist" aria-label="연습할 단어">
