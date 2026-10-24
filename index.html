@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>우리반 단어장</title>
+<title>영어 단어장</title>
 <meta name="description" content="영어 학습지 단어를 페이지별로 연습하는 사이트">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,12 +18,12 @@ img{max-width:100%}
   --paper:#f3f4f8; --surface:#ffffff; --ink:#151a33; --muted:#5d6380; --line:#dcdfea;
   --navy:#1b2550; --navy-fg:#f3f4f8; --mark:#ffd84a; --mark-ink:#2a2200;
   --good:#1f8a5b; --good-bg:#e3f4ec; --bad:#c2413a; --bad-bg:#fbe7e5;
-  --c1-bg:#e8eeff; --c1-fg:#2442a8; --c1-line:#c7d3fb;
-  --c2-bg:#e2f4ea; --c2-fg:#18704a; --c2-line:#bfe3ce;
-  --c3-bg:#fff0d4; --c3-fg:#8a5200; --c3-line:#f0d39b;
-  --c4-bg:#fce7ee; --c4-fg:#a62b57; --c4-line:#f2c3d3;
-  --c5-bg:#eee9ff; --c5-fg:#5435b0; --c5-line:#d6cbfa;
-  --c6-bg:#ddf2f1; --c6-fg:#0f6766; --c6-line:#b6e0de;
+  --c1-bg:#2b54d6; --c1-fg:#ffffff; --c1-line:#2b54d6;
+  --c2-bg:#0f7f5a; --c2-fg:#ffffff; --c2-line:#0f7f5a;
+  --c3-bg:#b85400; --c3-fg:#ffffff; --c3-line:#b85400;
+  --c4-bg:#c2255c; --c4-fg:#ffffff; --c4-line:#c2255c;
+  --c5-bg:#6a3fd1; --c5-fg:#ffffff; --c5-line:#6a3fd1;
+  --c6-bg:#0b7480; --c6-fg:#ffffff; --c6-line:#0b7480;
   --f-word:"Young Serif",Georgia,"Times New Roman",serif;
   --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
 }
@@ -31,23 +31,23 @@ img{max-width:100%}
   --paper:#0f1222; --surface:#181c33; --ink:#eceef7; --muted:#9aa0bd; --line:#2b3150;
   --navy:#232e66; --navy-fg:#f3f4f8; --mark:#f5cf3d; --mark-ink:#241d00;
   --good:#5fd19c; --good-bg:#16332a; --bad:#ff8a80; --bad-bg:#3a1d1f;
-  --c1-bg:#1b2550; --c1-fg:#a9bcff; --c1-line:#2e3e80;
-  --c2-bg:#13362a; --c2-fg:#86ddb0; --c2-line:#1f5240;
-  --c3-bg:#3a2c10; --c3-fg:#f5c670; --c3-line:#5a4419;
-  --c4-bg:#3c1a28; --c4-fg:#f5a3c0; --c4-line:#5c2a3f;
-  --c5-bg:#281f4d; --c5-fg:#c3b3ff; --c5-line:#3e3175;
-  --c6-bg:#0f3433; --c6-fg:#7fd6d2; --c6-line:#1b504e;
+  --c1-bg:#2b54d6; --c1-fg:#ffffff; --c1-line:#2b54d6;
+  --c2-bg:#0f7f5a; --c2-fg:#ffffff; --c2-line:#0f7f5a;
+  --c3-bg:#b85400; --c3-fg:#ffffff; --c3-line:#b85400;
+  --c4-bg:#c2255c; --c4-fg:#ffffff; --c4-line:#c2255c;
+  --c5-bg:#6a3fd1; --c5-fg:#ffffff; --c5-line:#6a3fd1;
+  --c6-bg:#0b7480; --c6-fg:#ffffff; --c6-line:#0b7480;
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --paper:#0f1222; --surface:#181c33; --ink:#eceef7; --muted:#9aa0bd; --line:#2b3150;
   --navy:#232e66; --navy-fg:#f3f4f8; --mark:#f5cf3d; --mark-ink:#241d00;
   --good:#5fd19c; --good-bg:#16332a; --bad:#ff8a80; --bad-bg:#3a1d1f;
-  --c1-bg:#1b2550; --c1-fg:#a9bcff; --c1-line:#2e3e80;
-  --c2-bg:#13362a; --c2-fg:#86ddb0; --c2-line:#1f5240;
-  --c3-bg:#3a2c10; --c3-fg:#f5c670; --c3-line:#5a4419;
-  --c4-bg:#3c1a28; --c4-fg:#f5a3c0; --c4-line:#5c2a3f;
-  --c5-bg:#281f4d; --c5-fg:#c3b3ff; --c5-line:#3e3175;
-  --c6-bg:#0f3433; --c6-fg:#7fd6d2; --c6-line:#1b504e;
+  --c1-bg:#2b54d6; --c1-fg:#ffffff; --c1-line:#2b54d6;
+  --c2-bg:#0f7f5a; --c2-fg:#ffffff; --c2-line:#0f7f5a;
+  --c3-bg:#b85400; --c3-fg:#ffffff; --c3-line:#b85400;
+  --c4-bg:#c2255c; --c4-fg:#ffffff; --c4-line:#c2255c;
+  --c5-bg:#6a3fd1; --c5-fg:#ffffff; --c5-line:#6a3fd1;
+  --c6-bg:#0b7480; --c6-fg:#ffffff; --c6-line:#0b7480;
   color-scheme:dark}
 *{box-sizing:border-box}
 html,body{min-height:100%}
@@ -268,13 +268,15 @@ tr.event td{color:var(--muted)}
 .c4{--t-bg:var(--c4-bg);--t-fg:var(--c4-fg);--t-line:var(--c4-line)}
 .c5{--t-bg:var(--c5-bg);--t-fg:var(--c5-fg);--t-line:var(--c5-line)}
 .c6{--t-bg:var(--c6-bg);--t-fg:var(--c6-fg);--t-line:var(--c6-line)}
-.page[class*=" c"],.mode[class*=" c"]{background:var(--t-bg);border-color:var(--t-line);color:var(--ink)}
+.page[class*=" c"],.mode[class*=" c"]{background:var(--t-bg);border-color:var(--t-line);color:var(--t-fg);box-shadow:0 2px 0 rgb(0 0 0 / .12)}
 .page[class*=" c"] b,.mode[class*=" c"] b{color:var(--t-fg)}
 .page[class*=" c"] .pn{color:var(--t-fg);opacity:.85}
-.page[class*=" c"] .pc,.mode[class*=" c"] span{color:var(--ink);opacity:.72}
-.page[class*=" c"]:hover,.mode[class*=" c"]:not(:disabled):hover{border-color:var(--t-fg)}
-.page[class*=" c"] .best{color:var(--t-fg);opacity:1}
+.page[class*=" c"] .pc,.mode[class*=" c"] span{color:var(--t-fg);opacity:.9}
+.page[class*=" c"]:hover,.mode[class*=" c"]:not(:disabled):hover{border-color:var(--t-line);filter:brightness(1.08);transform:translateY(-2px)}
+.page[class*=" c"] .best{color:var(--t-fg);opacity:1;background:rgb(255 255 255 / .18);border-radius:6px;padding:1px 7px;align-self:flex-start}
 .page.wide{grid-column:1/-1}
+.pages{grid-auto-rows:1fr}
+.page{justify-content:center;min-height:104px}
 .page b,.mode b{word-break:keep-all;overflow-wrap:anywhere;line-height:1.3}
 .mode[class*=" c"]:disabled:hover{border-color:var(--t-line)}
 
@@ -291,7 +293,7 @@ tr.event td{color:var(--muted)}
 <script>
 const BASE_URL = "";  // 비워 두면 지금 접속한 주소를 그대로 씁니다
 const BOOK = window.WORD_BOOK || "교과서";            // name of the built-in list (words.js) on the first screen
-const SITE_NAME = window.WORD_SITE || "우리반 단어장";  // the name at the top of every screen
+const SITE_NAME = window.WORD_SITE || "영어 단어장";  // the name at the top of every screen
 const PAGES = window.WORD_PAGES || [];
 /* each page keeps its head words (shown in the word list) and practises them together with their
    related words (synonyms, antonyms, derived forms from the 4th column of words.js) */
@@ -799,8 +801,8 @@ function viewRoot(){
   $app.innerHTML = `${header()}${userBar()}${speechBanner()}
   <div class="setcard"><div class="eyebrow">단어 연습</div><h1>지문을 골라요</h1><div class="meta">연습할 지문을 누르면 단어 연습 메뉴가 열려요.</div></div>
   <div class="pages">
-    ${hasBook() ? `<button class="page wide c1" data-root="book"><span class="pn">기본 목록</span><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
-    ${SETS.map((s, i) => `<button class="page c${2 + i % 5}" data-root="${esc(s.id)}"><span class="pn">지문</span><b>${esc(s.t)}</b><span class="pc">${countLine(s)}</span>${last(s.id)}</button>`).join('')}
+    ${hasBook() ? `<button class="page c1" data-root="book"><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
+    ${SETS.map((s, i) => `<button class="page c${2 + i % 5}" data-root="${esc(s.id)}"><b>${esc(s.t)}</b><span class="pc">${countLine(s)}</span>${last(s.id)}</button>`).join('')}
     ${!setsLoaded && !SETS.length ? '<div class="panel empty" style="grid-column:1/-1">지문 목록을 불러오는 중…</div>' : ''}
     ${!hasBook() && setsLoaded && !SETS.length ? '<div class="panel empty" style="grid-column:1/-1">아직 연습할 지문이 없어요.</div>' : ''}
   </div>`;
