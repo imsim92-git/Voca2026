@@ -383,6 +383,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .pinhint{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--bad-bg);color:var(--bad);font-size:12px;font-weight:700;vertical-align:1px}
 .link.center{align-self:center;margin-top:2px}
 
+
 </style>
 </head>
 <body>
@@ -575,7 +576,7 @@ function viewLogin(next, startMode){
       <div class="meta">${chg ? '지금 비밀번호를 넣고 새 비밀번호(숫자 5자리)를 정해요.' : reg ? '처음 한 번만 학번, 이름, 비밀번호를 정해요.' : '학번과 내가 정한 비밀번호로 들어와요.'}</div></div>
     ${chg ? '' : loginTabs()}
     <form id="af" class="panel form" autocomplete="on" novalidate>
-      <div class="field"><label for="a-sid">학번</label><input id="a-sid" type="text" inputmode="numeric" autocomplete="username" placeholder="예: 21201" value="${esc(store.get('wordroom-last-sid', ''))}"></div>
+      <div class="field"><label for="a-sid">학번</label><input id="a-sid" type="text" inputmode="numeric" autocomplete="username" placeholder="예: 21201" value="${reg ? '' : esc(store.get('wordroom-last-sid', ''))}"></div>
       ${reg ? '<div class="field"><label for="a-name">이름</label><input id="a-name" type="text" autocomplete="name" placeholder="예: 홍길동"></div>' + PIN_WARN : ''}
       ${chg ? `<div class="field"><label for="a-old">지금 비밀번호</label><input id="a-old" type="password" autocomplete="current-password" placeholder="지금 쓰는 비밀번호"></div>${PIN_WARN}` : ''}
       ${reg || chg
@@ -594,7 +595,7 @@ function viewLogin(next, startMode){
     /* new passwords are exactly 5 digits, so they differ from 4-digit bank PINs and 4/6-digit phone PINs; older accounts may still log in with what they chose before */
     if (reg || chg) ['a-pw', 'a-pw2'].forEach(id => { const el = document.getElementById(id); el.addEventListener('input', () => { const d = el.value.replace(/\D/g, '').slice(0, 5); if (d !== el.value) el.value = d; }); });
     const sidEl = document.getElementById('a-sid');
-    (sidEl.value ? document.getElementById(chg ? 'a-old' : 'a-pw') : sidEl).focus();
+    sidEl.focus(); if (sidEl.value) sidEl.select();
     document.getElementById('af').onsubmit = async e => {
       e.preventDefault();
       const v = id => (document.getElementById(id) || {}).value || '';
@@ -625,7 +626,15 @@ function viewLogin(next, startMode){
       <button role="tab" class="tab" aria-selected="${mode === 'team'}" data-m="team">모둠 입장</button>
     </div>`;
   }
-  let teamData = null, pickCls = store.get('wordroom-last-cls', ''), pickTeam = '';
+  let teamData = store.get('wordroom-teams', null), teamFetch = null, pickCls = store.get('wordroom-last-cls', ''), pickTeam = '';
+  /* one request, started when the login screen opens; the saved list shows right away and is replaced if it changed */
+  function loadTeams(){
+    if (!teamFetch) teamFetch = api('teams', {}).then(r => {
+      const changed = JSON.stringify(r.classes) !== JSON.stringify(teamData);
+      teamData = r.classes; store.set('wordroom-teams', teamData); return changed;
+    }).catch(e => { teamFetch = null; throw e; });
+    return teamFetch;
+  }
   async function drawTeam(msg){
     $app.innerHTML = `${header()}
     <div class="setcard"><div class="eyebrow">모둠 레이스</div><h1>모둠 입장</h1><div class="meta">반을 고르고 우리 모둠을 골라요.</div></div>
@@ -633,7 +642,7 @@ function viewLogin(next, startMode){
     <div class="panel form" id="tf">${teamData ? '' : '<div class="muted">반과 모둠을 불러오는 중…</div>'}</div>`;
     $app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { mode = b.dataset.m; draw(); });
     if (!teamData) {
-      try { teamData = (await api('teams', {})).classes; }
+      try { await loadTeams(); }
       catch(e){ document.getElementById('tf').innerHTML = `<div class="feedback no">${esc(e.error || '불러오지 못했어요.')}</div>`; return; }
       if (mode !== 'team') return;
     }
@@ -657,11 +666,12 @@ function viewLogin(next, startMode){
         store.set('wordroom-last-cls', pickCls);
         toast(`${pickCls} ${pickTeam}, 반가워요`);
         viewTeamHome();
-      } catch(err){ drawTeam(err.error || '다시 시도해 주세요.'); }
+      } catch(err){ teamFetch = null; loadTeams().catch(() => {}).finally(() => { if (mode === 'team') drawTeam(err.error || '다시 시도해 주세요.'); }); }
     };
   }
   draw();
   scrollTo(0, 0);
+  if (API) loadTeams().then(changed => { if (changed && mode === 'team' && document.getElementById('tf')) drawTeam(); }).catch(() => {});
 }
 
 /* ---------- my records ---------- */
@@ -716,8 +726,15 @@ async function viewMe(){
 }
 
 /* ---------- teacher: practice records ---------- */
+/* the address shows where a refresh should land: #admin on every teacher screen, no #admin on student screens.
+   replaceState changes it without firing hashchange, so the screen is not drawn twice */
+function setHash(h){
+  const want = h ? '#' + h : '';
+  if (location.hash !== want) history.replaceState(null, '', location.pathname + location.search + want);
+}
 function adminValid(){ return ADMIN && ADMIN.exp > Date.now(); }
 async function viewAdmin(next){
+  setHash('admin');
   if (!API) {
     $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}<div class="panel empty">학생 기록을 보려면 먼저 구글 시트 서버를 연결해야 해요. README의 안내대로 config.js에 apiUrl을 넣어 주세요.</div>`;
     document.getElementById('up').onclick = () => route(); return;
@@ -1055,6 +1072,7 @@ function viewRoot(){
 
 /* ---------- teacher only: navigation between the admin screens ---------- */
 function adminNav(active){
+  setHash('admin');
   const item = (k, label) => `<button class="tab" data-anav="${k}" aria-selected="${active === k}">${label}</button>`;
   return `<div class="tabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('race', '모둠 레이스')}${item('qr', 'QR')}</div>`;
 }
@@ -2174,6 +2192,7 @@ function boot(){
   route();
 }
 function route(){
+  if (location.hash === '#admin') setHash('');   // leaving the teacher screens
   if (TEAM) return viewTeamHome();
   if (LOGIN && !AUTH) return viewLogin(route);
   const h = decodeURIComponent((location.hash || '').slice(1));
