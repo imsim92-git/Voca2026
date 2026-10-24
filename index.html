@@ -866,6 +866,40 @@ function parseWordText(text){
   String(text || '').split(/\r?\n/).forEach(l => { if (!l.trim()) return; const w = parseWordLine(l); if (w) words.push(w); else bad.push(l.trim()); });
   return {words, bad};
 }
+/* a table copied from Excel or Google Sheets arrives as tab-separated rows (cells with line breaks are quoted).
+   Turn it into "영어 - 뜻" lines: number cells and a header row are dropped, an English cell starts a word,
+   the cells after it are its meaning, and a row may hold several word-meaning pairs side by side. */
+function splitTSV(text){
+  const rows = []; let row = [], cell = '', q = false;
+  text = String(text).replace(/\r\n?/g, '\n');
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; continue; }
+    if (ch === '"' && cell === '') q = true;
+    else if (ch === '\t') { row.push(cell); cell = ''; }
+    else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+function tableToLines(text){
+  if (!/\t/.test(text)) return null;
+  const isK = c => /[가-힣]/.test(c), isEn = c => /[A-Za-z]/.test(c) && !isK(c) && !/^(=|↔|adv\)|[vna]\))\s*/.test(c);
+  const out = [];
+  splitTSV(text).forEach(r => {
+    const cells = r.map(c => c.trim().replace(/[,\s]*\n\s*/g, ', ').replace(/ /g, ' ').trim()).filter(c => c && !/^\(?\d{1,3}[.)]?$/.test(c));
+    if (!cells.length || cells.every(c => HEADER_WORDS.test(c))) return;
+    let cur = null;
+    cells.forEach((c, k) => {
+      const pairFollows = k + 1 < cells.length && !isEn(cells[k + 1]);
+      if (isEn(c) && (!cur || (cur.ko.length && pairFollows))) { cur = {en: c, ko: []}; out.push(cur); }
+      else if (cur) cur.ko.push(c);
+      else out.push({en: '', ko: [c]});
+    });
+  });
+  return out.map(x => x.en ? (x.ko.length ? `${x.en} - ${x.ko.join(' ')}` : x.en) : x.ko.join(' '));
+}
 const wordsToText = ws => ws.map(w => `${w[0]} - ${w[1]}${w[2] ? ' ' + w[2] : ''}`).join('\n');
 
 /* photo text (OCR) → "영어 - 뜻" lines. A worksheet table comes back cell by cell or row by row,
@@ -1083,9 +1117,9 @@ function viewSetEdit(set){
     <p class="help">사진 속 영어 단어와 뜻을 읽어서 아래 칸에 넣어요. 표가 반듯하고 글자가 선명할수록 정확해요.</p>
     <div id="se-status" class="savestate"></div>
   </div>
-  <div class="field"><label for="se-text">단어와 뜻 <span class="muted">· 한 줄에 하나씩 "영어 - 뜻"</span></label>
+  <div class="field"><label for="se-text">단어와 뜻 <span class="muted">· 한 줄에 하나씩 "영어 - 뜻", 또는 엑셀 표를 복사해 붙여넣기</span></label>
     <textarea id="se-text" spellcheck="false" placeholder="solely - 오로지, 단지 = only, exclusively&#10;crucial - 중대한, 결정적인 ↔ trivial 사소한&#10;varied - 다양한 v) vary 다르다">${esc(startText)}</textarea>
-    <p class="help">사진에서 읽은 내용은 꼭 한 번 확인하고 고쳐 주세요. 뜻 뒤에 <b>= 유의어</b>, <b>↔ 반의어 뜻</b>, <b>v) 동사 뜻</b>처럼 적으면 관련어도 연습에 들어가요.</p>
+    <p class="help">엑셀·구글 시트에서 <b>단어 칸과 뜻 칸</b>을 함께 골라 복사(Ctrl+C)한 뒤 이 칸에 붙여넣으면(Ctrl+V) 한 줄씩 "영어 - 뜻"으로 바뀌어 들어가요. 번호 칸과 제목 줄은 알아서 빠져요. 사진에서 읽은 내용은 꼭 한 번 확인하고 고쳐 주세요. 뜻 뒤에 <b>= 유의어</b>, <b>↔ 반의어 뜻</b>, <b>v) 동사 뜻</b>처럼 적으면 관련어도 연습에 들어가요.</p>
     <div class="parsed" id="se-count"></div>
     <div id="se-bad"></div>
   </div>
@@ -1100,6 +1134,15 @@ function viewSetEdit(set){
     store.set(draftKey, {name: nameEl.value, text: txt.value});
   };
   txt.addEventListener('input', upd); nameEl.addEventListener('input', upd); upd();
+  txt.addEventListener('paste', e => {
+    const lines = tableToLines((e.clipboardData || {}).getData ? e.clipboardData.getData('text/plain') : '');
+    if (!lines || !lines.length) return;
+    e.preventDefault();
+    const a = txt.selectionStart, b = txt.selectionEnd, before = txt.value.slice(0, a), after = txt.value.slice(b);
+    const ins = (before && !before.endsWith('\n') ? '\n' : '') + lines.join('\n') + (after && !after.startsWith('\n') ? '\n' : '');
+    txt.value = before + ins + after; txt.selectionStart = txt.selectionEnd = (before + ins).length; upd();
+    status.className = 'savestate ok'; status.textContent = `엑셀 표에서 ${lines.length}줄을 넣었어요. 아래에서 확인해 주세요.`;
+  });
   $('up').onclick = () => viewSetsAdmin();
   bindAdminNav();
   $('se-file').onchange = async e => {
@@ -2072,8 +2115,6 @@ const toText = set => set.w.map(p => p[0] + ' - ' + p[1] + (p[2] ? '\t' + p[2] :
 
 function viewMake(start){
   if (needAdmin(() => viewMake(start))) return;
-  const draft = store.get('wordroom-draft', null);
-  const src = start && start.id === 'custom' ? start : draft;
   const pageItems = [{id: 'site', title: '첫 화면 (지문 고르기)', url: base()}, {id: 'team', title: '모둠 레이스 입장', url: base() + '#team'}, ...SETS.map(s => ({id: s.id, title: s.t, url: base() + '#' + s.id})), ...PAGES.map(p => ({id: p.id, title: p.t, url: base() + '#' + p.id})), ...(PAGES.length ? [{id: 'all', title: BOOK + ' 전체', url: base() + '#all'}] : [])];
   pageItems.forEach(it => it.q = makeQR(it.url));
   const items = Object.fromEntries(pageItems.map(it => [it.id, it]));
@@ -2087,38 +2128,13 @@ function viewMake(start){
   <div class="panel qrbox" id="qrout"></div>
   <p class="help">QR 이미지는 학습지나 수업 슬라이드에 붙여 쓰세요. 링크를 바꾸려면 words.js만 고쳐서 다시 올리면 됩니다.</p>
 
-  <div class="setcard" style="margin-top:12px"><div class="eyebrow">선생님용</div><h1>새 단어장 만들기</h1><div class="meta">다른 지문 단어를 붙여 넣으면 그 단어장만의 링크와 QR이 만들어져요.</div></div>
-  <div class="field"><label for="ttl">단어장 이름</label><input type="text" id="ttl" value="${esc(src ? src.t : '')}" placeholder="예: 21번 지문"></div>
-  <div class="field"><label for="txt">단어와 뜻</label>
-    <textarea id="txt" spellcheck="false" placeholder="attraction - 끌어당김, 끌림&#10;bring about - ~을 가져오다, 초래하다">${esc(src ? toText(src) : '')}</textarea>
-    <p class="help">한 줄에 하나씩 <b>영어 - 뜻</b>. 엑셀에서 복사한 표, 쉼표·콜론 구분도 돼요. 예전 단어 연습 사이트 링크(#p=…)를 붙여 넣으면 그 단어를 불러와요.</p>
-    <div class="parsed" id="pc"></div>
-  </div>
-  <div class="row"><button class="btn mark wide" id="make">링크·QR 만들기</button><button class="btn ghost" id="try">미리 풀어보기</button></div>
-  <div class="panel qrbox" id="out" hidden></div>`;
+`;
   document.getElementById('toPages').onclick = () => route();
   bindAdminNav();
   const sel = document.getElementById('qrsel'), qrout = document.getElementById('qrout');
   const showSel = () => { const it = items[sel.value]; qrout.innerHTML = qrCard(it.title, it.url, it.q, it.id); wireQR(qrout, items); };
   sel.onchange = showSel; showSel();
 
-  const ttl = document.getElementById('ttl'), txt = document.getElementById('txt'), pc = document.getElementById('pc');
-  const current = () => ({id: 'custom', t: ttl.value.trim() || '단어장', w: parseLines(txt.value)});
-  const upd = () => { const n = current().w.length; pc.innerHTML = n ? `인식된 단어 <b>${n}개</b>` : ''; store.set('wordroom-draft', current()); };
-  txt.addEventListener('input', () => {
-    const old = decodeOldLink(txt.value);
-    if (old) { txt.value = toText(old); ttl.value = old.t; toast(`예전 링크에서 ${old.w.length}개 단어를 불러왔어요`); }
-    upd();
-  });
-  ttl.addEventListener('input', upd); upd();
-  document.getElementById('try').onclick = () => { const s = current(); if (!s.w.length) return toast('단어를 먼저 입력해 주세요'); SET = s; origin = 'maker'; viewHome(); };
-  document.getElementById('make').onclick = () => {
-    const s = current(); if (!s.w.length) return toast('단어를 먼저 입력해 주세요');
-    const url = base() + '#' + encodeSet(s), it = {id: 'custom', title: s.t, url, q: makeQR(url)};
-    const out = document.getElementById('out'); out.hidden = false;
-    out.innerHTML = qrCard(it.title, url, it.q, 'custom'); wireQR(out, {custom: it});
-    out.scrollIntoView({behavior: 'smooth', block: 'start'});
-  };
   scrollTo(0, 0);
 }
 
