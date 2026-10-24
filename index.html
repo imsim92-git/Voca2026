@@ -376,6 +376,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .wl li .star.inl{position:static;grid-column:3;grid-row:1/3;width:40px;height:40px;align-self:center}
 .wl:not(.conf) li{grid-template-columns:1fr auto auto}
 
+.pwwarn{display:flex;flex-direction:column;gap:4px;background:var(--bad-bg);border:2px solid var(--bad);border-radius:12px;padding:12px 14px;color:var(--ink);font-size:14px;line-height:1.5}
+.pwwarn > b{color:var(--bad);font-size:15px}
+.pwwarn span b{color:var(--bad)}
+
+.pinhint{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:999px;background:var(--bad-bg);color:var(--bad);font-size:12px;font-weight:700;vertical-align:1px}
+.link.center{align-self:center;margin-top:2px}
+
 </style>
 </head>
 <body>
@@ -560,39 +567,55 @@ function viewLogin(next, startMode){
   let mode = startMode || 'login';
   const draw = (msg) => {
     if (mode === 'team') return drawTeam();
+    const reg = mode === 'register', chg = mode === 'change';
+    const PIN_WARN = '<div class="pwwarn" role="note"><b>⚠ 비밀번호는 숫자 5자리로 정해요</b><span>통장·카드 비밀번호, 휴대폰 잠금 번호처럼 <b>다른 곳에서 쓰는 번호는 절대 쓰지 마세요.</b> 이 단어장에서만 쓸 새 번호를 만드세요.</span></div>';
+    const PIN = 'type="password" inputmode="numeric" maxlength="5" autocomplete="new-password"';
     $app.innerHTML = `${header()}
-    <div class="setcard"><div class="eyebrow">단어 연습</div><h1>${mode === 'login' ? '로그인' : '처음 등록'}</h1>
-      <div class="meta">${mode === 'login' ? '학번과 내가 정한 비밀번호로 들어와요.' : '처음 한 번만 학번, 이름, 비밀번호를 정해요.'}</div></div>
-    ${loginTabs()}
+    <div class="setcard"><div class="eyebrow">단어 연습</div><h1>${chg ? '비밀번호 바꾸기' : reg ? '처음 등록' : '로그인'}</h1>
+      <div class="meta">${chg ? '지금 비밀번호를 넣고 새 비밀번호(숫자 5자리)를 정해요.' : reg ? '처음 한 번만 학번, 이름, 비밀번호를 정해요.' : '학번과 내가 정한 비밀번호로 들어와요.'}</div></div>
+    ${chg ? '' : loginTabs()}
     <form id="af" class="panel form" autocomplete="on" novalidate>
       <div class="field"><label for="a-sid">학번</label><input id="a-sid" type="text" inputmode="numeric" autocomplete="username" placeholder="예: 21201" value="${esc(store.get('wordroom-last-sid', ''))}"></div>
-      ${mode === 'register' ? '<div class="field"><label for="a-name">이름</label><input id="a-name" type="text" autocomplete="name" placeholder="예: 홍길동"></div>' : ''}
-      <div class="field"><label for="a-pw">비밀번호</label><input id="a-pw" type="password" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}" placeholder="4자 이상"></div>
-      ${mode === 'register' ? '<div class="field"><label for="a-pw2">비밀번호 확인</label><input id="a-pw2" type="password" autocomplete="new-password"></div><p class="help">비밀번호는 암호화해서 저장돼요. 잊어버리면 선생님께 초기화를 부탁하세요.</p>' : ''}
+      ${reg ? '<div class="field"><label for="a-name">이름</label><input id="a-name" type="text" autocomplete="name" placeholder="예: 홍길동"></div>' + PIN_WARN : ''}
+      ${chg ? `<div class="field"><label for="a-old">지금 비밀번호</label><input id="a-old" type="password" autocomplete="current-password" placeholder="지금 쓰는 비밀번호"></div>${PIN_WARN}` : ''}
+      ${reg || chg
+        ? `<div class="field"><label for="a-pw">${chg ? '새 비밀번호' : '비밀번호'}</label><input id="a-pw" ${PIN}></div>
+           <div class="field"><label for="a-pw2">${chg ? '새 비밀번호 확인' : '비밀번호 확인'}</label><input id="a-pw2" ${PIN}></div>
+           <p class="help">비밀번호는 암호화해서 저장돼요. 잊어버리면 선생님께 초기화를 부탁하세요.</p>`
+        : `<div class="field"><label for="a-pw">비밀번호</label><input id="a-pw" type="password" autocomplete="current-password" placeholder="숫자 5자리"></div>`}
       <div class="feedback no" id="af-msg" role="alert">${esc(msg || '')}</div>
-      <button type="submit" class="btn mark" id="af-go">${mode === 'login' ? '로그인' : '등록하고 시작하기'}</button>
+      <button type="submit" class="btn mark" id="af-go">${chg ? '바꾸고 들어가기' : reg ? '등록하고 시작하기' : '로그인'}</button>
+      ${mode === 'login' ? '<button type="button" class="link center" id="tochg">비밀번호 바꾸기</button>' : ''}
+      ${chg ? '<button type="button" class="link center" id="tologin">← 로그인으로 돌아가기</button>' : ''}
     </form>`;
     $app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { mode = b.dataset.m; draw(); });
+    const tochg = document.getElementById('tochg'); if (tochg) tochg.onclick = () => { mode = 'change'; draw(); };
+    const tologin = document.getElementById('tologin'); if (tologin) tologin.onclick = () => { mode = 'login'; draw(); };
+    /* new passwords are exactly 5 digits, so they differ from 4-digit bank PINs and 4/6-digit phone PINs; older accounts may still log in with what they chose before */
+    if (reg || chg) ['a-pw', 'a-pw2'].forEach(id => { const el = document.getElementById(id); el.addEventListener('input', () => { const d = el.value.replace(/\D/g, '').slice(0, 5); if (d !== el.value) el.value = d; }); });
     const sidEl = document.getElementById('a-sid');
-    (sidEl.value ? document.getElementById('a-pw') : sidEl).focus();
+    (sidEl.value ? document.getElementById(chg ? 'a-old' : 'a-pw') : sidEl).focus();
     document.getElementById('af').onsubmit = async e => {
       e.preventDefault();
       const v = id => (document.getElementById(id) || {}).value || '';
-      const sid = v('a-sid').trim(), name = v('a-name').trim(), pw = v('a-pw');
+      const sid = v('a-sid').trim(), name = v('a-name').trim(), pw = v('a-pw'), old = v('a-old');
       const say = m => { document.getElementById('af-msg').textContent = m; };
       if (!/^[0-9A-Za-z-]{2,20}$/.test(sid)) return say('학번을 확인해 주세요.');
-      if (mode === 'register' && !name) return say('이름을 써 주세요.');
-      if (pw.length < 4) return say('비밀번호는 4자 이상이에요.');
-      if (mode === 'register' && pw !== v('a-pw2')) return say('비밀번호 확인이 달라요.');
-      const go = document.getElementById('af-go'); go.disabled = true; go.textContent = '확인하는 중…'; say('');
+      if (reg && !name) return say('이름을 써 주세요.');
+      if (chg && !old) return say('지금 비밀번호를 써 주세요.');
+      if ((reg || chg) && !/^\d{5}$/.test(pw)) return say('비밀번호는 숫자 5자리로 정해요.');
+      if (mode === 'login' && !pw) return say('비밀번호를 써 주세요.');
+      if ((reg || chg) && pw !== v('a-pw2')) return say('비밀번호 확인이 달라요.');
+      if (chg && pw === old) return say('지금 비밀번호와 다른 번호로 정해 주세요.');
+      const go = document.getElementById('af-go'), label = go.textContent; go.disabled = true; go.textContent = '확인하는 중…'; say('');
       try {
-        const r = await api(mode, {sid, name, pw, v: setsV()});
+        const r = chg ? await api('changePw', {sid, pw: old, newPw: pw, v: setsV()}) : await api(mode, {sid, name, pw, v: setsV()});
         applySets(r.setsPack);
         setAuth({token: r.token, sid: r.student.sid, name: r.student.name});
         store.set('wordroom-last-sid', r.student.sid);
-        toast(mode === 'login' ? `${r.student.name}님, 반가워요` : '등록했어요');
+        toast(chg ? '비밀번호를 바꿨어요' : reg ? '등록했어요' : `${r.student.name}님, 반가워요`);
         flushQueue(); next();
-      } catch(err){ go.disabled = false; go.textContent = mode === 'login' ? '로그인' : '등록하고 시작하기'; say(err.error || '다시 시도해 주세요.'); }
+      } catch(err){ go.disabled = false; go.textContent = label; say(err.error || '다시 시도해 주세요.'); }
     };
   };
   function loginTabs(){
