@@ -284,6 +284,74 @@ tr.event td{color:var(--muted)}
 .page b,.mode b{word-break:keep-all;overflow-wrap:anywhere;line-height:1.3}
 .mode[class*=" c"]:disabled:hover{border-color:var(--t-line)}
 
+/* team race */
+.chip.ok{color:var(--good);background:var(--good-bg)}
+.chip.go{color:var(--navy-fg);background:var(--navy)}
+.chip.run{color:var(--mark-ink);background:var(--mark)}
+.racetile{gap:6px;align-items:flex-start}
+.racetile:disabled{opacity:.6;cursor:default;transform:none}
+.racetile .chip{margin-top:2px}
+.countdown{display:grid;place-items:center;height:70vh;font-size:120px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+.countdown.small{height:auto;padding:40px 0 10px;font-size:56px}
+.racehead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.racehead b{font-size:17px}
+.rtime{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--navy);transition:color .2s}
+.rtime.pen{color:var(--bad)}
+.pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}
+.pick{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:12px 8px;font-weight:700}
+.pick.on{background:var(--navy);color:var(--navy-fg);border-color:var(--navy)}
+.flabel{font-weight:700;font-size:14px}
+.teamsum{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 16px;flex-wrap:wrap}
+.classlist{display:flex;flex-direction:column;gap:10px}
+.classbox{padding:14px;display:flex;flex-direction:column;gap:8px}
+.classbox input[type=text]{flex:1;min-width:0}
+.classbox textarea{min-height:110px}
+.checks{display:flex;flex-direction:column;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;max-height:260px;overflow:auto}
+.check{display:flex;gap:8px;align-items:center;font-weight:400;font-size:14px;cursor:pointer}
+.check input{width:18px;height:18px;flex:none}
+.seg{display:flex;flex-direction:column;gap:6px}
+.segopt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;cursor:pointer;font-weight:400}
+.segopt:has(input:checked){border-color:var(--navy);box-shadow:inset 0 0 0 1px var(--navy)}
+.segopt input{margin-top:3px}
+.segopt > span{display:flex;flex-direction:column;gap:2px}
+.segopt > span > span{display:block}
+.row.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);width:100%}
+.board{display:flex;flex-direction:column;gap:12px}
+.board h2{margin:2px 0 0}
+.rank{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.rank li{display:grid;grid-template-columns:36px minmax(0,1fr) auto;grid-template-areas:"rk tm sec" "rk sub act";align-items:center;gap:2px 10px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.rank .rk{grid-area:rk;font-size:22px;font-weight:700;color:var(--navy);text-align:center;font-variant-numeric:tabular-nums}
+.rank .tm{grid-area:tm;font-weight:700;font-size:17px;min-width:0}
+.rank .sec{grid-area:sec;font-weight:700;font-size:18px;font-variant-numeric:tabular-nums}
+.rank li > .muted{grid-area:sub}
+.rank li > .link{grid-area:act;justify-self:end}
+.rank li.r-done:first-child{background:var(--navy);border-color:var(--navy);color:var(--navy-fg)}
+.rank li.r-done:first-child .rk,.rank li.r-done:first-child .muted,.rank li.r-done:first-child .link{color:var(--navy-fg)}
+.rank.run li{grid-template-areas:"rk tm sec" "rk bar act"}
+.rank.run .pbar{grid-area:bar;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.rank.run .pbar i{display:block;height:100%;background:var(--mark);transition:width .6s}
+.rank.run li > .muted{grid-area:sec;justify-self:end}
+.waiting{font-size:14px}
+.wrap.wide{max-width:1100px}
+.board.big{font-size:18px}
+.board.big h2{font-size:34px}
+.board.big .rank li{padding:16px 20px}
+.board.big .rank .tm{font-size:26px}
+.board.big .rank .sec{font-size:28px}
+.board.big .rank .rk{font-size:30px}
+.board.big .rank.run .pbar{height:14px}
+
+.inline-num{width:64px!important;padding:4px 8px!important;display:inline-block;margin:0 4px}
+.allcls{border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:2px}
+.check input:disabled + span{opacity:.6}
+.chipsrow{display:flex;gap:6px;flex-wrap:wrap}
+.fchip{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700}
+.fchip.on{background:var(--navy);color:var(--navy-fg);border-color:var(--navy)}
+.tabs.scroll{overflow-x:auto}
+.fchip.custom{display:inline-flex;align-items:center;gap:2px;font-weight:700;cursor:text}
+.tabs.scroll .tab{flex:none;padding-inline:14px}
+
 </style>
 </head>
 <body>
@@ -412,7 +480,7 @@ async function api(action, data){
   if (!API) throw {error: 'config.js에 서버 주소(apiUrl)가 아직 없어요.'};
   let res;
   try {
-    const r = await fetch(API, {method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(Object.assign({action}, data || {}))});
+    const r = await fetch(API, {method: 'POST', keepalive: action === 'raceProgress', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(Object.assign({action}, data || {}))});
     res = await r.json();
   } catch(e){ throw {error: '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.', offline: true}; }
   if (!res.ok) throw res;
@@ -462,16 +530,15 @@ function bindUserBar(){
 }
 
 /* ---------- login / first registration ---------- */
-function viewLogin(next){
-  let mode = 'login';
+function viewLogin(next, startMode){
+  stopTimers();
+  let mode = startMode || 'login';
   const draw = (msg) => {
+    if (mode === 'team') return drawTeam();
     $app.innerHTML = `${header()}
     <div class="setcard"><div class="eyebrow">단어 연습</div><h1>${mode === 'login' ? '로그인' : '처음 등록'}</h1>
       <div class="meta">${mode === 'login' ? '학번과 내가 정한 비밀번호로 들어와요.' : '처음 한 번만 학번, 이름, 비밀번호를 정해요.'}</div></div>
-    <div class="tabs" role="tablist">
-      <button role="tab" class="tab" aria-selected="${mode === 'login'}" data-m="login">로그인</button>
-      <button role="tab" class="tab" aria-selected="${mode === 'register'}" data-m="register">처음 등록</button>
-    </div>
+    ${loginTabs()}
     <form id="af" class="panel form" autocomplete="on" novalidate>
       <div class="field"><label for="a-sid">학번</label><input id="a-sid" type="text" inputmode="numeric" autocomplete="username" placeholder="예: 21201" value="${esc(store.get('wordroom-last-sid', ''))}"></div>
       ${mode === 'register' ? '<div class="field"><label for="a-name">이름</label><input id="a-name" type="text" autocomplete="name" placeholder="예: 홍길동"></div>' : ''}
@@ -502,6 +569,46 @@ function viewLogin(next){
       } catch(err){ go.disabled = false; go.textContent = mode === 'login' ? '로그인' : '등록하고 시작하기'; say(err.error || '다시 시도해 주세요.'); }
     };
   };
+  function loginTabs(){
+    return `<div class="tabs" role="tablist">
+      <button role="tab" class="tab" aria-selected="${mode === 'login'}" data-m="login">로그인</button>
+      <button role="tab" class="tab" aria-selected="${mode === 'register'}" data-m="register">처음 등록</button>
+      <button role="tab" class="tab" aria-selected="${mode === 'team'}" data-m="team">모둠 입장</button>
+    </div>`;
+  }
+  let teamData = null, pickCls = store.get('wordroom-last-cls', ''), pickTeam = '';
+  async function drawTeam(msg){
+    $app.innerHTML = `${header()}
+    <div class="setcard"><div class="eyebrow">모둠 레이스</div><h1>모둠 입장</h1><div class="meta">반을 고르고 우리 모둠을 골라요.</div></div>
+    ${loginTabs()}
+    <div class="panel form" id="tf">${teamData ? '' : '<div class="muted">반과 모둠을 불러오는 중…</div>'}</div>`;
+    $app.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { mode = b.dataset.m; draw(); });
+    if (!teamData) {
+      try { teamData = (await api('teams', {})).classes; }
+      catch(e){ document.getElementById('tf').innerHTML = `<div class="feedback no">${esc(e.error || '불러오지 못했어요.')}</div>`; return; }
+      if (mode !== 'team') return;
+    }
+    const box = document.getElementById('tf'); if (!box) return;
+    if (!teamData.length) { box.innerHTML = '<div class="muted">아직 선생님이 반과 모둠을 등록하지 않았어요.</div>'; return; }
+    if (!teamData.some(c => c.name === pickCls)) pickCls = '';
+    const c = teamData.find(x => x.name === pickCls);
+    box.innerHTML = `<div class="field"><span class="flabel">반</span><div class="pickgrid">${teamData.map(x => `<button type="button" class="pick${x.name === pickCls ? ' on' : ''}" data-pc="${esc(x.name)}">${esc(x.name)}</button>`).join('')}</div></div>
+      ${c ? `<div class="field"><span class="flabel">모둠</span><div class="pickgrid">${c.teams.map(t => `<button type="button" class="pick${t === pickTeam ? ' on' : ''}" data-pt="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>` : ''}
+      <div class="feedback no" id="tf-msg" role="alert">${esc(msg || '')}</div>
+      <button type="button" class="btn mark" id="tf-go" ${c && pickTeam ? '' : 'disabled'}>${c && pickTeam ? `${esc(pickCls)} ${esc(pickTeam)}으로 입장` : '반과 모둠을 골라 주세요'}</button>`;
+    box.querySelectorAll('[data-pc]').forEach(b => b.onclick = () => { pickCls = b.dataset.pc; pickTeam = ''; drawTeam(); });
+    box.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => { pickTeam = b.dataset.pt; drawTeam(); });
+    document.getElementById('tf-go').onclick = async e => {
+      e.target.disabled = true; e.target.textContent = '입장하는 중…';
+      try {
+        const r = await api('teamLogin', {cls: pickCls, team: pickTeam});
+        setTeam({token: r.token, cls: r.team.cls, team: r.team.team, exp: Date.now() + 9.5 * 3600e3});
+        store.set('wordroom-last-cls', pickCls);
+        toast(`${pickCls} ${pickTeam}, 반가워요`);
+        viewTeamHome();
+      } catch(err){ drawTeam(err.error || '다시 시도해 주세요.'); }
+    };
+  }
   draw();
   scrollTo(0, 0);
 }
@@ -516,6 +623,7 @@ function lookupWord(en, page){
 const pageName = id => id === 'all' ? '전체' : id === 'mywrong' ? '내 오답' : id === 'custom' ? '단어장' : ((PAGES.find(p => p.id === id) || SETS.find(s => s.id === id) || {}).t || id || '').replace('학습지 ', '');
 
 async function viewMe(){
+  if (TEAM) return viewTeamHome();
   if (!AUTH) return viewLogin(viewMe);
   $app.innerHTML = `${header('<button class="link" id="up">← 처음으로</button>')}${userBar()}<h2>내 기록</h2><div class="panel empty">기록을 불러오는 중…</div>`;
   document.getElementById('up').onclick = () => route(); bindUserBar();
@@ -798,7 +906,14 @@ const hasBook = () => PAGES.length > 0;
 const hasRoot = () => ACCOUNTS && (SETS.length > 0 || !setsLoaded);   // no passages registered: the first screen is the 교과서 pages
 
 /* ---------- student first screen: the passages to choose from ---------- */
+/* students must be logged in; a team only sees its races */
+function gate(){
+  if (TEAM) { viewTeamHome(); return true; }
+  if (LOGIN && !AUTH) { viewLogin(route); return true; }
+  return false;
+}
 function viewRoot(){
+  if (gate()) return;
   SET = null; origin = 'root'; SCOPE = 'all';
   if (ACCOUNTS && !SETS.length && setsLoaded && hasBook()) return viewPages();   // nothing registered yet: straight to 교과서
   const last = id => { const r = store.get(lastKey(id), null); return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
@@ -821,10 +936,10 @@ function viewRoot(){
 /* ---------- teacher only: navigation between the admin screens ---------- */
 function adminNav(active){
   const item = (k, label) => `<button class="tab" data-anav="${k}" aria-selected="${active === k}">${label}</button>`;
-  return `<div class="tabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('qr', 'QR·단어장 링크')}</div>`;
+  return `<div class="tabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('race', '모둠 레이스')}${item('qr', 'QR')}</div>`;
 }
 function bindAdminNav(){
-  $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => ({records: viewAdmin, sets: viewSetsAdmin, qr: () => viewMake()})[b.dataset.anav]());
+  $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake()})[b.dataset.anav](); });
 }
 function needAdmin(next){
   if (!API) { viewAdmin(); return true; }
@@ -969,8 +1084,456 @@ function viewSetEdit(set){
   scrollTo(0, 0);
 }
 
+/* =====================================================================
+   모둠 레이스: 선생님이 지문을 묶어 레이스를 열면, 반·모둠으로 입장해 한 번 달린다
+   ===================================================================== */
+let TEAM = store.get('wordroom-team', null);   // {token, cls, team, exp}
+if (TEAM && !(TEAM.exp > Date.now())) { TEAM = null; store.set('wordroom-team', null); }
+function setTeam(t){ TEAM = t; store.set('wordroom-team', t); }
+function teamLeave(){ stopTimers(); setTeam(null); viewLogin(route, 'team'); }
+const MODE_NAME = {time: '타임어택', match: '매칭 레이스', spell: '철자 레이스'};
+const MODE_HELP = {time: '뜻 고르기와 단어 고르기가 섞여 나와요. 맞혀야 다음 문제로 넘어가요.', match: '단어와 뜻 8쌍씩 여러 판을 이어서 맞혀요.', spell: '뜻을 보고 영어로 써요. 각 단어의 첫 글자가 보여요.'};
+
+/* every team gets the same words in the same order: shuffles are seeded by the race id */
+function seededRng(seed){
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) { h = Math.imul(h ^ seed.charCodeAt(i), 3432918353); h = h << 13 | h >>> 19; }
+  return () => { h = Math.imul(h ^ h >>> 16, 2246822507); h = Math.imul(h ^ h >>> 13, 3266489909); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+}
+const seededShuffle = (a, rng) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function sourceWords(id, rel){
+  const p = PAGES.find(x => x.id === id) || SETS.find(x => x.id === id);
+  if (!p) return [];
+  return rel ? p.w : (p.heads || p.w);
+}
+const sourceName = id => { const p = PAGES.find(x => x.id === id); if (p) return BOOK + ' ' + p.t.replace('학습지 ', ''); const s = SETS.find(x => x.id === id); return s ? s.t : '(지워진 지문)'; };
+function raceWords(race){
+  const seen = new Set(), out = [];
+  (race.sources || []).forEach(id => sourceWords(id, race.settings.rel).forEach(w => { const k = w[0].toLowerCase(); if (!seen.has(k) && w[1]) { seen.add(k); out.push(w); } }));
+  let list = seededShuffle(out, seededRng(race.id));
+  if (race.settings.count > 0 && race.settings.count < list.length) list = list.slice(0, race.settings.count);
+  return list;
+}
+/* matching rounds of up to 8 pairs, no repeated word or meaning inside a round */
+function matchRounds(words){
+  const rounds = []; let rest = words.slice();
+  while (rest.length) {
+    const r = [], en = new Set(), ko = new Set(), left = [];
+    rest.forEach(w => { if (r.length < 8 && !en.has(w[0]) && !ko.has(w[1])) { r.push(w); en.add(w[0]); ko.add(w[1]); } else left.push(w); });
+    rounds.push(r); rest = left;
+  }
+  return rounds;
+}
+const fmtSec = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${m}분 ${r.toFixed(1).padStart(4, '0')}초` : `${r.toFixed(1)}초`; };
+
+/* ---------- team: the open races ---------- */
+async function viewTeamHome(){
+  stopTimers();
+  if (!TEAM) return viewLogin(route, 'team');
+  const bar = `<div class="userbar"><span><b>${esc(TEAM.cls)} · ${esc(TEAM.team)}</b> <span class="muted">모둠으로 입장</span></span><button class="link" id="tleave">나가기</button></div>`;
+  $app.innerHTML = `${header()}${bar}<div class="setcard"><div class="eyebrow">모둠 레이스</div><h1>레이스를 골라요</h1><div class="meta">모둠당 한 번만 달릴 수 있어요. 준비되면 출발하세요.</div></div><div class="panel empty">레이스를 불러오는 중…</div>`;
+  document.getElementById('tleave').onclick = teamLeave;
+  let r;
+  try { await loadSets(); r = await api('races', {token: TEAM.token}); }
+  catch(e){ if (e.code === 'auth') return teamLeave(); $app.querySelector('.empty').textContent = e.error || '레이스를 불러오지 못했어요.'; return; }
+  const tile = x => {
+    const m = x.mine, n = raceWords(x).length;
+    const state = m && m.status === '완료' ? `<span class="chip ok">완료 · ${fmtSec(m.seconds)}</span>` : m ? '<span class="chip run">달리는 중 · 이어 하기</span>' : x.status === '마감' ? '<span class="chip">마감</span>' : '<span class="chip go">출발 가능</span>';
+    const can = (m && m.status !== '완료') || (!m && x.status === '진행');
+    return `<button class="page racetile" data-race="${esc(x.id)}" ${can ? '' : 'disabled'}><b>${esc(x.name)}</b><span class="pc">${MODE_NAME[x.settings.mode]} · ${n}문제${x.settings.penalty ? ` · 틀리면 +${x.settings.penalty}초` : ''}</span>${state}</button>`;
+  };
+  $app.innerHTML = `${header()}${bar}<div class="setcard"><div class="eyebrow">모둠 레이스</div><h1>레이스를 골라요</h1><div class="meta">모둠당 한 번만 달릴 수 있어요. 준비되면 출발하세요.</div></div>
+  ${r.races.length ? `<div class="pages">${r.races.map(tile).join('')}</div>` : '<div class="panel empty">아직 열린 레이스가 없어요. 선생님이 레이스를 열면 여기에 나와요.</div>'}
+  <div class="foot"><button class="link" id="trefresh">새로고침</button></div>`;
+  document.getElementById('tleave').onclick = teamLeave;
+  document.getElementById('trefresh').onclick = viewTeamHome;
+  $app.querySelectorAll('[data-race]').forEach(b => b.onclick = () => viewRaceReady(r.races.find(x => x.id === b.dataset.race)));
+  scrollTo(0, 0);
+}
+
+function viewRaceReady(race){
+  stopTimers();
+  const words = raceWords(race), resume = race.mine && race.mine.status !== '완료';
+  $app.innerHTML = `${header('<button class="link" id="back">← 레이스 목록</button>')}
+  <div class="setcard"><div class="eyebrow">${esc(TEAM.cls)} · ${esc(TEAM.team)}</div><h1>${esc(race.name)}</h1><div class="meta">${MODE_NAME[race.settings.mode]} · ${words.length}문제${race.settings.penalty ? ` · 틀리면 +${race.settings.penalty}초` : ''}</div></div>
+  <div class="panel" style="padding:18px;display:flex;flex-direction:column;gap:8px">
+    <p style="margin:0">${MODE_HELP[race.settings.mode]}</p>
+    <p class="help" style="margin:0">${resume ? '하던 레이스를 이어서 해요. 시간은 처음 출발한 때부터 계속 흘러요.' : '출발을 누르면 3초 뒤 시작해요. 모둠당 한 번만 할 수 있어요.'}</p>
+    <p class="help" style="margin:0">출처: ${race.sources.map(sourceName).map(esc).join(' + ')}</p>
+  </div>
+  <button class="btn mark" id="go" style="font-size:20px;padding:18px">${resume ? '이어 하기' : '출발!'}</button>`;
+  document.getElementById('back').onclick = viewTeamHome;
+  document.getElementById('go').onclick = async e => {
+    e.target.disabled = true; e.target.textContent = '준비하는 중…';
+    let st;
+    try { st = await api('raceStart', {token: TEAM.token, race: race.id, total: words.length}); }
+    catch(err){ if (err.code === 'auth') return teamLeave(); toast(err.error || '출발하지 못했어요'); return viewTeamHome(); }
+    if (st.resumed) return runRace(race, words, st);
+    let n = 3;
+    $app.innerHTML = `<div class="countdown" id="cd">${n}</div>`;
+    const t = setInterval(() => { n--; if (n > 0) document.getElementById('cd').textContent = n; else { clearInterval(t); runRace(race, words, {elapsed: 0, done: 0, wrong: 0, penalty: 0}); } }, 800);
+    timers.push(t);
+  };
+  scrollTo(0, 0);
+}
+
+/* ---------- the race itself ---------- */
+function runRace(race, words, st){
+  stopTimers();
+  const S = race.settings, P = S.penalty || 0, total = words.length;
+  const t0 = performance.now() - (st.elapsed || 0) * 1000;
+  const R = {done: st.done || 0, wrong: st.wrong || 0, penalty: st.penalty || 0, wrongWords: []};
+  // the wait for "출발" counted on the server too, so a resumed race keeps the same clock
+  const elapsed = () => (performance.now() - t0) / 1000 + R.penalty;
+  // progress goes to the server at most every 2 seconds, and always once more after the last answer
+  let lastSent = 0, sending = false, again = false, pending = null, finished = false;
+  const push = () => {
+    if (finished) return;
+    if (sending) { again = true; return; }
+    sending = true; lastSent = Date.now();
+    api('raceProgress', {token: TEAM.token, race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty}).catch(() => {})
+      .finally(() => { sending = false; if (again) { again = false; send(); } });
+  };
+  const send = force => {
+    if (finished) return;
+    const wait = 2000 - (Date.now() - lastSent);
+    if (force || wait <= 0) { if (pending) { clearTimeout(pending); pending = null; } push(); }
+    else if (!pending) { pending = setTimeout(() => { pending = null; push(); }, wait); timers.push(pending); }
+  };
+  const onHide = () => { if (document.visibilityState === 'hidden') send(true); };
+  document.addEventListener('visibilitychange', onHide);
+  timers.push({off: () => document.removeEventListener('visibilitychange', onHide)});
+  const miss = w => { R.wrong++; R.penalty += P; if (w && !R.wrongWords.includes(w[0])) R.wrongWords.push(w[0]); const tm = document.getElementById('rtime'); if (tm && P) { tm.classList.add('pen'); setTimeout(() => tm.classList.remove('pen'), 450); } send(); };
+  const top = () => `<div class="racehead"><div><div class="count">${esc(TEAM.cls)} · ${esc(TEAM.team)}</div><b>${esc(race.name)}</b></div><div class="rtime" id="rtime">${fmtSec(elapsed())}</div></div>
+    <div class="bar"><i id="rbar" style="width:${total ? R.done / total * 100 : 0}%"></i></div><div class="count" id="rcount">${R.done} / ${total}${R.wrong ? ` · 틀림 ${R.wrong}` : ''}</div>`;
+  const tick = setInterval(() => { const tm = document.getElementById('rtime'); if (tm) tm.textContent = fmtSec(elapsed()); }, 100); timers.push(tick);
+  const prog = () => { const b = document.getElementById('rbar'), c = document.getElementById('rcount'); if (b) b.style.width = (R.done / total * 100) + '%'; if (c) c.textContent = `${R.done} / ${total}${R.wrong ? ` · 틀림 ${R.wrong}` : ''}`; };
+  const finish = async () => {
+    finished = true; stopTimers();
+    $app.innerHTML = `<div class="countdown small">도착!</div><div class="panel empty" style="text-align:center">기록을 저장하는 중…</div>`;
+    let r = null;
+    for (let k = 0; k < 3 && !r; k++) { try { r = await api('raceFinish', {token: TEAM.token, race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords}); } catch(e){ if (e.code === 'auth') break; await new Promise(z => setTimeout(z, 1500)); } }
+    viewRaceResult(race, r, R, elapsed());
+  };
+
+  if (S.mode === 'match') return matchRace();
+  if (S.mode === 'spell') return spellRace();
+  return timeRace();
+
+  function timeRace(){
+    const draw = () => {
+      if (R.done >= total) return finish();
+      const w = words[R.done], rng = seededRng(race.id + ':' + R.done), toKo = rng() < .5;
+      const answer = toKo ? w[1] : w[0], seen = new Set([answer]), pick = [];
+      for (const x of seededShuffle(words, rng)) { const t = toKo ? x[1] : x[0]; if (x !== w && x[1] !== w[1] && !seen.has(t)) { seen.add(t); pick.push(t); } if (pick.length === 3) break; }
+      const opts = seededShuffle([answer, ...pick], rng);
+      $app.innerHTML = `${top()}
+      <div class="card" style="min-height:150px">${toKo ? `<div class="big">${esc(w[0])}</div><div class="hint">알맞은 뜻을 고르세요</div>` : `<div class="ko big-ko">${esc(w[1])}</div><div class="hint">알맞은 영어 단어를 고르세요</div>`}</div>
+      <div class="choices">${opts.map((o, k) => `<button class="choice${toKo ? '' : ' en'}" data-k="${k}">${esc(o)}</button>`).join('')}</div>`;
+      $app.querySelectorAll('.choice').forEach(b => b.onclick = () => {
+        if (opts[+b.dataset.k] === answer) {
+          b.classList.add('ok'); $app.querySelectorAll('.choice').forEach(c => c.disabled = true);
+          R.done++; prog(); send(); timers.push(setTimeout(draw, 250));
+        } else { b.classList.add('no'); b.disabled = true; miss(w); prog(); }
+      });
+    };
+    draw();
+  }
+
+  function spellRace(){
+    const draw = () => {
+      if (R.done >= total) return finish();
+      const w = words[R.done], key = plain(w[0]); let extra = 0, tries = 0;
+      const firsts = new Set(); key.replace(/[A-Za-z]+/g, (m, off) => { firsts.add(off); return m; });
+      const mask = () => { let seen = 0; return key.split('').map((ch, k) => { if (!/[A-Za-z]/.test(ch)) return ch === ' ' ? ' ' : ch; seen++; return firsts.has(k) || seen <= extra + 1 ? ch : '_'; }).join(' '); };
+      $app.innerHTML = `${top()}
+      <div class="card" style="min-height:150px"><div class="ko big-ko">${esc(w[1])}</div><div class="mask" id="hn">${esc(mask())}</div></div>
+      <form id="fm" class="row" style="flex-direction:column;align-items:stretch" autocomplete="off">
+        <input class="answer" id="ans" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="영어로 쓰세요" aria-label="영어 답">
+        <div class="feedback" id="fb"></div>
+        <div class="row"><button type="button" class="btn ghost" id="skip">건너뛰기${P ? ` (+${P * 3}초)` : ''}</button><button type="submit" class="btn mark wide">확인</button></div>
+      </form>`;
+      const ans = document.getElementById('ans'), fb = document.getElementById('fb');
+      timers.push(setTimeout(() => ans.focus(), 30));
+      document.getElementById('fm').onsubmit = e => {
+        e.preventDefault(); if (!ans.value.trim()) return;
+        if (norm(ans.value) === norm(w[0])) { R.done++; prog(); send(); fb.className = 'feedback ok'; fb.textContent = '정답!'; timers.push(setTimeout(draw, 300)); return; }
+        tries++; miss(w); prog();
+        extra = Math.min(extra + 1, key.replace(/[^A-Za-z]/g, '').length - 1);
+        document.getElementById('hn').textContent = mask();
+        fb.className = 'feedback no'; fb.textContent = '다시 써 보세요. 한 글자를 더 보여 줄게요.';
+        ans.classList.add('no'); setTimeout(() => ans.classList.remove('no'), 400); ans.select();
+      };
+      document.getElementById('skip').onclick = () => {
+        R.wrong++; R.penalty += P * 3; if (!R.wrongWords.includes(w[0])) R.wrongWords.push(w[0]);
+        fb.className = 'feedback no'; fb.innerHTML = `정답: <span style="font-family:var(--f-word)">${esc(w[0])}</span>`;
+        R.done++; prog(); send(); timers.push(setTimeout(draw, 1300));
+      };
+    };
+    draw();
+  }
+
+  function matchRace(){
+    const rounds = matchRounds(words);
+    let ri = 0, before = 0;
+    while (ri < rounds.length && before + rounds[ri].length <= R.done) { before += rounds[ri].length; ri++; }
+    R.done = before;   // a resumed race restarts the round it was in
+    const play = () => {
+      if (ri >= rounds.length) return finish();
+      const pool = rounds[ri];
+      const tiles = seededShuffle(pool.flatMap((w, n) => [{n, t: w[0], en: true}, {n, t: w[1], en: false}]), seededRng(race.id + ':m' + ri));
+      let sel = null, matched = 0;
+      $app.innerHTML = `${top()}<div class="count">${ri + 1}/${rounds.length}판</div>
+      <div class="match" id="mg" style="--cols:${pool.length > 4 ? 4 : 2}">${tiles.map((x, k) => `<button class="tile${x.en ? ' en' : ''}" data-k="${k}">${esc(x.t)}</button>`).join('')}</div>`;
+      document.getElementById('mg').onclick = e => {
+        const b = e.target.closest('.tile'); if (!b || b.classList.contains('gone')) return;
+        const x = tiles[+b.dataset.k];
+        if (!sel) { sel = b; b.classList.add('sel'); return; }
+        if (sel === b) { b.classList.remove('sel'); sel = null; return; }
+        const y = tiles[+sel.dataset.k];
+        if (x.en === y.en) { sel.classList.remove('sel'); sel = b; b.classList.add('sel'); return; }
+        if (x.n === y.n) {
+          [sel, b].forEach(t => { t.classList.remove('sel'); t.classList.add('ok'); setTimeout(() => t.classList.add('gone'), 200); });
+          sel = null; matched++; R.done++; prog(); send();
+          if (matched === pool.length) { ri++; timers.push(setTimeout(play, 350)); }
+        } else {
+          const a = sel; [a, b].forEach(t => { t.classList.remove('sel'); t.classList.add('no'); setTimeout(() => t.classList.remove('no'), 400); });
+          sel = null; miss(pool[(x.en ? x : y).n]); prog();
+        }
+      };
+    };
+    play();
+  }
+}
+
+function viewRaceResult(race, r, R, localSec){
+  stopTimers();
+  const sec = r && r.seconds != null ? r.seconds : localSec;
+  $app.innerHTML = `${header()}
+  <div class="setcard"><div class="eyebrow">${esc(TEAM.cls)} · ${esc(TEAM.team)}</div><h1>도착!</h1><div class="meta">${esc(race.name)}</div></div>
+  <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+    <div class="count">기록</div><div class="score">${fmtSec(sec)}</div>
+    <div class="help">틀림 ${R.wrong}번${R.penalty ? ` · 벌점 ${R.penalty}초 포함` : ''}${r && race.settings.showRank && r.rank ? ` · <b>${esc(TEAM.cls)} ${r.rank}위</b> (지금까지 ${r.of}모둠)` : ''}</div>
+    ${r ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
+  </div>
+  ${R.wrongWords.length ? `<div class="section-label">헷갈린 단어 ${R.wrongWords.length}개</div><div class="panel"><ul class="wl">${R.wrongWords.map(en => wordRow(raceWords(race).find(w => w[0] === en) || [en, ''])).join('')}</ul></div>` : ''}
+  <button class="btn" id="home">레이스 목록으로</button>`;
+  document.getElementById('home').onclick = viewTeamHome;
+  scrollTo(0, 0);
+}
+
+/* =====================================================================
+   선생님: 반·모둠 등록, 레이스 만들기, 순위판
+   ===================================================================== */
+let RACE_ADMIN = {classes: [], races: []};
+const raceClassNames = (race, teams) => race.classes.includes('*') ? (teams || RACE_ADMIN.classes).map(c => c.name) : race.classes;
+const raceClassLabel = race => race.classes.includes('*') ? '전체 반' : race.classes.join(', ');
+async function loadRaceAdmin(){ const r = await api('adminRaces', {token: ADMIN.token}); RACE_ADMIN = {classes: r.classes, races: r.races}; return r; }
+const STATUS_CHIP = {'준비': '<span class="chip">준비</span>', '진행': '<span class="chip go">열림</span>', '마감': '<span class="chip">마감</span>'};
+
+async function viewRaceAdmin(){
+  stopTimers();
+  if (needAdmin(viewRaceAdmin)) return;
+  $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('race')}<h2>모둠 레이스</h2><div class="panel empty">불러오는 중…</div>`;
+  document.getElementById('up').onclick = () => route(); bindAdminNav();
+  try { await loadSets(); await loadRaceAdmin(); }
+  catch(e){ if (!adminErr(e, viewRaceAdmin)) $app.querySelector('.empty').textContent = e.error || '불러오지 못했어요.'; return; }
+  const C = RACE_ADMIN.classes;
+  let fcls = store.get('wordroom-race-filter', '');
+  if (fcls && !C.some(c => c.name === fcls)) fcls = '';
+  const races = RACE_ADMIN.races.filter(x => !fcls || x.classes.includes('*') || x.classes.includes(fcls));
+  $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('race')}
+  <div class="row" style="justify-content:space-between"><h2>모둠 레이스</h2><button class="btn mark" id="new" ${C.length ? '' : 'disabled'}>+ 새 레이스</button></div>
+  <div class="panel teamsum">
+    <div><b>반·모둠</b><div class="muted small">${C.length ? C.map(c => `${esc(c.name)} ${c.teams.length}모둠`).join(' · ') : '아직 등록한 반이 없어요. 먼저 반과 모둠을 등록하세요.'}</div></div>
+    <button class="btn ghost small" id="teams">반·모둠 등록</button>
+  </div>
+  ${C.length > 1 ? `<div class="chipsrow" role="group" aria-label="반별로 보기"><button class="fchip${fcls ? '' : ' on'}" data-fc="">전체 반</button>${C.map(c => `<button class="fchip${fcls === c.name ? ' on' : ''}" data-fc="${esc(c.name)}">${esc(c.name)}</button>`).join('')}</div>` : ''}
+  <div class="panel"><ul class="setlist">
+    ${races.map((x, i) => `<li><div class="sl-main"><b>${esc(x.name)} ${STATUS_CHIP[x.status] || ''}</b>
+        <span class="muted small">${MODE_NAME[x.settings.mode]} · ${raceWords(x).length}문제 · ${x.settings.penalty ? `벌점 ${x.settings.penalty}초` : '벌점 없음'} · ${esc(raceClassLabel(x))} · 끝낸 모둠 ${x.done}${x.running ? ` · 달리는 중 ${x.running}` : ''}</span></div>
+      <div class="sl-act">
+        <button class="btn small ${x.status === '진행' ? 'ghost' : 'mark'}" data-st="${i}">${x.status === '진행' ? '마감하기' : '열기'}</button>
+        <button class="btn ghost small" data-board="${i}">순위판</button>
+        <button class="btn ghost small" data-edit="${i}">편집</button>
+        <button class="btn ghost small" data-del="${i}">삭제</button></div></li>`).join('')}
+    ${!races.length ? `<li class="muted">${fcls ? `${esc(fcls)}에 해당하는 레이스가 없어요.` : '아직 만든 레이스가 없어요.'}</li>` : ''}
+  </ul></div>
+  <p class="help">모둠은 로그인 화면의 <b>모둠 입장</b> 탭에서 반과 모둠을 골라 들어와요. 열린 레이스만 모둠 화면에 보여요.</p>`;
+  document.getElementById('up').onclick = () => route(); bindAdminNav();
+  document.getElementById('teams').onclick = viewTeamsAdmin;
+  $app.querySelectorAll('[data-fc]').forEach(b => b.onclick = () => { store.set('wordroom-race-filter', b.dataset.fc); viewRaceAdmin(); });
+  document.getElementById('new').onclick = () => viewRaceEdit(null);
+  $app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => viewRaceEdit(races[+b.dataset.edit]));
+  $app.querySelectorAll('[data-board]').forEach(b => b.onclick = () => viewBoard(races[+b.dataset.board].id, fcls || undefined));
+  $app.querySelectorAll('[data-st]').forEach(b => b.onclick = async () => {
+    const x = races[+b.dataset.st];
+    try { await api('adminRaceStatus', {token: ADMIN.token, id: x.id, status: x.status === '진행' ? '마감' : '진행'}); toast(x.status === '진행' ? '마감했어요' : '열었어요. 모둠 화면에 보여요'); viewRaceAdmin(); }
+    catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '바꾸지 못했어요'); }
+  });
+  $app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    const x = races[+b.dataset.del], act = b.closest('.sl-act');
+    act.innerHTML = `<span class="small">"${esc(x.name)}"을(를) 지울까요? 기록은 시트에 남아요.</span><button class="btn ghost small" data-no>취소</button><button class="btn danger small" data-yes>삭제</button>`;
+    act.querySelector('[data-no]').onclick = viewRaceAdmin;
+    act.querySelector('[data-yes]').onclick = async () => { try { await api('adminRaceDelete', {token: ADMIN.token, id: x.id}); toast('레이스를 지웠어요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '지우지 못했어요'); } };
+  });
+  scrollTo(0, 0);
+}
+
+function viewTeamsAdmin(){
+  stopTimers();
+  if (needAdmin(viewTeamsAdmin)) return;
+  let C = JSON.parse(JSON.stringify(RACE_ADMIN.classes));
+  const draw = () => {
+    $app.innerHTML = `${header('<button class="link" id="up">← 모둠 레이스</button>')}${adminNav('race')}
+    <h2>반·모둠 등록</h2>
+    <p class="help">반 이름과 그 반의 모둠을 적어요. 모둠은 한 줄에 하나씩이에요. 모둠은 로그인 화면에서 반 → 모둠 순서로 골라 들어와요.</p>
+    <div class="classlist">${C.map((c, i) => `<div class="panel classbox">
+      <div class="row" style="justify-content:space-between"><input type="text" id="cn-${i}" data-cn="${i}" value="${esc(c.name)}" placeholder="예: 2학년 3반" maxlength="20"><button class="btn ghost small" data-cdel="${i}">반 지우기</button></div>
+      <textarea id="ct-${i}" data-ct="${i}" rows="4" placeholder="1모둠&#10;2모둠&#10;3모둠">${esc(c.teams.join('\n'))}</textarea>
+      <div class="row small"><button class="link small" data-fill="${i}">1~6모둠 채우기</button><span class="muted small" id="cc-${i}">${c.teams.length}모둠</span></div>
+    </div>`).join('')}</div>
+    <div class="row"><button class="btn ghost" id="add">+ 반 추가</button><button class="btn mark wide" id="save">저장하기</button></div>`;
+    document.getElementById('up').onclick = viewRaceAdmin; bindAdminNav();
+    const sync = () => { C = C.map((c, i) => ({name: document.getElementById('cn-' + i).value.trim(), teams: document.getElementById('ct-' + i).value.split(/\r?\n|,/).map(t => t.trim()).filter(Boolean)})); C.forEach((c, i) => { const el = document.getElementById('cc-' + i); if (el) el.textContent = c.teams.length + '모둠'; }); };
+    $app.querySelectorAll('[data-cn],[data-ct]').forEach(el => el.oninput = sync);
+    $app.querySelectorAll('[data-fill]').forEach(b => b.onclick = () => { sync(); C[+b.dataset.fill].teams = ['1모둠', '2모둠', '3모둠', '4모둠', '5모둠', '6모둠']; draw(); });
+    $app.querySelectorAll('[data-cdel]').forEach(b => b.onclick = () => { sync(); C.splice(+b.dataset.cdel, 1); draw(); });
+    document.getElementById('add').onclick = () => { sync(); C.push({name: '', teams: []}); draw(); const k = C.length - 1; document.getElementById('cn-' + k).focus(); };
+    document.getElementById('save').onclick = async e => {
+      sync();
+      const names = C.map(c => c.name).filter(Boolean);
+      if (C.some(c => !c.name && c.teams.length)) return toast('반 이름을 써 주세요');
+      if (new Set(names).size !== names.length) return toast('같은 이름의 반이 있어요');
+      e.target.disabled = true;
+      try { const r = await api('adminTeamsSave', {token: ADMIN.token, classes: C.filter(c => c.name)}); RACE_ADMIN.classes = r.classes; toast('저장했어요'); viewRaceAdmin(); }
+      catch(err){ e.target.disabled = false; if (!adminErr(err, viewTeamsAdmin)) toast(err.error || '저장하지 못했어요'); }
+    };
+  };
+  if (!C.length) C = [{name: '', teams: []}];
+  draw(); scrollTo(0, 0);
+}
+
+function viewRaceEdit(race){
+  stopTimers();
+  if (needAdmin(() => viewRaceEdit(race))) return;
+  const s = race ? race.settings : {mode: 'time', count: 20, penalty: 0, rel: false, live: true, showRank: true};
+  const allCls = !race || race.classes.includes('*');
+  const src = new Set(race ? race.sources : []), cls = new Set(race && !allCls ? race.classes : []);
+  const srcList = [...SETS.map(x => ({id: x.id, label: x.t, n: (x.heads || x.w).length, nr: x.w.length})), ...PAGES.map(p => ({id: p.id, label: `${BOOK} ${p.t.replace('학습지 ', '')}`, n: p.heads.length, nr: p.w.length}))];
+  $app.innerHTML = `${header('<button class="link" id="up">← 모둠 레이스</button>')}${adminNav('race')}
+  <h2>${race ? '레이스 편집' : '새 레이스'}</h2>
+  ${race && (race.done || race.running) ? '<div class="badlines">이미 달린 모둠이 있어요. 지문·문제 수를 바꾸면 모둠마다 문제가 달라져요.</div>' : ''}
+  <div class="field"><label for="re-name">레이스 이름</label><input type="text" id="re-name" maxlength="40" placeholder="예: 모의고사 1·2번 레이스" value="${esc(race ? race.name : '')}"></div>
+  <div class="field"><span class="flabel">지문 묶기</span><div class="checks">${srcList.map(x => `<label class="check"><input type="checkbox" data-src="${esc(x.id)}" ${src.has(x.id) ? 'checked' : ''}><span>${esc(x.label)} <span class="muted small">${x.n}개</span></span></label>`).join('')}</div>
+    <label class="check"><input type="checkbox" id="re-rel" ${s.rel ? 'checked' : ''}><span>유의어·반의어 같은 관련어도 넣기</span></label>
+    <div class="parsed" id="re-n"></div></div>
+  <div class="field"><span class="flabel">레이스 방식</span><div class="seg">${['time', 'match', 'spell'].map(m => `<label class="segopt"><input type="radio" name="re-mode" value="${m}" ${s.mode === m ? 'checked' : ''}><span><b>${MODE_NAME[m]}</b><span class="muted small">${MODE_HELP[m]}</span></span></label>`).join('')}</div></div>
+  <div class="field"><span class="flabel">문제 수</span>
+    <div class="chipsrow" role="radiogroup" aria-label="문제 수">${[10, 20, 30, 0].map(n => `<button type="button" class="fchip${s.count === n ? ' on' : ''}" data-cnt="${n}">${n ? n + '문제' : '전부'}</button>`).join('')}
+      <label class="fchip custom${[10, 20, 30, 0].includes(s.count) ? '' : ' on'}">직접 <input type="number" id="re-count" min="1" max="300" value="${[10, 20, 30, 0].includes(s.count) ? '' : s.count}" placeholder="수" class="inline-num" aria-label="문제 수 직접 입력"></label></div>
+    <p class="help" id="re-cnt-help"></p></div>
+  <div class="field"><span class="flabel">틀릴 때 벌점</span>
+    <div class="seg"><label class="segopt"><input type="radio" name="re-penon" value="0" ${s.penalty ? '' : 'checked'}><span><b>벌점 없음</b><span class="muted small">틀려도 시간만 흘러요. 맞혀야 넘어가는 건 같아요.</span></span></label>
+    <label class="segopt"><input type="radio" name="re-penon" value="1" ${s.penalty ? 'checked' : ''}><span><b>틀릴 때마다 벌점</b><span class="muted small">틀릴 때마다 <input type="number" id="re-pen" min="1" max="30" value="${s.penalty || 3}" class="inline-num" aria-label="벌점 초"> 초를 더해요.</span></span></label></div></div>
+  <div class="field"><span class="flabel">참여할 반</span>${RACE_ADMIN.classes.length ? `<div class="checks">
+      <label class="check allcls"><input type="checkbox" id="re-allcls" ${allCls ? 'checked' : ''}><span><b>전체 반</b> <span class="muted small">나중에 등록하는 반도 들어가요</span></span></label>
+      ${RACE_ADMIN.classes.map(c => `<label class="check"><input type="checkbox" data-cls="${esc(c.name)}" ${allCls || cls.has(c.name) ? 'checked' : ''} ${allCls ? 'disabled' : ''}><span>${esc(c.name)} <span class="muted small">${c.teams.length}모둠</span></span></label>`).join('')}</div>` : '<p class="help">먼저 반·모둠을 등록해 주세요.</p>'}</div>
+  <div class="field"><span class="flabel">보여 주기</span>
+    <label class="check"><input type="checkbox" id="re-live" ${s.live ? 'checked' : ''}><span>순위판에 <b>실시간 진행 중계</b> (달리는 모둠의 진행 막대)</span></label>
+    <label class="check"><input type="checkbox" id="re-rank" ${s.showRank ? 'checked' : ''}><span>끝난 모둠 화면에 반 순위 보여 주기</span></label></div>
+  <div class="row"><button class="btn mark wide" id="re-save">저장하기</button></div>`;
+  document.getElementById('up').onclick = viewRaceAdmin; bindAdminNav();
+  const $ = id => document.getElementById(id);
+  let cntPick = [10, 20, 30, 0].includes(s.count) ? s.count : 'custom';
+  const current = () => ({
+    name: $('re-name').value.trim(),
+    sources: [...$app.querySelectorAll('[data-src]:checked')].map(x => x.dataset.src),
+    classes: $('re-allcls') && $('re-allcls').checked ? ['*'] : [...$app.querySelectorAll('[data-cls]:checked')].map(x => x.dataset.cls),
+    settings: {mode: ($app.querySelector('[name=re-mode]:checked') || {}).value || 'time', count: cntPick === 'custom' ? Math.max(1, +$('re-count').value || 1) : cntPick,
+      penalty: ($app.querySelector('[name=re-penon]:checked') || {}).value === '1' ? Math.max(1, +$('re-pen').value || 3) : 0, rel: $('re-rel').checked, live: $('re-live').checked, showRank: $('re-rank').checked}
+  });
+  const upd = () => {
+    const c = current(); const n = raceWords({id: race ? race.id : 'preview', sources: c.sources, settings: c.settings}).length; const all = raceWords({id: 'x', sources: c.sources, settings: Object.assign({}, c.settings, {count: 0})}).length;
+    $('re-n').innerHTML = c.sources.length ? `단어 <b>${all}개</b> 중 <b>${n}문제</b>를 모든 모둠에 같은 순서로 내요.` : '레이스에 쓸 지문을 골라 주세요.';
+    $('re-cnt-help').textContent = c.sources.length ? (c.settings.count && c.settings.count > all ? `고른 지문에 단어가 ${all}개뿐이라 ${all}문제로 해요.` : `고른 지문의 단어 ${all}개 중에서 무작위로 뽑아요.`) : '';
+  };
+  $app.querySelectorAll('[data-cnt]').forEach(b => b.onclick = () => { cntPick = +b.dataset.cnt; $app.querySelectorAll('[data-cnt],.fchip.custom').forEach(x => x.classList.toggle('on', x === b)); upd(); });
+  $('re-count').addEventListener('focus', () => { cntPick = 'custom'; $app.querySelectorAll('[data-cnt]').forEach(x => x.classList.remove('on')); $app.querySelector('.fchip.custom').classList.add('on'); upd(); });
+  $app.querySelectorAll('input').forEach(el => el.addEventListener('input', upd)); upd();
+  const ac = $('re-allcls'); if (ac) ac.onchange = () => $app.querySelectorAll('[data-cls]').forEach(x => { x.disabled = ac.checked; if (ac.checked) x.checked = true; });
+  $('re-pen').addEventListener('focus', () => { $app.querySelector('[name=re-penon][value="1"]').checked = true; });
+  $('re-save').onclick = async e => {
+    const c = current();
+    if (!c.name) { toast('레이스 이름을 써 주세요'); return $('re-name').focus(); }
+    if (!c.sources.length) return toast('지문을 하나 이상 골라 주세요');
+    if (!c.classes.length) return toast('참여할 반을 골라 주세요');
+    e.target.disabled = true;
+    try { await api('adminRaceSave', Object.assign({token: ADMIN.token, id: race ? race.id : ''}, c)); toast('저장했어요. 목록에서 "열기"를 누르면 모둠 화면에 나와요'); viewRaceAdmin(); }
+    catch(err){ e.target.disabled = false; if (!adminErr(err, () => viewRaceEdit(race))) toast(err.error || '저장하지 못했어요'); }
+  };
+  scrollTo(0, 0);
+}
+
+/* the board: refreshes every 5 seconds, big mode for the classroom screen */
+function viewBoard(raceId, cls){
+  stopTimers();
+  if (needAdmin(() => viewBoard(raceId, cls))) return;
+  let big = store.get('wordroom-board-big', false), data = null, confirmKey = '';
+  const draw = () => {
+    if (!data) return;
+    const race = data.race, classes = raceClassNames(race, data.teams);
+    const ALLK = '__all';
+    const sel = cls && (cls === ALLK || classes.includes(cls)) ? cls : (classes.length > 1 ? ALLK : classes[0] || '');
+    const allMode = sel === ALLK;
+    const teams = allMode ? data.teams.filter(c => classes.includes(c.name)).flatMap(c => c.teams.map(t => c.name + ' ' + t)) : (((data.teams.find(c => c.name === sel) || {}).teams) || []);
+    const rows = (allMode ? data.rows.filter(r => classes.includes(r.cls)) : data.rows.filter(r => r.cls === sel)).map(r => Object.assign({}, r, {label: allMode ? r.cls + ' ' + r.team : r.team}));
+    const done = rows.filter(r => r.status === '완료').sort((a, b) => a.seconds - b.seconds);
+    const run = rows.filter(r => r.status !== '완료').sort((a, b) => b.done - a.done);
+    const wait = teams.filter(t => !rows.some(r => r.label === t));
+    const total = (rows[0] && rows[0].total) || raceWords(race).length || 1;
+    const resetBtn = r => `<button class="link small" data-reset="${esc(r.cls + '\n' + r.team)}">${confirmKey === r.cls + '\n' + r.team ? '정말 지우기' : '기록 지우기'}</button>`;
+    $app.classList.toggle('wide', big);
+    $app.innerHTML = `${big ? '' : `${header('<button class="link" id="up">← 모둠 레이스</button>')}${adminNav('race')}`}
+    <div class="board${big ? ' big' : ''}">
+      <div class="row" style="justify-content:space-between;align-items:flex-end">
+        <div><div class="count">${MODE_NAME[race.settings.mode]} · ${total}문제 ${STATUS_CHIP[race.status] || ''}</div><h2>${esc(race.name)}</h2></div>
+        <div class="row small"><button class="btn ghost small" id="bbig">${big ? '작게 보기' : '크게 보기 (TV)'}</button>${big ? '' : `<button class="btn small ${race.status === '진행' ? 'ghost' : 'mark'}" id="bst">${race.status === '진행' ? '마감하기' : '열기'}</button>`}</div>
+      </div>
+      ${classes.length > 1 ? `<div class="tabs scroll" role="tablist"><button class="tab" data-bcls="${ALLK}" aria-selected="${allMode}">전체 반</button>${classes.map(c => `<button class="tab" data-bcls="${esc(c)}" aria-selected="${c === sel}">${esc(c)}</button>`).join('')}</div>` : `<div class="count">${esc(sel)}</div>`}
+      <ol class="rank">${done.map((r, i) => `<li class="r-done"><span class="rk">${i + 1}</span><span class="tm">${esc(r.label)}</span><span class="sec">${fmtSec(r.seconds)}</span><span class="muted small">틀림 ${r.wrong}${r.penalty ? ` · +${r.penalty}초` : ''}</span>${big ? '' : resetBtn(r)}</li>`).join('')}</ol>
+      ${run.length ? `<div class="section-label">달리는 중</div><ul class="rank run">${run.map(r => `<li><span class="rk">·</span><span class="tm">${esc(r.label)}</span>${race.settings.live ? `<span class="pbar"><i style="width:${Math.min(100, r.done / (r.total || total) * 100)}%"></i></span><span class="muted small">${r.done}/${r.total || total} · ${fmtSec(r.elapsed || 0)}</span>` : '<span class="muted small">진행 중</span>'}${big ? '' : resetBtn(r)}</li>`).join('')}</ul>` : ''}
+      ${wait.length ? `<div class="section-label">아직 출발 전</div><div class="muted waiting">${wait.map(esc).join(' · ')}</div>` : ''}
+      ${!rows.length && !wait.length ? '<div class="panel empty">이 반에 등록된 모둠이 없어요.</div>' : ''}
+      <div class="muted small">5초마다 새로 고쳐요${race.settings.live ? ' · 실시간 진행 중계 켜짐' : ''}</div>
+    </div>`;
+    const up = document.getElementById('up'); if (up) up.onclick = () => { stopTimers(); viewRaceAdmin(); }; bindAdminNavStop();
+    document.getElementById('bbig').onclick = () => { big = !big; store.set('wordroom-board-big', big); draw(); };
+    const bst = document.getElementById('bst'); if (bst) bst.onclick = async () => { try { await api('adminRaceStatus', {token: ADMIN.token, id: race.id, status: race.status === '진행' ? '마감' : '진행'}); await load(); } catch(e){ if (!adminErr(e, () => viewBoard(raceId, cls))) toast(e.error || '바꾸지 못했어요'); } };
+    $app.querySelectorAll('[data-bcls]').forEach(b => b.onclick = () => { cls = b.dataset.bcls; draw(); });
+    $app.querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
+      const key = b.dataset.reset, [rc, team] = key.split('\n');
+      if (confirmKey !== key) { confirmKey = key; draw(); return; }
+      confirmKey = '';
+      try { await api('adminRaceReset', {token: ADMIN.token, race: race.id, cls: rc, team}); toast(`${rc} ${team} 기록을 지웠어요. 다시 달릴 수 있어요`); await load(); }
+      catch(e){ if (!adminErr(e, () => viewBoard(raceId, cls))) toast(e.error || '지우지 못했어요'); }
+    });
+  };
+  const load = async () => {
+    try { data = await api('adminBoard', {token: ADMIN.token, race: raceId}); }
+    catch(e){ if (adminErr(e, () => viewBoard(raceId, cls))) return; if (!data) { $app.innerHTML = `${header()}<div class="panel empty">${esc(e.error || '불러오지 못했어요')}</div>`; } return; }
+    try { draw(); } catch(err){ console.error(err); }
+  };
+  $app.innerHTML = `${header()}${adminNav('race')}<div class="panel empty">순위판을 불러오는 중…</div>`; bindAdminNavStop();
+  load();
+  timers.push(setInterval(() => { if (document.hidden) return; load(); }, 5000));
+  scrollTo(0, 0);
+}
+function bindAdminNavStop(){ $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake()})[b.dataset.anav](); }); }
+
 /* ---------- page picker ---------- */
 function viewPages(){
+  if (gate()) return;
   SET = null; origin = 'pages'; SCOPE = 'all';
   const last = id => { const r = store.get(lastKey(id), null); return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
   $app.innerHTML = `${header(hasRoot() ? '<button class="link" id="toRoot">← 지문 고르기</button>' : '')}${userBar()}${speechBanner()}
@@ -1019,6 +1582,7 @@ function onAuthErrorQuiet(e){ if (e && e.code === 'auth') setAuth(null); }
 let SCOPE = 'all';   // 'all' | 'conf'
 const scopeWords = () => SCOPE === 'conf' ? confIn(SET.w) : SET.w;
 function viewHome(){
+  if (gate()) return;
   const backTo = origin === 'link' ? '' : `<button class="link" id="up">← ${origin === 'maker' ? '단어장 편집' : origin === 'me' ? '내 기록' : origin === 'root' ? '지문 고르기' : origin === 'setedit' ? '지문 편집' : '페이지 고르기'}</button>`;
   const conf = confIn(SET.w), words = scopeWords();
   const MODE_C = {list: 1, cards: 2, choice: 3, pick: 4, spell: 5, match: 6};
@@ -1052,7 +1616,7 @@ const back = () => '<button class="link" id="back">← 연습 고르기</button>
 function bindBack(){ document.getElementById('back').onclick = () => { stopTimers(); viewHome(); }; }
 const prog = (i, n) => `<div class="bar"><i style="width:${n ? i / n * 100 : 0}%"></i></div><div class="count">${i} / ${n}</div>`;
 let timers = [];
-function stopTimers(){ timers.forEach(t => { clearTimeout(t); clearInterval(t); }); timers = []; document.onkeydown = null; }
+function stopTimers(){ $app.classList.remove('wide'); timers.forEach(t => { if (t && t.off) t.off(); else { clearTimeout(t); clearInterval(t); } }); timers = []; document.onkeydown = null; }
 
 /* ---------- list ---------- */
 function viewList(words){
@@ -1375,7 +1939,7 @@ function viewMake(start){
   if (needAdmin(() => viewMake(start))) return;
   const draft = store.get('wordroom-draft', null);
   const src = start && start.id === 'custom' ? start : draft;
-  const pageItems = [{id: 'site', title: '첫 화면 (지문 고르기)', url: base()}, ...SETS.map(s => ({id: s.id, title: s.t, url: base() + '#' + s.id})), ...PAGES.map(p => ({id: p.id, title: p.t, url: base() + '#' + p.id})), ...(PAGES.length ? [{id: 'all', title: BOOK + ' 전체', url: base() + '#all'}] : [])];
+  const pageItems = [{id: 'site', title: '첫 화면 (지문 고르기)', url: base()}, {id: 'team', title: '모둠 레이스 입장', url: base() + '#team'}, ...SETS.map(s => ({id: s.id, title: s.t, url: base() + '#' + s.id})), ...PAGES.map(p => ({id: p.id, title: p.t, url: base() + '#' + p.id})), ...(PAGES.length ? [{id: 'all', title: BOOK + ' 전체', url: base() + '#all'}] : [])];
   pageItems.forEach(it => it.q = makeQR(it.url));
   const items = Object.fromEntries(pageItems.map(it => [it.id, it]));
   $app.innerHTML = `${header('<button class="link" id="toPages">← 학생 화면</button>')}
@@ -1427,13 +1991,17 @@ function viewMake(start){
 let setsPromise = null;
 function boot(){
   const h = decodeURIComponent((location.hash || '').slice(1));
-  if (API && !setsPromise) setsPromise = loadSets().then(changed => { if (origin === 'root' && !SET) viewRoot(); return changed; });
+  if (API && !setsPromise) setsPromise = loadSets().then(changed => { if ($app.querySelector('[data-root]') || ($app.querySelector('.pages [data-id]') && hasRoot() && origin === 'root')) viewRoot(); return changed; });
   if (h === 'admin') return viewAdmin();
+  if (h === 'team' && !TEAM) return viewLogin(route, 'team');
+  if (TEAM) return viewTeamHome();
   if (LOGIN && !AUTH) return viewLogin(route);
   flushQueue();
   route();
 }
 function route(){
+  if (TEAM) return viewTeamHome();
+  if (LOGIN && !AUTH) return viewLogin(route);
   const h = decodeURIComponent((location.hash || '').slice(1));
   if (h === 'all') { SET = ALL; origin = 'pages'; return viewHome(); }
   const p = PAGES.find(p => p.id === h);
