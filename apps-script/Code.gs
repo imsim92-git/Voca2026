@@ -94,6 +94,7 @@ function doPost(e) {
 const ACTIONS = {
   register: register_,
   login: login_,
+  changePw: changePw_,
   log: log_,
   me: me_,
   adminLogin: adminLogin_,
@@ -123,7 +124,7 @@ const ACTIONS = {
 
 /* ---------------- 학생 ---------------- */
 function register_(req) {
-  const sid = cleanSid_(req.sid), name = cleanName_(req.name), pw = cleanPw_(req.pw);
+  const sid = cleanSid_(req.sid), name = cleanName_(req.name), pw = cleanPin_(req.pw);
   return withLock_(() => {
     const sh = sheet_(SHEET_STUDENTS);
     const row = findStudentRow_(sh, sid);
@@ -142,8 +143,8 @@ function register_(req) {
   });
 }
 
-function login_(req) {
-  const sid = cleanSid_(req.sid), pw = String(req.pw || '');
+/* 학번과 비밀번호 확인: 맞으면 학생 줄 정보를, 틀리면 잠금 횟수를 올리고 오류 */
+function checkStudentPw_(sid, pw) {
   const cache = CacheService.getScriptCache(), key = 'fail_' + sid;
   const fails = Number(cache.get(key) || 0);
   if (fails >= MAX_FAILS) fail_(`비밀번호를 여러 번 틀려서 ${LOCK_MINUTES}분 동안 로그인할 수 없어요.`);
@@ -156,11 +157,28 @@ function login_(req) {
     fail_('학번이나 비밀번호가 맞지 않아요.');
   }
   cache.remove(key);
-  sh.getRange(row, 4).setValue(new Date());   // 로그인은 '학생' 탭의 최근 접속만 갱신
-  if (!/^v2:/.test(String(salt))) {           // 예전 방식 비밀번호를 빠른 방식으로 바꿔 둠
-    const s2 = newSalt_(); sh.getRange(row, 5, 1, 2).setValues([[asText_(s2), asText_(hashPw_(pw, s2))]]);
+  return {sh: sh, row: row, name: String(name), salt: salt};
+}
+
+function login_(req) {
+  const sid = cleanSid_(req.sid), pw = String(req.pw || '');
+  const st = checkStudentPw_(sid, pw);
+  st.sh.getRange(st.row, 4).setValue(new Date());   // 로그인은 '학생' 탭의 최근 접속만 갱신
+  if (!/^v2:/.test(String(st.salt))) {              // 예전 방식 비밀번호를 빠른 방식으로 바꿔 둠
+    const s2 = newSalt_(); st.sh.getRange(st.row, 5, 1, 2).setValues([[asText_(s2), asText_(hashPw_(pw, s2))]]);
   }
-  return {ok: true, token: makeToken_('s', sid, TOKEN_DAYS * 24), student: {sid: sid, name: String(name)}, setsPack: setsFor_(req.v)};
+  return {ok: true, token: makeToken_('s', sid, TOKEN_DAYS * 24), student: {sid: sid, name: st.name}, setsPack: setsFor_(req.v)};
+}
+
+/* 학생이 스스로 비밀번호 바꾸기: 지금 비밀번호를 확인하고 새 비밀번호(숫자 5자리)로 바꾼 뒤 로그인 */
+function changePw_(req) {
+  const sid = cleanSid_(req.sid), pw = String(req.pw || ''), newPw = cleanPin_(req.newPw);
+  return withLock_(() => {
+    const st = checkStudentPw_(sid, pw);
+    const s2 = newSalt_();
+    st.sh.getRange(st.row, 4, 1, 3).setValues([[new Date(), asText_(s2), asText_(hashPw_(newPw, s2))]]);
+    return {ok: true, token: makeToken_('s', sid, TOKEN_DAYS * 24), student: {sid: sid, name: st.name}, setsPack: setsFor_(req.v)};
+  });
 }
 
 function log_(req) {
@@ -791,9 +809,9 @@ function cleanName_(v) {
   if (s.length < 1 || s.length > 20 || /^[=+\-@]/.test(s)) fail_('이름을 1~20자로 써 주세요.');
   return s;
 }
-function cleanPw_(v) {
-  const s = String(v == null ? '' : v);
-  if (s.length < 4 || s.length > 40) fail_('비밀번호는 4~40자로 정해 주세요.');
+function cleanPin_(v) {   // 새로 정하는 학생 비밀번호: 숫자 5자리 (통장·카드 4자리, 휴대폰 4·6자리와 겹치지 않게)
+  const s = String(v == null ? '' : v).trim();
+  if (!/^\d{5}$/.test(s)) fail_('비밀번호는 숫자 5자리로 정해 주세요.');
   return s;
 }
 function withLock_(fn) {
