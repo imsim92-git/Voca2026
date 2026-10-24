@@ -37,6 +37,7 @@ const MAX_FAILS = 8;             // 비밀번호를 이만큼 틀리면
 const LOCK_MINUTES = 10;         // 이 시간 동안 로그인 잠금
 const HASH_ROUNDS_OLD = 300;     // 예전 방식 (로그인할 때 새 방식으로 바뀜)
 const HASH_ROUNDS = 40;          // 새 방식: salt가 'v2:'로 시작
+const STU_CACHE_SEC = 21600;     // 로그인 확인용 학생 정보(이름·비밀번호 해시)를 서버가 기억해 두는 시간(초, 6시간)
 const CACHE_SEC = 600;           // 지문·모둠·레이스 목록을 서버가 기억해 두는 시간(초)
 
 /* ---------------- 설치 ---------------- */
@@ -138,35 +139,55 @@ function register_(req) {
       const salt = newSalt_(), now = new Date();
       sh.appendRow([asText_(sid), asText_(name), now, now, asText_(salt), asText_(hashPw_(pw, salt))]);
     }
+    stuCacheDrop_(sid);
     // 등록은 '기록' 탭에 남기지 않음 ('학생' 탭의 가입 시각으로 확인)
     return {ok: true, token: makeToken_('s', sid, TOKEN_DAYS * 24), student: {sid: sid, name: name}, setsPack: setsFor_(req.v)};
   });
 }
 
-/* 학번과 비밀번호 확인: 맞으면 학생 줄 정보를, 틀리면 잠금 횟수를 올리고 오류 */
-function checkStudentPw_(sid, pw) {
+/* 로그인 확인용 학생 정보를 캐시에 두어, 로그인할 때 시트를 읽거나 쓰지 않게 함 (로그인이 빨라짐).
+   비밀번호가 바뀌는 곳(등록·바꾸기·초기화)에서 지우거나 새로 넣음 */
+function stuCacheGet_(sid) { const v = CacheService.getScriptCache().get('stu_' + sid); return v ? JSON.parse(v) : null; }
+function stuCachePut_(sid, c) { CacheService.getScriptCache().put('stu_' + sid, JSON.stringify({name: c.name, salt: c.salt, hash: c.hash}), STU_CACHE_SEC); }
+function stuCacheDrop_(sid) { CacheService.getScriptCache().remove('stu_' + sid); }
+function stuFromSheet_(sid) {
+  const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
+  if (!row) return null;
+  const r = sh.getRange(row, 1, 1, 6).getValues()[0];
+  const c = {sh: sh, row: row, name: String(r[1]), salt: String(r[4] || ''), hash: String(r[5] || '')};
+  if (c.hash) stuCachePut_(sid, c); else stuCacheDrop_(sid);
+  return c;
+}
+
+/* 학번과 비밀번호 확인: 맞으면 학생 정보를, 틀리면 잠금 횟수를 올리고 오류. needRow면 시트에서 줄 위치까지 읽음 */
+function checkStudentPw_(sid, pw, needRow) {
   const cache = CacheService.getScriptCache(), key = 'fail_' + sid;
   const fails = Number(cache.get(key) || 0);
   if (fails >= MAX_FAILS) fail_(`비밀번호를 여러 번 틀려서 ${LOCK_MINUTES}분 동안 로그인할 수 없어요.`);
-  const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
-  if (!row) fail_('등록되지 않은 학번이에요. 처음이라면 "처음 등록"을 눌러 주세요.');
-  const [, name, , , salt, hash] = sh.getRange(row, 1, 1, 6).getValues()[0];
-  if (!hash) fail_('비밀번호가 초기화되었어요. "처음 등록"에서 새 비밀번호를 정해 주세요.');
-  if (hashPw_(pw, salt) !== hash) {
+  let c = needRow ? null : stuCacheGet_(sid), fromCache = !!c;
+  if (c && hashPw_(pw, c.salt) !== c.hash) { c = null; fromCache = false; }   // 캐시가 오래됐을 수 있어 시트로 한 번 더 확인
+  if (!c) c = stuFromSheet_(sid);
+  if (!c) fail_('등록되지 않은 학번이에요. 처음이라면 "처음 등록"을 눌러 주세요.');
+  if (!c.hash) fail_('비밀번호가 초기화되었어요. "처음 등록"에서 새 비밀번호를 정해 주세요.');
+  if (!fromCache && hashPw_(pw, c.salt) !== c.hash) {
     cache.put(key, String(fails + 1), LOCK_MINUTES * 60);
     fail_('학번이나 비밀번호가 맞지 않아요.');
   }
-  cache.remove(key);
-  return {sh: sh, row: row, name: String(name), salt: salt};
+  if (fails) cache.remove(key);
+  return c;
 }
 
 function login_(req) {
   const sid = cleanSid_(req.sid), pw = String(req.pw || '');
-  const st = checkStudentPw_(sid, pw);
-  st.sh.getRange(st.row, 4).setValue(new Date());   // 로그인은 '학생' 탭의 최근 접속만 갱신
-  if (!/^v2:/.test(String(st.salt))) {              // 예전 방식 비밀번호를 빠른 방식으로 바꿔 둠
-    const s2 = newSalt_(); st.sh.getRange(st.row, 5, 1, 2).setValues([[asText_(s2), asText_(hashPw_(pw, s2))]]);
+  const st = checkStudentPw_(sid, pw, false);
+  if (!/^v2:/.test(st.salt)) {   // 예전 방식 비밀번호를 빠른 방식으로 바꿔 둠 (학생마다 한 번)
+    withLock_(() => {
+      const c = stuFromSheet_(sid), s2 = newSalt_(), h2 = hashPw_(pw, s2);
+      c.sh.getRange(c.row, 5, 1, 2).setValues([[asText_(s2), asText_(h2)]]);
+      stuCachePut_(sid, {name: c.name, salt: s2, hash: h2});
+    });
   }
+  // 최근 접속 시각은 연습 기록을 남길 때 함께 적음 (로그인할 때는 시트에 쓰지 않아 빠름)
   return {ok: true, token: makeToken_('s', sid, TOKEN_DAYS * 24), student: {sid: sid, name: st.name}, setsPack: setsFor_(req.v)};
 }
 
@@ -174,9 +195,10 @@ function login_(req) {
 function changePw_(req) {
   const sid = cleanSid_(req.sid), pw = String(req.pw || ''), newPw = cleanPin_(req.newPw);
   return withLock_(() => {
-    const st = checkStudentPw_(sid, pw);
-    const s2 = newSalt_();
-    st.sh.getRange(st.row, 4, 1, 3).setValues([[new Date(), asText_(s2), asText_(hashPw_(newPw, s2))]]);
+    const st = checkStudentPw_(sid, pw, true);
+    const s2 = newSalt_(), h2 = hashPw_(newPw, s2);
+    st.sh.getRange(st.row, 4, 1, 3).setValues([[new Date(), asText_(s2), asText_(h2)]]);
+    stuCachePut_(sid, {name: st.name, salt: s2, hash: h2});
     return {ok: true, token: makeToken_('s', sid, TOKEN_DAYS * 24), student: {sid: sid, name: st.name}, setsPack: setsFor_(req.v)};
   });
 }
@@ -249,6 +271,7 @@ function adminReset_(req) {
     if (!row) fail_('그 학번의 학생이 없어요.');
     sh.getRange(row, 5, 1, 2).setValues([['', '']]);
     CacheService.getScriptCache().remove('fail_' + sid);
+    stuCacheDrop_(sid);
     return {ok: true};
   });
 }
@@ -328,6 +351,7 @@ function addPractice_(sid, entry) {
     const r = sh.getRange(row, 1, 1, S_COLS).getValues()[0];
     const st = mergeStats_(rowStats_(r), [entry]);
     sh.getRange(row, 7, 1, 8).setValues([statsCells_(st)]);
+    sh.getRange(row, 4).setValue(new Date());   // 최근 접속
     return st;
   });
 }
