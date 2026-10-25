@@ -755,7 +755,7 @@ async function viewMe(){
    replaceState changes it without firing hashchange, so the screen is not drawn twice */
 function setHash(h){
   const want = h ? '#' + h : '';
-  if (location.hash !== want) history.replaceState(null, '', location.pathname + location.search + want);
+  if (location.hash !== want) { history.replaceState(history.state, '', location.pathname + location.search + want); lastHref = location.href; }
 }
 function adminValid(){ return ADMIN && ADMIN.exp > Date.now(); }
 async function viewAdmin(next){
@@ -2321,8 +2321,27 @@ function route(){
   if (hasRoot()) return viewRoot();
   viewPages();
 }
+/* the phone's or browser's back button moves up one menu inside the site instead of leaving it.
+   One extra history entry sits on top of the page; when back is pressed the browser drops to the entry
+   below, and the site puts the entry back and opens the menu above (the same as the "←" button on screen).
+   On the first screen, back leaves the site as usual. Screens with no way back (a race in progress) stay put. */
+let lastHref = location.href;
+const UP_BUTTONS = ['#back', '#up', '#toRoot', '#toPages', '#tologin', '#home'];
+function upButton(){ for (const sel of UP_BUTTONS) { const b = $app.querySelector(sel); if (b && b.getClientRects().length) return b; } return null; }
+const isFirstScreen = () => !!($app.querySelector('[data-root]') || $app.querySelector('#af') || $app.querySelector('#tf') || $app.querySelector('#trefresh')
+  || ($app.querySelector('.pages button.page[data-id]') && !$app.querySelector('#toRoot')));
+function armBack(){ history.pushState({wr: 'guard'}, '', lastHref); }
+window.addEventListener('popstate', () => {
+  // only a step back onto our base entry is a "back" press; typing a new #address or going forward is ordinary navigation
+  if (!history.state || history.state.wr !== 'base') return;
+  const up = upButton();
+  if (!up && isFirstScreen()) { history.back(); return; }      // the first screen: leave the site
+  armBack();                                                    // put our entry back (and the address of this screen)
+  if (up) up.click();
+});
 boot();
-window.addEventListener('hashchange', boot);
+if (!history.state || history.state.wr !== 'guard') { history.replaceState({wr: 'base'}, '', location.href); armBack(); }
+window.addEventListener('hashchange', () => { if (location.href === lastHref) return; lastHref = location.href; boot(); });
 </script>
 </body>
 </html>
