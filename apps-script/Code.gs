@@ -18,8 +18,9 @@ const ADMIN_PASSWORD_INIT = '';
 const SHEET_STUDENTS = '학생';
 const SHEET_LOG = '기록';
 const STUDENT_HEADERS = ['학번', '이름', '가입 시각', '최근 접속', 'salt', '비밀번호 해시',
-  '연습 횟수', '푼 문제', '맞힌 문제', '정답률', '마지막 연습', '자주 틀린 단어', '최근 연습(데이터)', '틀린 단어(데이터)'];
-const S_COLS = STUDENT_HEADERS.length;   // 14
+  '연습 횟수', '푼 문제', '맞힌 문제', '정답률', '마지막 연습', '자주 틀린 단어', '최근 연습(데이터)', '틀린 단어(데이터)', '내 학습 데이터'];
+const S_COLS = STUDENT_HEADERS.length;   // 15
+const MY_COL = 15;                       // 헷갈리는 단어·페이지별 최근 점수·매칭 최고 기록 (어느 브라우저에서나 같게 보이도록)
 const RECENT_KEEP = 30;                  // 학생 줄에 남기는 최근 연습 수
 const WRONG_KEEP = 200;                  // 학생 줄에 남기는 틀린 단어 수
 const LOG_HEADERS = ['시각', '학번', '이름', '학습지', '연습', '점수', '문항 수', '정답률', '틀린 단어', '페이지 ID'];
@@ -51,6 +52,7 @@ function setup() {
   ensureSheet_(ss, SHEET_RACELOG, RACELOG_HEADERS);
   const props = PropertiesService.getScriptProperties();
   if (!props.getProperty('SECRET')) props.setProperty('SECRET', Utilities.getUuid() + Utilities.getUuid());
+  props.setProperty('CACHE_GEN', String(Date.now())); GEN_ = null;   // 시트를 직접 고쳤을 때: 서버가 기억해 둔 것을 모두 버림
   if (ADMIN_PASSWORD_INIT) {
     const salt = newSalt_();
     props.setProperty('ADMIN_SALT', salt);
@@ -80,6 +82,7 @@ function doGet() {
 }
 
 function doPost(e) {
+  GEN_ = null;   // 요청마다 캐시 세대 번호를 새로 읽음
   let req;
   try { req = JSON.parse((e && e.postData && e.postData.contents) || '{}'); }
   catch (err) { return json_({ok: false, error: '요청 형식이 올바르지 않아요.'}); }
@@ -96,6 +99,7 @@ const ACTIONS = {
   register: register_,
   login: login_,
   changePw: changePw_,
+  mySync: mySync_,
   log: log_,
   me: me_,
   adminLogin: adminLogin_,
@@ -147,9 +151,16 @@ function register_(req) {
 
 /* 로그인 확인용 학생 정보를 캐시에 두어, 로그인할 때 시트를 읽거나 쓰지 않게 함 (로그인이 빨라짐).
    비밀번호가 바뀌는 곳(등록·바꾸기·초기화)에서 지우거나 새로 넣음 */
-function stuCacheGet_(sid) { const v = CacheService.getScriptCache().get('stu_' + sid); return v ? JSON.parse(v) : null; }
-function stuCachePut_(sid, c) { CacheService.getScriptCache().put('stu_' + sid, JSON.stringify({name: c.name, salt: c.salt, hash: c.hash}), STU_CACHE_SEC); }
-function stuCacheDrop_(sid) { CacheService.getScriptCache().remove('stu_' + sid); }
+/* 캐시 이름에 '세대' 번호를 붙여 둠. 선생님이 시트를 직접 고친 뒤 setup을 실행하면 번호가 바뀌어
+   서버가 기억해 둔 것(로그인 정보·내 기록·지문·모둠·레이스 목록)을 모두 버리고 시트에서 새로 읽음 */
+let GEN_ = null;
+function gk_(key) {
+  if (GEN_ === null) GEN_ = PropertiesService.getScriptProperties().getProperty('CACHE_GEN') || '0';
+  return key + '@' + GEN_;
+}
+function stuCacheGet_(sid) { const v = CacheService.getScriptCache().get(gk_('stu_' + sid)); return v ? JSON.parse(v) : null; }
+function stuCachePut_(sid, c) { CacheService.getScriptCache().put(gk_('stu_' + sid), JSON.stringify({name: c.name, salt: c.salt, hash: c.hash}), STU_CACHE_SEC); }
+function stuCacheDrop_(sid) { CacheService.getScriptCache().remove(gk_('stu_' + sid)); }
 function stuFromSheet_(sid) {
   const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
   if (!row) return null;
@@ -207,18 +218,21 @@ function log_(req) {
   const sid = checkToken_(req.token, 's');
   const score = Math.max(0, Math.floor(Number(req.score) || 0));
   const total = Math.max(0, Math.floor(Number(req.total) || 0));
-  if (!total) return {ok: true};   // 카드 넘기기처럼 점수가 없는 연습은 남기지 않음
   const wrong = (Array.isArray(req.wrong) ? req.wrong : []).slice(0, 200).map(w => String(w).slice(0, 80)).filter(Boolean);
   const when = req.at ? new Date(req.at) : new Date();
-  const me = addPractice_(sid, {at: (isNaN(when) ? new Date() : when).toISOString(), pageTitle: String(req.pageTitle || '').slice(0, 60), mode: String(req.mode || '').slice(0, 20),
-    score: Math.min(score, total), total: total, page: String(req.page || '').slice(0, 30), wrong: wrong});
-  return {ok: true, me: me};   // 학생 화면이 '내 기록'을 바로 새로 고칠 수 있게 함께 보냄
+  // 카드 넘기기처럼 점수가 없는 연습은 기록하지 않음. 함께 온 내 학습 데이터는 저장함
+  const entry = total ? {at: (isNaN(when) ? new Date() : when).toISOString(), pageTitle: String(req.pageTitle || '').slice(0, 60), mode: String(req.mode || '').slice(0, 20),
+    score: Math.min(score, total), total: total, page: String(req.page || '').slice(0, 30), wrong: wrong} : null;
+  if (!entry && !req.my) return {ok: true};
+  const out = addPractice_(sid, entry, req.my);
+  // 학생 화면이 '내 기록'과 '내 학습 데이터'를 바로 새로 고칠 수 있게 함께 보냄
+  return Object.assign({ok: true}, out.me ? {me: out.me} : {}, out.myPack ? {myPack: out.myPack} : {});
 }
 
 /* 내 기록: 연습할 때마다 서버 캐시에 새로 넣어 두므로 보통은 시트를 열지 않음 */
 function me_(req) {
   const sid = checkToken_(req.token, 's');
-  const c = CacheService.getScriptCache().get('me_' + sid);
+  const c = CacheService.getScriptCache().get(gk_('me_' + sid));
   if (c) return Object.assign({ok: true}, JSON.parse(c));
   const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
   if (!row) fail_('학생 정보를 찾을 수 없어요. 다시 로그인해 주세요.', 'auth');
@@ -226,9 +240,79 @@ function me_(req) {
   return Object.assign({ok: true}, meCachePut_(sid, String(r[1]), rowStats_(r)));
 }
 function meCachePut_(sid, name, st) {
-  const me = {student: {sid: sid, name: name}, stats: {sessions: st.sessions, questions: st.questions, correct: st.correct}, wrong: st.wrong.slice(0, 60)};
-  try { CacheService.getScriptCache().put('me_' + sid, JSON.stringify(me), STU_CACHE_SEC); } catch (e) {}
+  const me = {at: Date.now(), student: {sid: sid, name: name}, stats: {sessions: st.sessions, questions: st.questions, correct: st.correct}, wrong: st.wrong.slice(0, 60)};
+  try { CacheService.getScriptCache().put(gk_('me_' + sid), JSON.stringify(me), STU_CACHE_SEC); } catch (e) {}
   return me;
+}
+
+/* ---------------- 내 학습 데이터: 헷갈리는 단어, 페이지별 최근 점수, 매칭 최고 기록 ----------------
+   브라우저마다 따로 저장하던 것을 학생 줄의 한 칸에 모아 두고, 브라우저가 가진 것과 시각을 비교해 합침.
+   선생님이 그 칸을 지우고 setup을 실행하면 모든 브라우저에서 비워짐 ('epoch'가 달라져 예전 것을 버림) */
+const MY_LIMIT = {items: 600, removed: 300, last: 300, best: 300};
+function sortedObj_(o, limit, by) {
+  let keys = Object.keys(o || {});
+  if (limit && keys.length > limit) keys = keys.sort((a, b) => by(o[b]) - by(o[a])).slice(0, limit);
+  const out = {}; keys.sort().forEach(k => { out[k] = o[k]; }); return out;
+}
+function cleanMy_(m) {
+  m = m && typeof m === 'object' ? m : {};
+  const items = {}, removed = {}, last = {}, best = {};
+  Object.keys(m.items || {}).forEach(k => { const x = m.items[k]; if (k.length <= 120 && x) { items[k] = {added: Number(x.added) || 0}; if (x.star) items[k].star = true; } });
+  Object.keys(m.removed || {}).forEach(k => { if (k.length <= 120) removed[k] = Number(m.removed[k]) || 0; });
+  Object.keys(m.last || {}).forEach(k => { const x = m.last[k]; if (k.length <= 60 && x) last[k] = {m: String(x.m || '').slice(0, 20), s: Number(x.s) || 0, n: Number(x.n) || 0, at: Number(x.at) || 0}; });
+  Object.keys(m.best || {}).forEach(k => { const t = Number(m.best[k]); if (k.length <= 60 && t > 0) best[k] = t; });
+  const out = {items: sortedObj_(items, MY_LIMIT.items, x => x.added), removed: sortedObj_(removed, MY_LIMIT.removed, x => x),
+    last: sortedObj_(last, MY_LIMIT.last, x => x.at), best: sortedObj_(best, MY_LIMIT.best, x => -x)};
+  if (m.epoch) out.epoch = String(m.epoch).slice(0, 20);
+  return out;
+}
+/* 두 쪽을 합침: 넣은 시각과 뺀 시각 중 나중 것이 이김, 최근 점수는 나중 것, 최고 기록은 짧은 것 */
+function mergeMy_(a, b) {
+  const items = {}, removed = {}, last = {}, best = {};
+  const keys = {}; [a.items, b.items, a.removed, b.removed].forEach(o => Object.keys(o || {}).forEach(k => { keys[k] = 1; }));
+  Object.keys(keys).forEach(k => {
+    const ia = (a.items || {})[k], ib = (b.items || {})[k];
+    const add = Math.max(ia ? ia.added : -1, ib ? ib.added : -1), rem = Math.max((a.removed || {})[k] || 0, (b.removed || {})[k] || 0);
+    if ((ia || ib) && add > rem) { items[k] = {added: add}; if ((ia && ia.star) || (ib && ib.star)) items[k].star = true; }
+    else if (rem) removed[k] = rem;
+  });
+  [a.last, b.last].forEach(o => Object.keys(o || {}).forEach(k => { if (!last[k] || o[k].at > last[k].at) last[k] = o[k]; }));
+  [a.best, b.best].forEach(o => Object.keys(o || {}).forEach(k => { if (!best[k] || o[k] < best[k]) best[k] = o[k]; }));
+  return cleanMy_({items: items, removed: removed, last: last, best: best});
+}
+/* 브라우저가 보낸 것과 시트 칸의 것을 합침. epoch가 다르면 선생님이 비운 뒤라서 브라우저의 예전 것을 버림 */
+function myMerge_(cell, cliMy) {
+  let my = cleanMy_(parseJ_(cell, {})), changed = false;
+  if (cliMy) {
+    const cli = cleanMy_(cliMy);
+    if (!cli.epoch || cli.epoch === my.epoch) {
+      const merged = mergeMy_(my, cli);
+      merged.epoch = my.epoch || Utilities.getUuid().slice(0, 8);
+      if (JSON.stringify(merged) !== JSON.stringify(my)) { my = merged; changed = true; }
+    }
+  }
+  return {my: my, changed: changed};
+}
+function myPack_(sid, my) {
+  const v = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(my), Utilities.Charset.UTF_8)).slice(0, 12);
+  try { CacheService.getScriptCache().put(gk_('my_' + sid), JSON.stringify({my: my, v: v}), STU_CACHE_SEC); } catch (e) {}
+  return {my: my, v: v};
+}
+function mySync_(req) {
+  const sid = checkToken_(req.token, 's');
+  if (!req.my) {   // 가져가기만: 서버가 기억해 둔 것이 있으면 시트를 열지 않음
+    const c = CacheService.getScriptCache().get(gk_('my_' + sid));
+    if (c) { const o = JSON.parse(c); return o.v === req.v ? {ok: true, same: true, v: o.v} : {ok: true, my: o.my, v: o.v}; }
+  }
+  return withLock_(() => {
+    const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
+    if (!row) fail_('학생 정보를 찾을 수 없어요. 다시 로그인해 주세요.', 'auth');
+    const mm = myMerge_(sh.getRange(row, MY_COL).getValue(), req.my);
+    if (mm.changed) sh.getRange(row, MY_COL).setValue(JSON.stringify(mm.my));
+    const pack = myPack_(sid, mm.my);
+    if (!req.my && req.v === pack.v) return {ok: true, same: true, v: pack.v};
+    return Object.assign({ok: true}, pack);
+  });
 }
 
 /* ---------------- 관리자 ---------------- */
@@ -305,6 +389,7 @@ function isPractice_(l) { return l.total > 0; }
 
 /* ---------------- 서버가 잠깐 기억해 두는 목록 (지문·모둠·레이스) ---------------- */
 function cached_(key, fn) {
+  key = gk_(key);
   const c = CacheService.getScriptCache();
   try {
     const head = c.get(key);
@@ -327,7 +412,7 @@ function cached_(key, fn) {
   } catch (e) {}
   return v;
 }
-function forget_(key) { try { CacheService.getScriptCache().remove(key); } catch (e) {} }
+function forget_(key) { try { CacheService.getScriptCache().remove(gk_(key)); } catch (e) {} }
 
 
 /* ---------------- 학생당 한 줄: 연습 결과를 학생 줄에 합쳐 둠 ---------------- */
@@ -356,15 +441,23 @@ function statsCells_(st) {
   return [st.sessions, st.questions, st.correct, st.questions ? Math.round(st.correct / st.questions * 100) / 100 : '',
     st.last ? new Date(st.last) : '', asText_(top), JSON.stringify(st.recent), JSON.stringify(st.wrong)];
 }
-function addPractice_(sid, entry) {
+/* 연습 결과와 내 학습 데이터를 학생 줄에 한 번에 씀 (시트를 한 번 읽고, 이어진 칸을 한 번에 씀) */
+function addPractice_(sid, entry, cliMy) {
   return withLock_(() => {
     const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
     if (!row) fail_('학생 정보를 찾을 수 없어요. 다시 로그인해 주세요.', 'auth');
     const r = sh.getRange(row, 1, 1, S_COLS).getValues()[0];
-    const st = mergeStats_(rowStats_(r), [entry]);
-    sh.getRange(row, 7, 1, 8).setValues([statsCells_(st)]);
-    sh.getRange(row, 4).setValue(new Date());   // 최근 접속
-    return meCachePut_(sid, String(r[1]), st);
+    const mm = myMerge_(r[MY_COL - 1], cliMy), out = {};
+    if (entry) {
+      const st = mergeStats_(rowStats_(r), [entry]);
+      sh.getRange(row, 7, 1, 9).setValues([statsCells_(st).concat([mm.changed ? JSON.stringify(mm.my) : r[MY_COL - 1]])]);   // G~O열
+      sh.getRange(row, 4).setValue(new Date());   // 최근 접속
+      out.me = meCachePut_(sid, String(r[1]), st);
+    } else if (mm.changed) {
+      sh.getRange(row, MY_COL).setValue(JSON.stringify(mm.my));
+    }
+    if (cliMy) out.myPack = myPack_(sid, mm.my);
+    return out;
   });
 }
 /* 예전 '기록' 탭(연습 한 번에 한 줄)을 학생 줄에 합치고 탭 이름을 '지난 기록'으로 바꿈 */
