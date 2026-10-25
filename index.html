@@ -2322,25 +2322,40 @@ function route(){
   viewPages();
 }
 /* the phone's or browser's back button moves up one menu inside the site instead of leaving it.
-   One extra history entry sits on top of the page; when back is pressed the browser drops to the entry
-   below, and the site puts the entry back and opens the menu above (the same as the "←" button on screen).
+   The site keeps a few of its own history entries on top of the page and each back press uses one up,
+   opening the menu above (the same as the "←" button on screen). Chrome ignores history entries a page adds
+   on its own, so they are added only when the student taps something, and refilled on every tap.
    On the first screen, back leaves the site as usual. Screens with no way back (a race in progress) stay put. */
 let lastHref = location.href;
+const GUARDS = 12;
 const UP_BUTTONS = ['#back', '#up', '#toRoot', '#toPages', '#tologin', '#home'];
 function upButton(){ for (const sel of UP_BUTTONS) { const b = $app.querySelector(sel); if (b && b.getClientRects().length) return b; } return null; }
 const isFirstScreen = () => !!($app.querySelector('[data-root]') || $app.querySelector('#af') || $app.querySelector('#tf') || $app.querySelector('#trefresh')
   || ($app.querySelector('.pages button.page[data-id]') && !$app.querySelector('#toRoot')));
-function armBack(){ history.pushState({wr: 'guard'}, '', lastHref); }
+const ours = st => st && (st.wr === 'base' || st.wr === 'g');
+let curI = ours(history.state) ? history.state.i || 0 : 0;
+function topUp(){
+  if (!ours(history.state)) { history.replaceState({wr: 'base', i: 0}, '', location.href); curI = 0; }
+  while (curI < GUARDS) { curI++; history.pushState({wr: 'g', i: curI}, '', location.href); }
+}
+document.addEventListener('click', e => { if (e.isTrusted) topUp(); }, true);     // real taps only, not the site's own clicks
+document.addEventListener('keydown', e => { if (e.isTrusted) topUp(); }, true);
 window.addEventListener('popstate', () => {
-  // only a step back onto our base entry is a "back" press; typing a new #address or going forward is ordinary navigation
-  if (!history.state || history.state.wr !== 'base') return;
-  const up = upButton();
-  if (!up && isFirstScreen()) { history.back(); return; }      // the first screen: leave the site
-  armBack();                                                    // put our entry back (and the address of this screen)
-  if (up) up.click();
+  const st = history.state;
+  if (!ours(st)) return;                          // a typed #address: ordinary navigation
+  const i = st.i || 0;
+  history.replaceState(st, '', lastHref);         // keep the address of the screen being shown
+  if (i >= curI) { curI = i; return; }            // forward: nothing to do
+  let steps = curI - i; curI = i;
+  while (steps-- > 0) {
+    const up = upButton();
+    if (up) { up.click(); continue; }
+    if (isFirstScreen()) { history.go(-(i + 1)); return; }   // the first screen: leave the site
+    break;                                         // no way back from here: stay
+  }
 });
 boot();
-if (!history.state || history.state.wr !== 'guard') { history.replaceState({wr: 'base'}, '', location.href); armBack(); }
+if (!ours(history.state)) history.replaceState({wr: 'base', i: 0}, '', location.href);
 window.addEventListener('hashchange', () => { if (location.href === lastHref) return; lastHref = location.href; boot(); });
 </script>
 </body>
