@@ -88,7 +88,7 @@ function doPost(e) {
     if (!fn) return json_({ok: false, error: '알 수 없는 요청이에요.'});
     return json_(fn(req));
   } catch (err) {
-    return json_({ok: false, code: (err && err.code) || '', error: (err && err.userMessage) || '서버에서 문제가 생겼어요. 잠시 후 다시 해 주세요.', detail: String(err && err.message || err)});
+    return json_({ok: false, code: (err && err.code) || '', unexpected: !(err && err.userMessage), error: (err && err.userMessage) || '서버에서 문제가 생겼어요. 잠시 후 다시 해 주세요.', detail: String(err && err.message || err)});
   }
 }
 
@@ -853,7 +853,8 @@ function cleanPin_(v) {   // 새로 정하는 학생 비밀번호: 숫자 5자�
 function withLock_(fn) {
   const lock = LockService.getScriptLock();
   if (lock.hasLock()) return fn();
-  lock.waitLock(20000);
+  // 오래 기다려도 차례가 안 오면 아무것도 바꾸지 않고 'busy'로 알려 줌 (학생 화면이 잠시 뒤 다시 보냄)
+  if (!lock.tryLock(20000)) fail_('지금 쓰는 사람이 많아요. 잠시 후 다시 해 주세요.', 'busy');
   try { return fn(); } finally { lock.releaseLock(); }
 }
 function fail_(msg, code) { const e = new Error(msg); e.userMessage = msg; e.code = code; throw e; }
