@@ -107,7 +107,7 @@ window.WORD_PAGES = [
       ["host", "(바이러스가 기생하는) 숙주", ""],
       ["egg", "난자", ""],
       ["sperm", "정자", ""],
-      ["pass ~ down to …", "~을 …에게 물려주다", ""],
+      ["pass A down to B", "A를 B에게 물려주다", ""],
       ["offspring", "자식, 새끼", ""],
       ["insertion", "삽입, 끼워 넣기", ""],
       ["genome", "유전체, 게놈", ""],
