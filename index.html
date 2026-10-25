@@ -509,15 +509,30 @@ const LOGIN = ACCOUNTS && CFG.requireLogin !== false;  // login required before 
 let AUTH = store.get('wordroom-auth', null);           // {token, sid, name}
 let ADMIN = store.get('wordroom-admin', null);         // {token, exp}
 
+/* when many students press at once, Apps Script can refuse a request or the sheet can be busy.
+   Such requests are sent again after a short, slightly random wait (so they don't all come back together).
+   Requests that only read, or are safe to repeat, are also retried after a dropped connection;
+   requests that save something are retried only when the server clearly did not run them. */
+const SAFE_RETRY = new Set(['login', 'me', 'sets', 'teams', 'teamLogin', 'races', 'admin', 'adminLogin', 'adminStudent', 'adminRaces', 'adminBoard', 'raceProgress']);
+const RETRY_WAIT = [700, 1800];
 async function api(action, data){
   if (!API) throw {error: 'config.js에 서버 주소(apiUrl)가 아직 없어요.'};
-  let res;
-  try {
-    const r = await fetch(API, {method: 'POST', keepalive: action === 'raceProgress', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body: JSON.stringify(Object.assign({action}, data || {}))});
-    res = await r.json();
-  } catch(e){ throw {error: '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.', offline: true}; }
-  if (!res.ok) throw res;
-  return res;
+  const body = JSON.stringify(Object.assign({action}, data || {}));
+  for (let attempt = 0; ; attempt++) {
+    let res, notRun = false, unsure = false;
+    try {
+      const r = await fetch(API, {method: 'POST', keepalive: action === 'raceProgress', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body});
+      try { res = await r.json(); } catch(e){ notRun = true; }   // an error page instead of an answer: the request did not run
+    } catch(e){ unsure = true; }                                // the connection dropped: it may or may not have run
+    if (res && res.ok) return res;
+    if (res && res.code === 'busy') notRun = true;
+    const serverError = !!(res && res.unexpected);   // an unexpected server error, not a message meant for the user
+    const again = attempt < RETRY_WAIT.length && (notRun || ((unsure || serverError) && SAFE_RETRY.has(action)));
+    if (again) { await new Promise(ok => setTimeout(ok, RETRY_WAIT[attempt] + Math.random() * 500)); continue; }
+    if (res && !notRun) throw res;
+    if (notRun) throw {error: '지금 접속한 사람이 많아요. 잠시 후 다시 해 주세요.', offline: true};
+    throw {error: '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.', offline: true};
+  }
 }
 function setAuth(a){ AUTH = a; store.set('wordroom-auth', a); viewHome.synced = false; }
 function logout(){ if (AUTH) store.set('wordroom-me-' + AUTH.sid, null); setAuth(null); LOGIN ? viewLogin(route) : route(); }   // a shared device keeps nothing of the last student
