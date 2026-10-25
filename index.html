@@ -513,7 +513,7 @@ let ADMIN = store.get('wordroom-admin', null);         // {token, exp}
    Such requests are sent again after a short, slightly random wait (so they don't all come back together).
    Requests that only read, or are safe to repeat, are also retried after a dropped connection;
    requests that save something are retried only when the server clearly did not run them. */
-const SAFE_RETRY = new Set(['login', 'me', 'sets', 'teams', 'teamLogin', 'races', 'admin', 'adminLogin', 'adminStudent', 'adminRaces', 'adminBoard', 'raceProgress']);
+const SAFE_RETRY = new Set(['login', 'me', 'sets', 'teams', 'teamLogin', 'races', 'admin', 'adminLogin', 'adminStudent', 'adminRaces', 'adminBoard', 'raceProgress', 'mySync']);   // mySync merges by time, so sending it twice does no harm
 const RETRY_WAIT = [700, 1800];
 async function api(action, data){
   if (!API) throw {error: 'config.js에 서버 주소(apiUrl)가 아직 없어요.'};
@@ -521,7 +521,7 @@ async function api(action, data){
   for (let attempt = 0; ; attempt++) {
     let res, notRun = false, unsure = false;
     try {
-      const r = await fetch(API, {method: 'POST', keepalive: action === 'raceProgress', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body});
+      const r = await fetch(API, {method: 'POST', keepalive: action === 'raceProgress' || action === 'mySync', headers: {'Content-Type': 'text/plain;charset=utf-8'}, body});
       try { res = await r.json(); } catch(e){ notRun = true; }   // an error page instead of an answer: the request did not run
     } catch(e){ unsure = true; }                                // the connection dropped: it may or may not have run
     if (res && res.ok) return res;
@@ -534,7 +534,7 @@ async function api(action, data){
     throw {error: '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.', offline: true};
   }
 }
-function setAuth(a){ AUTH = a; store.set('wordroom-auth', a); viewHome.synced = false; }
+function setAuth(a){ AUTH = a; store.set('wordroom-auth', a); viewHome.synced = false; MY = null; if (a) setTimeout(syncMy, 0); }
 function logout(){ if (AUTH) store.set('wordroom-me-' + AUTH.sid, null); setAuth(null); LOGIN ? viewLogin(route) : route(); }   // a shared device keeps nothing of the last student
 function onAuthError(e, retry){
   if (e && e.code === 'auth') { setAuth(null); toast('다시 로그인해 주세요'); viewLogin(retry || route); return true; }
@@ -548,12 +548,13 @@ async function sendLog(entry){
   const q = store.get(QKEY, []); q.push(Object.assign({token: AUTH.token, sid: AUTH.sid, at: new Date().toISOString()}, entry)); store.set(QKEY, q.slice(-100));
   return flushQueue();
 }
-/* the saved copy of 내 기록: replaced only by numbers at least as new (more practice sessions) */
+/* the saved copy of 내 기록: replaced by any server copy made at the same time or later
+   (so a teacher's change in the sheet comes through, but an older answer never overwrites a newer one) */
 let ME_LIVE = null;
 function keepMe(me){
   if (!AUTH || !me || !me.stats || (me.student && me.student.sid !== AUTH.sid)) return;
   const ck = 'wordroom-me-' + AUTH.sid, cur = store.get(ck, null);
-  if (cur && cur.stats && cur.stats.sessions > me.stats.sessions) return;
+  if (cur && cur.at && me.at && cur.at > me.at) return;
   store.set(ck, me); if (ME_LIVE) ME_LIVE(me);
 }
 let flushing = null;
@@ -565,8 +566,9 @@ function flushQueue(){
     while (q.length) {
       const item = q[0];
       if (!AUTH || item.sid !== AUTH.sid) { q.shift(); store.set(QKEY, q); continue; }   // another student's leftover on a shared device
-      try { const r = await api('log', Object.assign({}, item, {token: AUTH.token})); q.shift(); store.set(QKEY, q); if (r && r.me) keepMe(r.me); }
-      catch(e){ if (e.code === 'auth') { q.shift(); store.set(QKEY, q); status = 'auth'; } else { status = 'queued'; break; } }
+      const my = takeMyForSend();   // study-data changes (confusing words, last score) go with the result: one request, one sheet write
+      try { const r = await api('log', Object.assign({}, item, {token: AUTH.token}, my ? {my} : {})); q.shift(); store.set(QKEY, q); if (r && r.me) keepMe(r.me); if (r && r.myPack) applyMy(r.myPack, item.sid); }
+      catch(e){ if (my) myLater(); if (e.code === 'auth') { q.shift(); store.set(QKEY, q); status = 'auth'; } else { status = 'queued'; break; } }
     }
     return status;
   })().finally(() => { flushing = null; });
@@ -1072,7 +1074,7 @@ function viewRoot(){
   if (gate()) return;
   SET = null; origin = 'root'; SCOPE = 'all';
   if (ACCOUNTS && !SETS.length && setsLoaded && hasBook()) return viewPages();   // nothing registered yet: straight to 교과서
-  const last = id => { const r = store.get(lastKey(id), null); return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
+  const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
   $app.innerHTML = `${header()}${userBar()}${speechBanner()}
   <div class="setcard"><div class="eyebrow">단어 연습</div><h1>지문을 골라요</h1><div class="meta">연습할 지문을 누르면 단어 연습 메뉴가 열려요.</div></div>
   <div class="pages">
@@ -1752,7 +1754,7 @@ function bindAdminNavStop(){ $app.querySelectorAll('[data-anav]').forEach(b => b
 function viewPages(){
   if (gate()) return;
   SET = null; origin = 'pages'; SCOPE = 'all';
-  const last = id => { const r = store.get(lastKey(id), null); return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
+  const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
   $app.innerHTML = `${header(hasRoot() ? '<button class="link" id="toRoot">← 지문 고르기</button>' : '')}${userBar()}${speechBanner()}
   <div class="setcard"><div class="eyebrow">${esc(BOOK)}</div><h1>학습지 페이지를 골라요</h1><div class="meta">${countLine(ALL)} · ${PAGES.length}개 구간</div></div>
   <div class="pages">
@@ -1765,15 +1767,102 @@ function viewPages(){
   scrollTo(0, 0);
 }
 
-/* ---------- confusing words: missed in a quiz or starred on a card; kept per student, merged with the server's record ---------- */
+/* ---------- my study data: confusing words (missed in a quiz or starred), last score per page, best matching time.
+   Kept on the server in the student's row so every browser shows the same; this browser keeps a copy and
+   sends its changes a moment later. Both sides merge by time: the later of "put in" and "taken out" wins. ---------- */
 const wkey = w => (w.pid || (SET && SET.id) || '') + '|' + w[0];
-const confKey = () => 'wordroom-confused-' + (AUTH ? AUTH.sid : 'guest');
-function confLoad(){ const c = store.get(confKey(), null); return c && c.items ? c : {items: {}, removed: {}}; }
-function confSave(c){ store.set(confKey(), c); }
+const confKey = () => 'wordroom-confused-' + (AUTH ? AUTH.sid : 'guest');   // older versions kept the list here
+const myKey = () => 'wordroom-my-' + (AUTH ? AUTH.sid : 'guest');
+let MY = null, MY_SID = null, myDirty = false, mySyncT = null, mySyncing = null;
+function myLoad(){
+  const sid = AUTH ? AUTH.sid : 'guest';
+  if (MY && MY_SID === sid) return MY;
+  MY_SID = sid; MY = store.get(myKey(), null);
+  if (!MY) {   // first time with this version: bring along what this browser already had
+    MY = {items: {}, removed: {}, last: {}, best: {}};
+    const old = store.get(confKey(), null);
+    if (old && old.items) { MY.items = old.items; MY.removed = old.removed || {}; }
+    try {
+      const pre = 'wordroom-last-' + (AUTH ? AUTH.sid + '-' : '');
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(pre)) { const v = store.get(k, null); if (v && v.m) MY.last[k.slice(pre.length)] = Object.assign({at: 0}, v); } }
+    } catch(e){}
+    myDirty = !!(Object.keys(MY.items).length || Object.keys(MY.last).length);
+    store.set(myKey(), MY);
+  }
+  ['items', 'removed', 'last', 'best'].forEach(k => { MY[k] = MY[k] || {}; });
+  return MY;
+}
+function mySave(){ store.set(myKey(), MY); }
+/* every change (a miss, a star, "외웠어요") is sent right away. If one is already on its way, the next
+   goes the moment it comes back, with everything that changed meanwhile, so requests never pile up */
+const syncIfDirty = () => { if (myDirty) syncMy(); };
+/* closing the tab or switching apps: send anything not yet sent */
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') syncIfDirty(); });
+function myChanged(){ mySave(); myDirty = true; clearTimeout(mySyncT); if (mySyncing) mySyncing.again = true; else mySyncT = setTimeout(syncIfDirty, 0); }
+const confLoad = () => myLoad();
+function confSave(){ myChanged(); }
+/* same merge as the server's: the later of added/removed wins, the later score, the shorter time */
+function mergeMy(a, b){
+  const out = {items: {}, removed: {}, last: {}, best: {}}, keys = new Set();
+  [a.items, b.items, a.removed, b.removed].forEach(o => Object.keys(o || {}).forEach(k => keys.add(k)));
+  keys.forEach(k => {
+    const ia = (a.items || {})[k], ib = (b.items || {})[k];
+    const add = Math.max(ia ? ia.added : -1, ib ? ib.added : -1), rem = Math.max((a.removed || {})[k] || 0, (b.removed || {})[k] || 0);
+    if ((ia || ib) && add > rem) { out.items[k] = {added: add}; if ((ia && ia.star) || (ib && ib.star)) out.items[k].star = true; }
+    else if (rem) out.removed[k] = rem;
+  });
+  [a.last, b.last].forEach(o => Object.keys(o || {}).forEach(k => { if (!out.last[k] || o[k].at > out.last[k].at) out.last[k] = o[k]; }));
+  [a.best, b.best].forEach(o => Object.keys(o || {}).forEach(k => { if (!out.best[k] || o[k] < out.best[k]) out.best[k] = o[k]; }));
+  return out;
+}
+const myCount = m => Object.keys(m.items).length + ':' + Object.keys(m.removed).length + ':' + JSON.stringify(m.last) + JSON.stringify(m.best);
+/* the changes waiting to be sent, taken once so they ride along with whichever request goes first */
+function takeMyForSend(){
+  if (!myDirty || !AUTH) return null;
+  const m = myLoad(); myDirty = false; clearTimeout(mySyncT);
+  return {items: m.items, removed: m.removed, last: m.last, best: m.best, epoch: m.epoch};
+}
+function myLater(){ myDirty = true; clearTimeout(mySyncT); mySyncT = setTimeout(syncIfDirty, 5000); }   // after a failed send: try again a little later
+/* take in what the server sent back (from a sync or from a saved practice result) */
+function applyMy(pack, sid){
+  if (!pack || !pack.my || !AUTH || AUTH.sid !== sid) return false;
+  const cur = myLoad(), before = myCount(cur);
+  let next;
+  if (cur.epoch && cur.epoch !== (pack.my.epoch || '')) { next = pack.my; myDirty = false; }   // the teacher cleared it: this browser's old copy goes
+  else next = mergeMy(pack.my, cur);   // keeps any change made while this was on its way (that change is already marked to be sent)
+  next.epoch = pack.my.epoch; next.v = pack.v;
+  MY = next; mySave();
+  const changed = myCount(next) !== before;
+  if (changed) myRefresh();
+  return changed;
+}
+function syncMy(){
+  if (!ACCOUNTS || !AUTH || !API) return Promise.resolve(false);
+  if (mySyncing) { mySyncing.again = true; return mySyncing; }
+  const sid = AUTH.sid, my = takeMyForSend();
+  const run = (async () => {
+    try {
+      const r = await api('mySync', {token: AUTH.token, my, v: myLoad().v || ''});
+      return r.same ? false : applyMy(r, sid);
+    } catch(e){ run.failed = true; if (my) myLater(); onAuthErrorQuiet(e); return false; }
+  })();
+  mySyncing = run;
+  run.finally(() => { mySyncing = null; if (myDirty && !run.failed) syncMy(); });   // something changed meanwhile: send it now
+  return run;
+}
+/* after new data arrives, update what is on screen without moving the student away */
+function myRefresh(){
+  const cn = document.getElementById('confn'); if (cn && SET) cn.textContent = confIn(SET.w).length;
+  const y = scrollY;
+  if ($app.querySelector('[data-root]')) viewRoot();
+  else if ($app.querySelector('.pages button.page[data-id]')) viewPages();
+  else return;
+  scrollTo(0, y);
+}
 function confAdd(words, star){
   if (!words.length) return;
   const c = confLoad(), now = Date.now();
-  words.forEach(w => { const k = wkey(w); c.items[k] = Object.assign(c.items[k] || {added: now}, star ? {star: true} : {}); delete c.removed[k]; });
+  words.forEach(w => { const k = wkey(w); c.items[k] = Object.assign(c.items[k] || {}, {added: now}, star ? {star: true} : {}); delete c.removed[k]; });
   confSave(c);
 }
 function confRemove(w){ const c = confLoad(), k = wkey(w); delete c.items[k]; c.removed[k] = Date.now(); confSave(c); }
@@ -1791,20 +1880,6 @@ const bindStar = w => { const b = $app.querySelector('.card [data-star]'); if (b
 const markStar = w => { confAdd([w]); const b = $app.querySelector('.card [data-star]'); if (b) { b.classList.add('on'); b.setAttribute('aria-pressed', true); b.innerHTML = STAR(true); } };
 let RUN_T = 0;   // when the current quiz started: a word taken out during it is not put back at the end
 const confIn = words => { const c = confLoad(); return words.filter(w => c.items[wkey(w)]); };
-/* pull wrong answers saved on the server so the list follows the student to another device */
-async function confSync(){
-  if (!ACCOUNTS || !AUTH) return false;
-  try {
-    const r = await api('me', {token: AUTH.token});
-    const c = confLoad(); let added = 0;
-    r.wrong.forEach(x => {
-      const w = lookupWord(x.en, x.page); if (!w[1]) return;
-      const k = wkey(w), t = Date.parse(x.last) || 0;
-      if (!c.items[k] && t > (c.removed[k] || 0)) { c.items[k] = {added: t}; added++; }
-    });
-    confSave(c); return added > 0;
-  } catch(e){ onAuthErrorQuiet(e); return false; }
-}
 function onAuthErrorQuiet(e){ if (e && e.code === 'auth') setAuth(null); }
 
 /* ---------- set home ---------- */
@@ -1839,7 +1914,7 @@ function viewHome(){
   bindUserBar();
   const tp = document.getElementById('toPages'); if (tp) tp.onclick = viewPages;
   scrollTo(0, 0);
-  if (ACCOUNTS && AUTH && !viewHome.synced) { viewHome.synced = true; confSync().then(ch => { if (ch && document.getElementById('confn')) viewHome(); }); }
+  if (ACCOUNTS && AUTH && !viewHome.synced) { viewHome.synced = true; syncMy(); }
 }
 const back = () => '<button class="link" id="back">← 연습 고르기</button>';
 function bindBack(){ document.getElementById('back').onclick = () => { stopTimers(); viewHome(); }; }
@@ -2029,7 +2104,7 @@ function viewMatch(words){
   for (const w of shuffle(words)) { if (seenEn.has(w[0]) || seenKo.has(w[1])) continue; seenEn.add(w[0]); seenKo.add(w[1]); pool.push(w); if (pool.length === 8) break; }
   const tiles = shuffle(pool.flatMap((w, n) => [{n, t: w[0], en: true}, {n, t: w[1], en: false}]));
   let sel = null, matched = 0, penalty = 0, misses = 0, start = 0, done = false; const missed = new Set();
-  const bestKey = 'wordroom-match-best-' + SET.id + '-' + pool.length;
+  const bestKey = SET.id + '-' + pool.length;
   $app.innerHTML = `${header(back())}
   <div class="row" style="justify-content:space-between"><div class="count">${esc(SET.t)} · 매칭 게임</div><div class="timer" id="tm">0.0초</div></div>
   <div class="match" id="mg" style="--cols:${pool.length > 4 ? 4 : 2}">
@@ -2061,8 +2136,8 @@ function viewMatch(words){
   };
   function finishGame(){
     done = true; const t = elapsed(); tm.textContent = t.toFixed(1) + '초';
-    const best = store.get(bestKey, null), isBest = best === null || t < best;
-    if (isBest) store.set(bestKey, t);
+    const bestT = myLoad().best[bestKey], best = bestT === undefined ? null : bestT, isBest = best === null || t < best;
+    if (isBest) { myLoad().best[bestKey] = Math.round(t * 10) / 10; myChanged(); }
     const miss = [...missed].map(n => pool[n]);
     confAdd(miss);
     if (ACCOUNTS && AUTH) sendLog({page: SET.id, pageTitle: SET.t, mode: '매칭 ' + t.toFixed(1) + '초', score: pool.length - miss.length, total: pool.length, wrong: miss.map(w => w[0])});
@@ -2097,7 +2172,7 @@ function viewResult(mode, right, total, miss){
   stopTimers();
   const M = MODES[mode];
   { const c = confLoad(); confAdd(miss.filter(w => !((c.removed[wkey(w)] || 0) >= RUN_T))); }
-  if (SCOPE === 'all' && total === SET.w.length && SET.id !== 'custom' && SET.id !== 'mywrong') store.set(lastKey(SET.id), {m: M.name, s: right, n: total});
+  if (SCOPE === 'all' && total === SET.w.length && SET.id !== 'custom' && SET.id !== 'mywrong') { myLoad().last[SET.id] = {m: M.name, s: right, n: total, at: Date.now()}; myChanged(); }
   const logged = ACCOUNTS && AUTH ? sendLog({page: SET.id, pageTitle: SET.t, mode: M.name, score: right, total, wrong: miss.map(w => w[0])}) : null;
   $app.innerHTML = `${header(back())}
   <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
@@ -2207,7 +2282,7 @@ function boot(){
   if (h === 'team' && !TEAM) return viewLogin(route, 'team');
   if (TEAM) return viewTeamHome();
   if (LOGIN && !AUTH) return viewLogin(route);
-  flushQueue();
+  flushQueue(); if (AUTH && !boot.synced) { boot.synced = true; syncMy(); }
   route();
 }
 function route(){
