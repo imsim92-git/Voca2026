@@ -384,6 +384,10 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .link.center{align-self:center;margin-top:2px}
 
 
+.page.starall{background:var(--surface);border:2px solid var(--mark);min-height:84px}
+.page.starall:disabled{opacity:.55;border-style:dashed;transform:none}
+.wl .src{font-size:12px;color:var(--muted)}
+
 </style>
 </head>
 <body>
@@ -706,7 +710,7 @@ function lookupWord(en, page){
   const p = PAGES.find(p => p.id === page) || SETS.find(s => s.id === page);
   return (p && p.w.find(w => w[0] === en)) || ALL.w.find(w => w[0] === en) || SETS.flatMap(s => s.w).find(w => w[0] === en) || [en, '', ''];
 }
-const pageName = id => id === 'all' ? '전체' : id === 'mywrong' ? '내 오답' : id === 'custom' ? '단어장' : ((PAGES.find(p => p.id === id) || SETS.find(s => s.id === id) || {}).t || id || '').replace('학습지 ', '');
+const pageName = id => id === 'all' ? '전체' : id === 'mywrong' ? '내 오답' : id === 'allconf' ? '헷갈리는 단어 전체' : id === 'custom' ? '단어장' : ((PAGES.find(p => p.id === id) || SETS.find(s => s.id === id) || {}).t || id || '').replace('학습지 ', '');
 
 async function viewMe(){
   if (TEAM) return viewTeamHome();
@@ -1080,6 +1084,7 @@ function viewRoot(){
   <div class="pages">
     ${hasBook() ? `<button class="page" data-root="book"><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
     ${SETS.map((s, i) => `<button class="page" data-root="${esc(s.id)}"><b>${esc(s.t)}</b><span class="pc">${countLine(s)}</span>${last(s.id)}</button>`).join('')}
+    ${ACCOUNTS && AUTH && SETS.length ? confAllTile() : ''}
     ${!setsLoaded && !SETS.length ? '<div class="panel empty" style="grid-column:1/-1">지문 목록을 불러오는 중…</div>' : ''}
     ${!hasBook() && setsLoaded && !SETS.length ? '<div class="panel empty" style="grid-column:1/-1">아직 연습할 지문이 없어요.</div>' : ''}
   </div>`;
@@ -1087,6 +1092,7 @@ function viewRoot(){
     if (b.dataset.root === 'book') return viewPages();
     SET = SETS.find(s => s.id === b.dataset.root); origin = 'root'; viewHome();
   });
+  bindConfAll('root');
   bindUserBar();
   scrollTo(0, 0);
 }
@@ -1850,6 +1856,18 @@ function syncMy(){
   run.finally(() => { mySyncing = null; if (myDirty && !run.failed) syncMy(); });   // something changed meanwhile: send it now
   return run;
 }
+/* every confusing word from the textbook and all passages, for practising them together */
+function allConfWords(){
+  const seen = new Set(), out = [];
+  [...PAGES.flatMap(p => p.w), ...SETS.flatMap(s => s.w)].forEach(w => { const k = wkey(w); if (!seen.has(k) && confHas(w)) { seen.add(k); out.push(w); } });
+  return out;
+}
+const confAllTile = () => { const n = allConfWords().length;
+  return `<button class="page wide starall" data-allconf ${n ? '' : 'disabled'}><b>헷갈리는 단어 전체 보기</b><span class="pc">${n ? n + '개 단어를 한꺼번에 연습' : '아직 헷갈리는 단어가 없어요'}</span></button>`; };
+function bindConfAll(from){
+  const b = $app.querySelector('[data-allconf]');
+  if (b) b.onclick = () => { SET = {id: 'allconf', t: '헷갈리는 단어 전체 보기', w: allConfWords()}; origin = from; SCOPE = 'conf'; viewHome(); };
+}
 /* after new data arrives, update what is on screen without moving the student away */
 function myRefresh(){
   const cn = document.getElementById('confn'); if (cn && SET) cn.textContent = confIn(SET.w).length;
@@ -1892,10 +1910,10 @@ function viewHome(){
   const MODE_C = {list: 1, cards: 2, choice: 3, pick: 4, spell: 5, match: 6};
   const tile = (go, title, sub, min) => `<button class="mode" data-go="${go}" ${words.length < (min || 1) ? 'disabled' : ''}><b>${title}</b><span>${sub}</span></button>`;
   $app.innerHTML = `${header(backTo)}${userBar()}${speechBanner()}
-  <div class="setcard"><div class="eyebrow">${SET.kind === 'passage' ? '지문' : SET.id === 'custom' ? '단어장' : esc(BOOK)}</div><h1>${esc(SET.t)}</h1><div class="meta">${countLine(SET)}</div></div>
-  <div class="tabs" role="tablist" aria-label="연습할 단어">
+  <div class="setcard"><div class="eyebrow">${SET.id === 'allconf' ? '모든 지문' : SET.kind === 'passage' ? '지문' : SET.id === 'custom' ? '단어장' : esc(BOOK)}</div><h1>${esc(SET.t)}</h1><div class="meta">${SET.id === 'allconf' ? `<span id="confn">${conf.length}</span>개 단어` : countLine(SET)}</div></div>
+  <div class="tabs" role="tablist" aria-label="연습할 단어" ${SET.id === 'allconf' ? 'hidden' : ''}>
     <button role="tab" class="tab" data-scope="all" aria-selected="${SCOPE === 'all'}">전체 <span class="tc">${SET.w.length}</span></button>
-    <button role="tab" class="tab" data-scope="conf" aria-selected="${SCOPE === 'conf'}">헷갈리는 단어 <span class="tc" id="confn">${conf.length}</span></button>
+    <button role="tab" class="tab" data-scope="conf" aria-selected="${SCOPE === 'conf'}">헷갈리는 단어 <span class="tc" ${SET.id === 'allconf' ? '' : 'id="confn"'}>${conf.length}</span></button>
   </div>
   ${SCOPE === 'conf' && !words.length ? `<div class="panel empty">아직 헷갈리는 단어가 없어요. 퀴즈에서 틀린 단어와 카드에서 ☆을 누른 단어가 여기에 모여요.</div>` : ''}
   <div class="modes">
@@ -1928,7 +1946,7 @@ function viewList(words){
   if (!conf && SET.heads) words = SET.heads;
   $app.innerHTML = `<div class="stickybar">${header(back())}
     <div class="row tools"><button class="btn ghost small" id="hk">뜻 가리기</button><button class="btn ghost small" id="sh">순서 섞기</button><button class="btn ghost small" id="od">원래 순서</button><span class="count" id="wn"></span></div></div>
-  <h2>${esc(SET.t)} · ${conf ? '헷갈리는 단어' : '단어 목록'}</h2>
+  <h2>${SET.id === 'allconf' ? esc(SET.t) : `${esc(SET.t)} · ${conf ? '헷갈리는 단어' : '단어 목록'}`}</h2>
   <p class="help" style="margin:0">${conf ? '다 외운 단어는 "외웠어요"를 눌러 목록에서 빼세요. 다시 틀리면 또 들어와요.' : '뜻을 가린 상태에서 단어를 누르면 뜻이 보여요. ☆을 누르면 헷갈리는 단어에 들어가요.'}</p>
   <div class="panel"><ul class="wl${conf ? ' conf' : ''}" id="wl"></ul></div>
   <div class="listfoot" id="lfoot" hidden><button class="btn backbig" id="back2">← 연습 고르기로 돌아가기</button><button class="btn ghost" id="totop">↑ 맨 위로</button></div>`;
@@ -1937,7 +1955,7 @@ function viewList(words){
   document.getElementById('totop').onclick = () => scrollTo({top: 0, behavior: 'smooth'});
   const wl = document.getElementById('wl');
   let shown = words;
-  const draw = list => { shown = list; document.getElementById('wn').textContent = list.length + '개'; wl.innerHTML = list.map((w, i) => conf ? wordRow(w).replace('</li>', `<button class="link done" data-done="${i}">외웠어요</button></li>`) : wordRow(w).replace('</li>', starBtn(w, 'inl').replace('data-star', `data-star="${i}"`) + '</li>')).join('') || '<li class="muted">목록이 비었어요.</li>'; };
+  const draw = list => { shown = list; document.getElementById('wn').textContent = list.length + '개'; wl.innerHTML = list.map((w, i) => conf ? wordRow(w).replace('</li>', `${SET.id === 'allconf' ? `<span class="note src">${esc(pageName(w.pid))}</span>` : ''}<button class="link done" data-done="${i}">외웠어요</button></li>`) : wordRow(w).replace('</li>', starBtn(w, 'inl').replace('data-star', `data-star="${i}"`) + '</li>')).join('') || '<li class="muted">목록이 비었어요.</li>'; };
   draw(words);
   /* the bottom buttons only appear when the list runs well past one screen */
   const foot = document.getElementById('lfoot');
@@ -2038,7 +2056,9 @@ function viewQuiz(words, mode){
   const draw = () => {
     if (i >= deck.length) return viewResult(mode, right, deck.length, wrong);
     const w = deck[i];
-    const others = shuffle(SET.w.filter(x => x[1] !== w[1] && x[0] !== w[0]));
+    // wrong choices come from every word when practising the combined confusing list, which can be short
+    const pool = SET.id === 'allconf' ? [...PAGES.flatMap(p => p.w), ...SETS.flatMap(s => s.w)] : SET.w;
+    const others = shuffle(pool.filter(x => x[1] && x[1] !== w[1] && x[0] !== w[0]));
     const seen = new Set([toKo ? w[1] : w[0]]), pick = [];
     for (const x of others) { const t = toKo ? x[1] : x[0]; if (!seen.has(t)) { seen.add(t); pick.push(t); } if (pick.length === 3) break; }
     const answer = toKo ? w[1] : w[0], opts = shuffle([answer, ...pick]);
@@ -2172,7 +2192,7 @@ function viewResult(mode, right, total, miss){
   stopTimers();
   const M = MODES[mode];
   { const c = confLoad(); confAdd(miss.filter(w => !((c.removed[wkey(w)] || 0) >= RUN_T))); }
-  if (SCOPE === 'all' && total === SET.w.length && SET.id !== 'custom' && SET.id !== 'mywrong') { myLoad().last[SET.id] = {m: M.name, s: right, n: total, at: Date.now()}; myChanged(); }
+  if (SCOPE === 'all' && total === SET.w.length && SET.id !== 'custom' && SET.id !== 'mywrong' && SET.id !== 'allconf') { myLoad().last[SET.id] = {m: M.name, s: right, n: total, at: Date.now()}; myChanged(); }
   const logged = ACCOUNTS && AUTH ? sendLog({page: SET.id, pageTitle: SET.t, mode: M.name, score: right, total, wrong: miss.map(w => w[0])}) : null;
   $app.innerHTML = `${header(back())}
   <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
