@@ -6,7 +6,7 @@
  *                연습 횟수·정답률·마지막 연습·자주 틀린 단어·최근 연습 30회
  *  - '지난 기록' 시트: 예전 방식(연습 한 번에 한 줄)으로 쌓였던 기록. 더는 늘어나지 않음
  *  - '지문' 시트: 선생님이 등록한 지문 목록(교과서, 모의고사 1번 …)과 그 단어
- *  - '모둠', '레이스', '레이스 기록' 시트: 반·모둠 목록, 모둠 레이스 설정과 기록
+ *  - '모둠', '레이스', '레이스 기록' 시트: 반·모둠 목록, 레이스(모둠·개인, 단어·Quiz) 설정과 기록
  *
  * 단어표 사진 인식을 쓰려면: 편집기 왼쪽 '서비스' 옆 + → Drive API → 추가 (안내서 참고)
  *
@@ -29,7 +29,7 @@ const SET_HEADERS = ['ID', '이름', '순서', '단어 수', '단어(JSON)', '�
 const SHEET_TEAMS = '모둠';
 const TEAM_HEADERS = ['반', '모둠', '순서'];
 const SHEET_RACES = '레이스';
-const RACE_HEADERS = ['ID', '이름', '반(JSON)', '지문(JSON)', '설정(JSON)', '상태', '만든 시각', '고친 시각'];
+const RACE_HEADERS = ['ID', '이름', '반(JSON)', '지문(JSON)', '설정(JSON)', '상태', '만든 시각', '고친 시각', '문제(JSON)'];
 const SHEET_RACELOG = '레이스 기록';
 const RACELOG_HEADERS = ['시작 시각', '레이스 ID', '레이스', '반', '모둠', '상태', '맞힌 수', '문항 수', '기록(초)', '벌점(초)', '틀린 수', '틀린 단어', '마지막 갱신'];
 const TOKEN_DAYS = 180;          // 학생 로그인 유지 기간
@@ -48,7 +48,7 @@ function setup() {
   st.getRange(1, 1, 1, S_COLS).setValues([STUDENT_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
   ensureSheet_(ss, SHEET_SETS, SET_HEADERS);
   ensureSheet_(ss, SHEET_TEAMS, TEAM_HEADERS);
-  ensureSheet_(ss, SHEET_RACES, RACE_HEADERS);
+  ensureSheet_(ss, SHEET_RACES, RACE_HEADERS).getRange(1, 1, 1, RACE_HEADERS.length).setValues([RACE_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
   ensureSheet_(ss, SHEET_RACELOG, RACELOG_HEADERS);
   const props = PropertiesService.getScriptProperties();
   if (!props.getProperty('SECRET')) props.setProperty('SECRET', Utilities.getUuid() + Utilities.getUuid());
@@ -656,34 +656,86 @@ function teamOf_(token) {
   return {cls: id.slice(0, k), team: id.slice(k + 1)};
 }
 
-/* ---------------- 레이스 (선생님이 지문을 묶어 만듦) ---------------- */
+/* ---------------- 레이스 (선생님이 만듦: 모둠 레이스 또는 개인 레이스, 단어 레이스 또는 Quiz) ----------------
+   '상태' 칸: 반별로 열기·마감 {"open":{"*":"진행","2학년 3반":"마감"},"del":false}. 예전 글자('진행' 등)도 읽음.
+   '문제(JSON)' 칸: Quiz의 문제 [{type:'choice'|'text', passage, q, options, answer, exp}] */
 function readRaces_() {
   const sh = sheet_(SHEET_RACES), n = sh.getLastRow(); if (n < 2) return [];
   return sh.getRange(2, 1, n - 1, RACE_HEADERS.length).getValues().map((r, i) => {
     const j = v => { try { return JSON.parse(String(v || '')); } catch (e) { return null; } };
-    return {row: i + 2, id: String(r[0]).trim(), name: String(r[1]), classes: j(r[2]) || [], sources: j(r[3]) || [], settings: j(r[4]) || {}, status: String(r[5] || '준비'), created: iso_(r[6]), updated: iso_(r[7])};
+    const settings = j(r[4]) || {};
+    if (settings.who !== 'student') settings.who = 'team';
+    return {row: i + 2, id: String(r[0]).trim(), name: String(r[1]), classes: j(r[2]) || [], sources: j(r[3]) || [], settings: settings,
+      state: raceState_(r[5]), created: iso_(r[6]), updated: iso_(r[7]), questions: j(r[8]) || []};
   }).filter(x => x.id);
 }
 const RACE_STATUS = ['준비', '진행', '마감'];
+function raceState_(v) {
+  const s = String(v == null ? '' : v).trim();
+  if (s[0] === '{') { try { const o = JSON.parse(s); return {open: o.open || {}, del: !!o.del}; } catch (e) {} }
+  return {open: {'*': RACE_STATUS.indexOf(s) >= 0 ? s : '준비'}, del: false};
+}
+/* 한 반에서 이 레이스가 지금 어떤 상태인지: 그 반에 따로 정한 것이 먼저, 없으면 전체 반 설정 */
+function raceStatusFor_(race, cls) { return race.state.open[cls] || race.state.open['*'] || '준비'; }
+/* 학번에서 반을 계산: 21201 → 2학년 12반 (학년 1자리 + 반 2자리 + 번호 2자리). 맞지 않으면 '기타' */
+function sidClass_(sid) {
+  const m = /^(\d)(\d{2})(\d{2})$/.exec(String(sid || ''));
+  return m && Number(m[2]) > 0 ? `${m[1]}학년 ${Number(m[2])}반` : '기타';
+}
+function studentClasses_() {
+  const by = {};
+  readStudents_().forEach(s => { const c = sidClass_(s.sid); (by[c] = by[c] || []).push({sid: s.sid, name: s.name}); });
+  return Object.keys(by).sort((a, b) => a === '기타' ? 1 : b === '기타' ? -1 : a.localeCompare(b, 'ko', {numeric: true})).map(c => ({name: c, students: by[c]}));
+}
+function cleanQuestion_(q) {
+  const str = (v, n) => String(v == null ? '' : v).replace(/\r/g, '').trim().slice(0, n);
+  const out = {type: q && q.type === 'text' ? 'text' : 'choice', passage: str(q && q.passage, 6000), q: str(q && q.q, 2000), exp: str(q && q.exp, 2000)};
+  if (!out.q) return null;
+  if (out.type === 'choice') {
+    out.options = (Array.isArray(q.options) ? q.options : []).map(o => str(o, 400)).filter(Boolean).slice(0, 6);
+    if (out.options.length < 2) return null;
+    out.answer = Math.floor(Number(q.answer));
+    if (!(out.answer >= 0 && out.answer < out.options.length)) return null;
+  } else {
+    out.answer = (Array.isArray(q.answer) ? q.answer : [q.answer]).map(a => str(a, 200)).filter(Boolean).slice(0, 10);
+    if (!out.answer.length) return null;
+  }
+  return out;
+}
 function cleanRace_(req) {
   const name = String(req.name || '').trim().replace(/\s+/g, ' ');
   if (!name || name.length > 40) fail_('레이스 이름을 1~40자로 써 주세요.');
-  const sources = (Array.isArray(req.sources) ? req.sources : []).map(String).filter(s => /^[A-Za-z0-9-]{1,30}$/.test(s)).slice(0, 40);
-  if (!sources.length) fail_('레이스에 쓸 지문을 하나 이상 골라 주세요.');
-  let classes = (Array.isArray(req.classes) ? req.classes : []).map(c => String(c).trim()).filter(Boolean).slice(0, 40);
+  const s = req.settings || {};
+  const mode = ['time', 'match', 'spell', 'quiz'].indexOf(s.mode) >= 0 ? s.mode : 'time';
+  let sources = [], questions = [];
+  if (mode === 'quiz') {
+    const raw = Array.isArray(req.questions) ? req.questions : [];
+    questions = raw.map(cleanQuestion_).filter(Boolean).slice(0, 200);
+    if (!questions.length) fail_('Quiz 문제를 하나 이상 넣어 주세요. 문제마다 정답이 있어야 해요.');
+    if (questions.length < raw.length) fail_(`정답이나 보기가 빠진 문제가 ${raw.length - questions.length}개 있어요. 확인해 주세요.`);
+    if (JSON.stringify(questions).length > 45000) fail_('문제가 너무 길어요. 지문을 줄이거나 레이스를 둘로 나눠 주세요.');
+  } else {
+    sources = (Array.isArray(req.sources) ? req.sources : []).map(String).filter(x => /^[A-Za-z0-9-]{1,30}$/.test(x)).slice(0, 40);
+    if (!sources.length) fail_('레이스에 쓸 지문을 하나 이상 골라 주세요.');
+  }
+  let classes = (Array.isArray(req.classes) ? req.classes : []).map(c => String(c).trim()).filter(Boolean).slice(0, 60);
   if (classes.indexOf('*') >= 0) classes = ['*'];   // 전체 반 (나중에 추가한 반도 포함)
   if (!classes.length) fail_('레이스에 참여할 반을 하나 이상 골라 주세요.');
-  const s = req.settings || {};
-  const mode = ['time', 'match', 'spell'].indexOf(s.mode) >= 0 ? s.mode : 'time';
   const settings = {
     mode: mode,
+    who: s.who === 'student' ? 'student' : 'team',
+    multi: !!s.multi,
+    shuffle: !!s.shuffle,
+    // Quiz 채점 방식: 'speed' 빠르기(맞혀야 넘어가고 시간으로 순위) / 'acc' 정확도(한 번씩 답하고 제한 시간 안에 정답률로 순위)
+    scoring: mode === 'quiz' && s.scoring === 'acc' ? 'acc' : 'speed',
+    limit: mode === 'quiz' && s.scoring === 'acc' ? Math.max(0, Math.min(180, Math.floor(Number(s.limit) || 0))) : 0,   // 제한 시간(분), 0이면 없음
     count: Math.max(0, Math.min(300, Math.floor(Number(s.count) || 0))),
     penalty: Math.max(0, Math.min(30, Math.floor(Number(s.penalty) || 0))),
     rel: !!s.rel,
     live: !!s.live,
     showRank: !!s.showRank
   };
-  return {name: name, sources: sources, classes: classes, settings: settings};
+  return {name: name, sources: sources, classes: classes, settings: settings, questions: questions};
 }
 function adminRaceSave_(req) {
   checkToken_(req.token, 'a');
@@ -694,39 +746,55 @@ function adminRaceSave_(req) {
     if (req.id && !cur) fail_('그 레이스를 찾을 수 없어요. 새로고침해 주세요.');
     const vals = [asText_(r.name), JSON.stringify(r.classes), JSON.stringify(r.sources), JSON.stringify(r.settings)];
     forget_('c_races');
-    if (cur) { sh.getRange(cur.row, 2, 1, 4).setValues([vals]); sh.getRange(cur.row, 8).setValue(now); return {ok: true, id: cur.id}; }
+    if (cur) {
+      sh.getRange(cur.row, 2, 1, 4).setValues([vals]);
+      sh.getRange(cur.row, 8, 1, 2).setValues([[now, JSON.stringify(r.questions)]]);
+      return {ok: true, id: cur.id};
+    }
     const id = 'r' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
-    sh.appendRow([id].concat(vals, ['준비', now, now]));
+    sh.appendRow([id].concat(vals, [JSON.stringify({open: {'*': '준비'}, del: false}), now, now, JSON.stringify(r.questions)]));
     return {ok: true, id: id};
   });
 }
+function writeState_(race) {
+  sheet_(SHEET_RACES).getRange(race.row, 6).setValue(JSON.stringify(race.state));
+  forget_('c_races');
+}
+/* 열기·마감: cls가 '*'이면 모든 반을 한꺼번에, 반 이름이면 그 반만 */
 function adminRaceStatus_(req) {
   checkToken_(req.token, 'a');
   const st = String(req.status || '');
   if (RACE_STATUS.indexOf(st) < 0) fail_('알 수 없는 상태예요.');
+  const cls = String(req.cls || '*').trim() || '*';
   return withLock_(() => {
     const cur = readRaces_().find(x => x.id === String(req.id || ''));
     if (!cur) fail_('그 레이스를 찾을 수 없어요.');
-    sheet_(SHEET_RACES).getRange(cur.row, 6).setValue(st);
-    forget_('c_races');
+    if (cls === '*') cur.state.open = {'*': st}; else cur.state.open[cls] = st;
+    writeState_(cur);
+    return {ok: true, state: cur.state};
+  });
+}
+/* 삭제: soft는 학생·모둠 화면에서만 숨김(선생님 화면엔 남음), restore는 되살리기, hard는 완전 삭제(기록은 시트에 남음) */
+function adminRaceDelete_(req) {
+  checkToken_(req.token, 'a');
+  const how = ['soft', 'restore', 'hard'].indexOf(req.how) >= 0 ? req.how : 'soft';
+  return withLock_(() => {
+    const cur = readRaces_().find(x => x.id === String(req.id || ''));
+    if (!cur) fail_('그 레이스를 찾을 수 없어요.');
+    if (how === 'hard') { sheet_(SHEET_RACES).deleteRow(cur.row); forget_('c_races'); }
+    else { cur.state.del = how === 'soft'; writeState_(cur); }
     return {ok: true};
   });
 }
-function adminRaceDelete_(req) {
-  checkToken_(req.token, 'a');
-  return withLock_(() => {
-    const cur = readRaces_().find(x => x.id === String(req.id || ''));
-    if (!cur) fail_('그 레이스를 찾을 수 없어요.');
-    sheet_(SHEET_RACES).deleteRow(cur.row);
-    forget_('c_races');
-    return {ok: true};
-  });
+function raceSummary_(x) {
+  return {id: x.id, name: x.name, classes: x.classes, sources: x.sources, settings: x.settings, state: x.state, questions: x.questions};
 }
 function adminRaces_(req) {
   checkToken_(req.token, 'a');
   const logs = readRaceLogs_();
-  return {ok: true, setsPack: setsFor_(req.v), archive: archiveInfo_(), classes: readTeams_(), races: readRaces_().map(x => ({id: x.id, name: x.name, classes: x.classes, sources: x.sources, settings: x.settings, status: x.status,
-    done: logs.filter(l => l.race === x.id && l.status === '완료').length, running: logs.filter(l => l.race === x.id && l.status === '진행 중').length}))};
+  const people = (id, st) => { const s = {}; logs.forEach(l => { if (l.race === id && l.status === st) s[l.cls + '\n' + l.team] = 1; }); return Object.keys(s).length; };
+  return {ok: true, setsPack: setsFor_(req.v), archive: archiveInfo_(), classes: readTeams_(), studentClasses: studentClasses_().map(c => ({name: c.name, n: c.students.length})),
+    races: readRaces_().map(x => Object.assign(raceSummary_(x), {done: people(x.id, '완료'), running: people(x.id, '진행 중')}))};
 }
 
 /* ---------------- 레이스 기록 ---------------- */
@@ -739,42 +807,71 @@ function readRaceLogs_() {
   })).filter(l => l.race);
 }
 const raceHasClass_ = (race, cls) => race.classes.indexOf('*') >= 0 || race.classes.indexOf(cls) >= 0;
+/* 레이스에 나가는 쪽: 모둠(모둠 입장 토큰) 또는 학생(로그인 토큰). 기록 탭에는 반과 '모둠' 칸에 모둠 이름 또는 '학번 이름'이 들어감 */
+function participant_(token) {
+  const kind = String(token || '').split('.')[0];
+  if (kind === 't') { const t = teamOf_(token); return {who: 'team', cls: t.cls, team: t.team}; }
+  const sid = checkToken_(token, 's');
+  const c = stuCacheGet_(sid), name = c ? c.name : (stuFromSheet_(sid) || {}).name;
+  if (name === undefined) fail_('학생 정보를 찾을 수 없어요. 다시 로그인해 주세요.', 'auth');
+  return {who: 'student', cls: sidClass_(sid), team: sid + ' ' + name, sid: sid};
+}
 function openRaceFor_(raceId, who) {
   const race = racesCached_().find(x => x.id === String(raceId || ''));
-  if (!race || !raceHasClass_(race, who.cls)) fail_('참여할 수 없는 레이스예요.');
+  if (!race || race.state.del || race.settings.who !== who.who || !raceHasClass_(race, who.cls)) fail_('참여할 수 없는 레이스예요.');
   return race;
 }
-function racesCached_() { return cached_('c_races', () => readRaces_().map(r => ({id: r.id, name: r.name, classes: r.classes, sources: r.sources, settings: r.settings, status: r.status}))); }
-function races_(req) {
-  const who = teamOf_(req.token);
+function racesCached_() { return cached_('c_races', () => readRaces_().map(raceSummary_)); }
+/* 어느 기록이 더 좋은가: 빠르기 레이스는 시간이 짧은 쪽, 정확도 Quiz는 맞힌 수가 많은 쪽(같으면 시간이 짧은 쪽) */
+const isAcc_ = race => race && race.settings && race.settings.scoring === 'acc';
+function better_(race, a, b) {
+  if (isAcc_(race)) return a.done > b.done || (a.done === b.done && a.seconds < b.seconds);
+  return a.seconds < b.seconds;
+}
+/* 한 사람(모둠)의 기록 요약: 가장 최근 도전과 가장 좋은 기록 */
+function mineOf_(logs, race, who) {
+  const rows = logs.filter(l => l.race === race.id && l.cls === who.cls && l.team === who.team);
+  if (!rows.length) return null;
+  const last = rows[rows.length - 1], done = rows.filter(l => l.status === '완료' && l.seconds !== null);
+  const best = done.length ? done.reduce((a, b) => (better_(race, b, a) ? b : a)) : null;
+  return {status: last.status, seconds: last.seconds, done: last.done, total: last.total, wrong: last.wrong, tries: rows.length,
+    best: best ? best.seconds : null, bestDone: best ? best.done : null, bestTotal: best ? best.total : null, finished: done.length};
+}
+function raceListFor_(who) {
   const logs = readRaceLogs_().filter(l => l.cls === who.cls && l.team === who.team);
-  const list = racesCached_().filter(r => raceHasClass_(r, who.cls) && r.status !== '준비').map(r => {
-    const mine = logs.find(l => l.race === r.id);
-    return {id: r.id, name: r.name, sources: r.sources, settings: r.settings, status: r.status,
-      mine: mine ? {status: mine.status, seconds: mine.seconds, done: mine.done, total: mine.total, wrong: mine.wrong} : null};
-  });
-  return {ok: true, team: who, races: list, setsPack: setsFor_(req.v)};
+  return racesCached_().filter(r => !r.state.del && r.settings.who === who.who && raceHasClass_(r, who.cls)).map(r => {
+    const status = raceStatusFor_(r, who.cls);
+    return {id: r.id, name: r.name, sources: r.sources, settings: r.settings, status: status, questions: r.questions, mine: mineOf_(logs, r, who)};
+  }).filter(r => r.status !== '준비');
+}
+function races_(req) {
+  const who = participant_(req.token);
+  return {ok: true, team: who.who === 'team' ? {cls: who.cls, team: who.team} : null, cls: who.cls, races: raceListFor_(who), setsPack: setsFor_(req.v)};
 }
 function raceStart_(req) {
-  const who = teamOf_(req.token);
+  const who = participant_(req.token);
   return withLock_(() => {
     const race = openRaceFor_(req.race, who);
-    const mine = readRaceLogs_().find(l => l.race === race.id && l.cls === who.cls && l.team === who.team);
-    if (mine && mine.status === '완료') fail_('이 레이스는 이미 끝냈어요. 다시 하려면 선생님께 말씀드리세요.', 'race_done');
-    if (mine) {   // 새로고침·화면 꺼짐 뒤 이어 하기
-      return {ok: true, resumed: true, elapsed: (Date.now() - mine.started) / 1000, done: mine.done, wrong: mine.wrong, penalty: mine.penalty};
+    const rows = readRaceLogs_().filter(l => l.race === race.id && l.cls === who.cls && l.team === who.team);
+    const last = rows[rows.length - 1];
+    if (last && last.status !== '완료') {   // 새로고침·화면 꺼짐 뒤 이어 하기
+      return {ok: true, resumed: true, elapsed: (Date.now() - last.started) / 1000, done: last.done, wrong: last.wrong, penalty: last.penalty};
     }
-    if (race.status !== '진행') fail_(race.status === '마감' ? '마감된 레이스예요.' : '아직 열리지 않은 레이스예요.');
+    if (last && !race.settings.multi) fail_('이 레이스는 이미 끝냈어요. 다시 하려면 선생님께 말씀드리세요.', 'race_done');
+    const status = raceStatusFor_(race, who.cls);
+    if (status !== '진행') fail_(status === '마감' ? '마감된 레이스예요.' : '아직 열리지 않은 레이스예요.');
     const total = Math.max(0, Math.floor(Number(req.total) || 0));
     const now = new Date();
     sheet_(SHEET_RACELOG).appendRow([now, race.id, asText_(race.name), asText_(who.cls), asText_(who.team), '진행 중', 0, total, '', 0, 0, '', now]);
-    return {ok: true, resumed: false, elapsed: 0, done: 0, wrong: 0, penalty: 0};
+    return {ok: true, resumed: false, elapsed: 0, done: 0, wrong: 0, penalty: 0, tries: rows.length + 1};
   });
 }
 function raceUpdate_(req, finish) {
-  const who = teamOf_(req.token);
+  const who = participant_(req.token);
   return withLock_(() => {
-    const mine = readRaceLogs_().find(l => l.race === String(req.race || '') && l.cls === who.cls && l.team === who.team);
+    const logs = readRaceLogs_();
+    const rows = logs.filter(l => l.race === String(req.race || '') && l.cls === who.cls && l.team === who.team);
+    const mine = rows[rows.length - 1];
     if (!mine) fail_('레이스 기록을 찾을 수 없어요. 처음부터 다시 시작해 주세요.');
     if (mine.status === '완료') return {ok: true, already: true};
     const done = Math.max(0, Math.floor(Number(req.done) || 0)), wrong = Math.max(0, Math.floor(Number(req.wrong) || 0));
@@ -784,15 +881,20 @@ function raceUpdate_(req, finish) {
     sh.getRange(mine.row, 10, 1, 2).setValues([[penalty, wrong]]);
     sh.getRange(mine.row, 13).setValue(new Date());
     if (finish) {
-      // 시간은 서버가 잰다: 시작부터 지금까지 + 벌점
-      const seconds = Math.round(((Date.now() - mine.started) / 1000 + penalty) * 10) / 10;
+      // 시간은 서버가 잰다: 시작부터 지금까지 + 벌점. 정확도 Quiz는 벌점 없이, 제한 시간을 넘지 않게
+      const race = readRaces_().find(x => x.id === mine.race);
+      let seconds = Math.round(((Date.now() - mine.started) / 1000 + (isAcc_(race) ? 0 : penalty)) * 10) / 10;
+      if (isAcc_(race) && race.settings.limit) seconds = Math.min(seconds, race.settings.limit * 60);
       const words = (Array.isArray(req.wrongWords) ? req.wrongWords : []).slice(0, 100).map(w => String(w).slice(0, 60)).join(' ; ');
       sh.getRange(mine.row, 6).setValue('완료');
       sh.getRange(mine.row, 9).setValue(seconds);
       sh.getRange(mine.row, 12).setValue(asText_(words));
-      const same = readRaceLogs_().filter(l => l.race === mine.race && l.cls === who.cls && l.status === '완료' && l.seconds !== null);
-      const rank = same.filter(l => l.seconds < seconds).length + 1;
-      return {ok: true, seconds: seconds, rank: rank, of: same.length};
+      // 반 순위: 사람(모둠)마다 가장 좋은 기록으로
+      const best = {}, me = {done: done, seconds: seconds};
+      logs.forEach(l => { if (l.race === mine.race && l.cls === who.cls && l.status === '완료' && l.seconds !== null && l.row !== mine.row) { const k = l.team; if (!(k in best) || better_(race, l, best[k])) best[k] = l; } });
+      if (!(who.team in best) || better_(race, me, best[who.team])) best[who.team] = me;
+      const vals = Object.keys(best).map(k => best[k]), myBest = best[who.team];
+      return {ok: true, seconds: seconds, best: myBest.seconds, bestDone: myBest.done, rank: vals.filter(v => better_(race, v, myBest)).length + 1, of: vals.length};
     }
     return {ok: true};
   });
@@ -803,19 +905,23 @@ function adminBoard_(req) {
   checkToken_(req.token, 'a');
   const race = readRaces_().find(x => x.id === String(req.race || ''));
   if (!race) fail_('그 레이스를 찾을 수 없어요.');
-  const cls = String(req.cls || '');
-  const rows = readRaceLogs_().filter(l => l.race === race.id && (!cls || l.cls === cls)).map(l => ({
+  const rows = readRaceLogs_().filter(l => l.race === race.id).map(l => ({
     cls: l.cls, team: l.team, status: l.status, done: l.done, total: l.total, seconds: l.seconds, penalty: l.penalty, wrong: l.wrong,
     wrongWords: l.wrongWords ? l.wrongWords.split(' ; ') : [], elapsed: l.status === '진행 중' ? (Date.now() - l.started) / 1000 + l.penalty : null
   }));
-  return {ok: true, race: {id: race.id, name: race.name, classes: race.classes, sources: race.sources, settings: race.settings, status: race.status}, rows: rows, teams: readTeams_()};
+  const out = {ok: true, race: raceSummary_(race), rows: rows};
+  if (race.settings.who === 'student') out.teams = studentClasses_().map(c => ({name: c.name, teams: c.students.map(s => s.sid + ' ' + s.name)}));
+  else out.teams = readTeams_();
+  return out;
 }
+/* 기록 지우기: 그 모둠(학생)의 이 레이스 기록을 모두 지워 다시 달릴 수 있게 함 */
 function adminRaceReset_(req) {
   checkToken_(req.token, 'a');
   return withLock_(() => {
-    const mine = readRaceLogs_().find(l => l.race === String(req.race || '') && l.cls === String(req.cls || '') && l.team === String(req.team || ''));
-    if (!mine) fail_('지울 기록이 없어요.');
-    sheet_(SHEET_RACELOG).deleteRow(mine.row);
+    const rows = readRaceLogs_().filter(l => l.race === String(req.race || '') && l.cls === String(req.cls || '') && l.team === String(req.team || ''));
+    if (!rows.length) fail_('지울 기록이 없어요.');
+    const sh = sheet_(SHEET_RACELOG);
+    rows.map(l => l.row).sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
     return {ok: true};
   });
 }
