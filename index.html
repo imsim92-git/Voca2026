@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>영어 단어장</title>
+<title>영어 학습 사이트</title>
 <meta name="description" content="영어 학습지 단어를 페이지별로 연습하는 사이트">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -388,6 +388,64 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .page.starall:disabled{opacity:.55;border-style:dashed;transform:none}
 .wl .src{font-size:12px;color:var(--muted)}
 
+/* races: who chip, open/close per class, deleted races, quiz */
+.chip.who{color:var(--ink);background:var(--line)}
+.ocpanel{flex-basis:100%;display:flex;flex-direction:column;gap:6px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.ocrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ocname{font-weight:700;font-size:14px;min-width:96px}
+.ocrow .sl-act{margin-left:auto}
+.gonebox{padding:0}
+.gonebox summary{padding:12px 16px;cursor:pointer;font-weight:700}
+.seg.two{flex-direction:row;flex-wrap:wrap}
+.seg.two .segopt{flex:1 1 220px}
+.qcard{align-items:stretch;text-align:left;justify-content:flex-start;min-height:0;gap:12px}
+.qpass{white-space:pre-wrap;font-size:15px;line-height:1.7;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-height:45vh;overflow:auto;font-family:var(--f-word)}
+.qtext{white-space:pre-wrap;font-weight:600;line-height:1.6}
+.qtext.small{font-size:14px;font-weight:500}
+.qno{color:var(--muted)}
+.qopt{display:flex;gap:10px;align-items:flex-start;line-height:1.5}
+.qnum{flex:none;font-weight:700;color:var(--muted)}
+.qres{margin:0;padding:0;list-style:none}
+.qres li{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-top:1px solid var(--line)}
+.qres li:first-child{border-top:0}
+.qexp{background:var(--good-bg);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;white-space:pre-wrap}
+.qed{display:flex;flex-direction:column;gap:8px;padding:12px}
+.qed textarea{min-height:0}
+.qedhead{gap:8px;align-items:center}
+.qedhead .sl-act{margin-left:auto}
+.qopts{display:flex;flex-direction:column;gap:6px}
+.qoptrow{display:flex;gap:8px;align-items:center;font-weight:400}
+.qoptrow input[type=radio]{width:18px;height:18px;flex:none}
+#qedit{display:flex;flex-direction:column;gap:10px}
+.qbulkbox{padding:12px}
+.qbulkbox summary{cursor:pointer}
+.qbulkbox textarea{margin-top:8px;min-height:180px}
+.previewbox{padding:12px}
+.previewbox summary{cursor:pointer}
+.qprev{margin:8px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:6px;max-height:360px;overflow:auto}
+
+.qdots{display:flex;flex-wrap:wrap;gap:4px}
+.qdot{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface);font-size:12px;font-weight:700;color:var(--muted)}
+.qdot.done{background:var(--navy);border-color:var(--navy);color:var(--navy-fg)}
+.qdot.on{outline:2px solid var(--mark);outline-offset:1px}
+.qopt.sel{border-color:var(--navy);box-shadow:inset 0 0 0 2px var(--navy);background:var(--surface)}
+.score small{font-size:.45em}
+
+.rtlabel{display:block;font-size:12px;font-weight:700;color:var(--muted);text-align:right}
+/* team races and individual races look different in the teacher's list */
+:root{--who-team:#1b2550;--who-team-bg:#e6e9f5;--who-stu:#0f766e;--who-stu-bg:#ddf3ef}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--who-team:#aab6ef;--who-team-bg:#232c55;--who-stu:#5fd4c4;--who-stu-bg:#123a36}}
+:root[data-theme="dark"]{--who-team:#aab6ef;--who-team-bg:#232c55;--who-stu:#5fd4c4;--who-stu-bg:#123a36}
+.whohead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
+.whohead b{font-size:16px}
+.whodot{width:12px;height:12px;border-radius:50%;flex:none}
+.whohead.team .whodot{background:var(--who-team)} .whohead.team b{color:var(--who-team)}
+.whohead.student .whodot{background:var(--who-stu)} .whohead.student b{color:var(--who-stu)}
+.whopanel.team{border-left:5px solid var(--who-team)}
+.whopanel.student{border-left:5px solid var(--who-stu)}
+.chip.who.team{color:var(--who-team);background:var(--who-team-bg)}
+.chip.who.student{color:var(--who-stu);background:var(--who-stu-bg)}
+
 </style>
 </head>
 <body>
@@ -401,7 +459,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 <script>
 const BASE_URL = "";  // 비워 두면 지금 접속한 주소를 그대로 씁니다
 const BOOK = window.WORD_BOOK || "교과서";            // name of the built-in list (words.js) on the first screen
-const SITE_NAME = window.WORD_SITE || "영어 단어장";  // the name at the top of every screen
+const SITE_NAME = window.WORD_SITE || "영어 학습 사이트";  // the name at the top of every screen
 const PAGES = window.WORD_PAGES || [];
 /* each page keeps its head words (shown in the word list) and practises them together with their
    related words (synonyms, antonyms, derived forms from the 4th column of words.js) */
@@ -598,10 +656,10 @@ function viewLogin(next, startMode){
   const draw = (msg) => {
     if (mode === 'team') return drawTeam();
     const reg = mode === 'register', chg = mode === 'change';
-    const PIN_WARN = '<div class="pwwarn" role="note"><b>⚠ 비밀번호는 숫자 5자리로 정해요</b><span>통장·카드 비밀번호, 휴대폰 잠금 번호처럼 <b>다른 곳에서 쓰는 번호는 절대 쓰지 마세요.</b> 이 단어장에서만 쓸 새 번호를 만드세요.</span></div>';
+    const PIN_WARN = '<div class="pwwarn" role="note"><b>⚠ 비밀번호는 숫자 5자리로 정해요</b><span>통장·카드 비밀번호, 휴대폰 잠금 번호처럼 <b>다른 곳에서 쓰는 번호는 절대 쓰지 마세요.</b> 이 사이트에서만 쓸 새 번호를 만드세요.</span></div>';
     const PIN = 'type="password" inputmode="numeric" maxlength="5" autocomplete="new-password"';
     $app.innerHTML = `${header()}
-    <div class="setcard"><div class="eyebrow">단어 연습</div><h1>${chg ? '비밀번호 바꾸기' : reg ? '처음 등록' : '로그인'}</h1>
+    <div class="setcard"><div class="eyebrow">영어 학습</div><h1>${chg ? '비밀번호 바꾸기' : reg ? '처음 등록' : '로그인'}</h1>
       <div class="meta">${chg ? '지금 비밀번호를 넣고 새 비밀번호(숫자 5자리)를 정해요.' : reg ? '처음 한 번만 학번, 이름, 비밀번호를 정해요.' : '학번과 내가 정한 비밀번호로 들어와요.'}</div></div>
     ${chg ? '' : loginTabs()}
     <form id="af" class="panel form" autocomplete="on" novalidate>
@@ -1080,7 +1138,8 @@ function viewRoot(){
   if (ACCOUNTS && !SETS.length && setsLoaded && hasBook()) return viewPages();   // nothing registered yet: straight to 교과서
   const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
   $app.innerHTML = `${header()}${userBar()}${speechBanner()}
-  <div class="setcard"><div class="eyebrow">단어 연습</div><h1>지문을 골라요</h1><div class="meta">연습할 지문을 누르면 단어 연습 메뉴가 열려요.</div></div>
+  <div class="setcard"><div class="eyebrow">영어 학습</div><h1>지문을 골라요</h1><div class="meta">연습할 지문을 누르면 단어 연습 메뉴가 열려요.</div></div>
+  ${ACCOUNTS && AUTH ? myRacesHTML() : ''}${ACCOUNTS && AUTH && myRacesList().length ? '<div class="section-label">지문</div>' : ''}
   <div class="pages">
     ${hasBook() ? `<button class="page" data-root="book"><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
     ${SETS.map((s, i) => `<button class="page" data-root="${esc(s.id)}"><b>${esc(s.t)}</b><span class="pc">${countLine(s)}</span>${last(s.id)}</button>`).join('')}
@@ -1093,6 +1152,7 @@ function viewRoot(){
     SET = SETS.find(s => s.id === b.dataset.root); origin = 'root'; viewHome();
   });
   bindConfAll('root');
+  if (ACCOUNTS && AUTH) bindMyRaces(viewRoot);
   bindUserBar();
   scrollTo(0, 0);
 }
@@ -1101,7 +1161,7 @@ function viewRoot(){
 function adminNav(active){
   setHash('admin');
   const item = (k, label) => `<button class="tab" data-anav="${k}" aria-selected="${active === k}">${label}</button>`;
-  return `<div class="tabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('race', '모둠 레이스')}${item('qr', 'QR')}</div>`;
+  return `<div class="tabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('race', '레이스')}${item('qr', 'QR')}</div>`;
 }
 function bindAdminNav(){
   $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake()})[b.dataset.anav](); });
@@ -1259,14 +1319,18 @@ function viewSetEdit(set){
 }
 
 /* =====================================================================
-   모둠 레이스: 선생님이 지문을 묶어 레이스를 열면, 반·모둠으로 입장해 한 번 달린다
+   레이스: 선생님이 만든 레이스를 모둠(모둠 입장) 또는 학생 개인(로그인)이 달린다.
+   단어 레이스(타임어택·매칭·철자)와 Quiz(선생님이 직접 쓴 문제)가 있다.
    ===================================================================== */
 let TEAM = store.get('wordroom-team', null);   // {token, cls, team, exp}
 if (TEAM && !(TEAM.exp > Date.now())) { TEAM = null; store.set('wordroom-team', null); }
 function setTeam(t){ TEAM = t; store.set('wordroom-team', t); }
 function teamLeave(){ stopTimers(); setTeam(null); viewLogin(route, 'team'); }
-const MODE_NAME = {time: '타임어택', match: '매칭 레이스', spell: '철자 레이스'};
-const MODE_HELP = {time: '뜻 고르기와 단어 고르기가 섞여 나와요. 맞혀야 다음 문제로 넘어가요.', match: '단어와 뜻 8쌍씩 여러 판을 이어서 맞혀요.', spell: '뜻을 보고 영어로 써요. 각 단어의 첫 글자가 보여요.'};
+const MODE_NAME = {time: '타임어택', match: '매칭 레이스', spell: '철자 레이스', quiz: 'Quiz'};
+const MODE_HELP = {time: '뜻 고르기와 단어 고르기가 섞여 나와요. 맞혀야 다음 문제로 넘어가요.', match: '단어와 뜻 8쌍씩 여러 판을 이어서 맞혀요.', spell: '뜻을 보고 영어로 써요. 각 단어의 첫 글자가 보여요.',
+  quiz: '선생님이 낸 문제를 풀어요. 맞혀야 다음 문제로 넘어가요. 해설은 다 푼 뒤에 보여요.'};
+const WHO_NAME = {team: '모둠 레이스', student: '개인 레이스'};
+const CIRCLED = '①②③④⑤⑥';
 
 /* every team gets the same words in the same order: shuffles are seeded by the race id */
 function seededRng(seed){
@@ -1288,6 +1352,16 @@ function raceWords(race){
   if (race.settings.count > 0 && race.settings.count < list.length) list = list.slice(0, race.settings.count);
   return list;
 }
+/* quiz questions in race order, the same for everyone (shuffled by the race id when the teacher asked for it) */
+function raceQuiz(race){
+  let list = (race.questions || []).map((q, i) => Object.assign({no: i + 1}, q));
+  if (race.settings.shuffle) list = seededShuffle(list, seededRng(race.id + ':q'));
+  if (race.settings.count > 0 && race.settings.count < list.length) list = list.slice(0, race.settings.count);
+  return list;
+}
+const raceItems = race => race.settings.mode === 'quiz' ? raceQuiz(race) : raceWords(race);
+const quizAnswerText = q => q.type === 'choice' ? `${CIRCLED[q.answer] || q.answer + 1} ${q.options[q.answer] || ''}` : q.answer.join(' / ');
+const normQ = s => String(s || '').toLowerCase().replace(/[‘’`]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').replace(/^[\s"']+|[\s.!?,;:"']+$/g, '');
 /* matching rounds of up to 8 pairs, no repeated word or meaning inside a round */
 function matchRounds(words){
   const rounds = []; let rest = words.slice();
@@ -1299,13 +1373,39 @@ function matchRounds(words){
   return rounds;
 }
 const fmtSec = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${m}분 ${r.toFixed(1).padStart(4, '0')}초` : `${r.toFixed(1)}초`; };
+/* Quiz scored by accuracy: answer each question once within the time limit, ranked by how many are right */
+const isAcc = race => race.settings.mode === 'quiz' && race.settings.scoring === 'acc';
+const pctOf = (n, t) => t ? Math.round(n / t * 100) + '%' : '–';
+const raceRule = race => isAcc(race) ? ` · 정확도${race.settings.limit ? ` · 제한 ${race.settings.limit}분` : ''}` : (race.settings.penalty ? ` · 틀리면 +${race.settings.penalty}초` : '');
+const raceStatusFor = (race, cls) => (race.state && (race.state.open[cls] || race.state.open['*'])) || race.status || '준비';
+
+/* who is racing: a team, a logged-in student, or the teacher trying a race out (nothing is recorded) */
+const teamCtx = () => ({kind: 'team', token: TEAM.token, label: `${TEAM.cls} · ${TEAM.team}`, home: () => viewTeamHome(true), homeText: '레이스 목록으로', backText: '← 레이스 목록', authFail: teamLeave});
+const studentCtx = () => ({kind: 'student', token: AUTH.token, label: `${AUTH.sid} ${AUTH.name}`, home: () => { myRacesStale(); route(); }, homeText: '처음 화면으로', backText: '← 처음 화면', authFail: () => onAuthError({code: 'auth'})});
+const trialCtx = back => ({kind: 'trial', trial: true, label: '풀어보기 · 기록되지 않아요', home: back, homeText: '레이스 편집으로', backText: '← 레이스 편집', authFail: back});
+function raceApi(ctx, action, data){
+  if (ctx.trial) return Promise.resolve(action === 'raceStart' ? {ok: true, resumed: false, elapsed: 0, done: 0, wrong: 0, penalty: 0} : {ok: true, trial: true});
+  return api(action, Object.assign({token: ctx.token}, data));
+}
+
+/* a race button for the team list and for a student's first screen */
+function raceTile(x){
+  const m = x.mine, n = raceItems(x).length, multi = x.settings.multi;
+  const running = m && m.status !== '완료';
+  const state = running ? '<span class="chip run">달리는 중 · 이어 하기</span>'
+    : m && m.best != null ? `<span class="chip ok">${isAcc(x) ? (multi ? `최고 ${m.bestDone}/${m.bestTotal} · ${m.finished}번 도전` : `완료 · ${m.bestDone}/${m.bestTotal} (${pctOf(m.bestDone, m.bestTotal)})`) : multi ? `최고 ${fmtSec(m.best)} · ${m.finished}번 도전` : `완료 · ${fmtSec(m.best)}`}</span>`
+    : x.status === '마감' ? '<span class="chip">마감</span>' : '<span class="chip go">출발 가능</span>';
+  const can = running || (x.status === '진행' && (!m || multi));
+  return `<button class="page racetile" data-race="${esc(x.id)}" ${can ? '' : 'disabled'}><b>${esc(x.name)}</b><span class="pc">${MODE_NAME[x.settings.mode]} · ${n}문제${raceRule(x)}${multi ? ' · 여러 번 도전' : ''}</span>${state}</button>`;
+}
 
 /* ---------- team: the open races ---------- */
 async function viewTeamHome(force){
   stopTimers();
   if (!TEAM) return viewLogin(route, 'team');
   const bar = `<div class="userbar"><span><b>${esc(TEAM.cls)} · ${esc(TEAM.team)}</b> <span class="muted">모둠으로 입장</span></span><button class="link" id="tleave">나가기</button></div>`;
-  $app.innerHTML = `${header()}${bar}<div class="setcard"><div class="eyebrow">모둠 레이스</div><h1>레이스를 골라요</h1><div class="meta">모둠당 한 번만 달릴 수 있어요. 준비되면 출발하세요.</div></div><div class="panel empty">레이스를 불러오는 중…</div>`;
+  const card = '<div class="setcard"><div class="eyebrow">모둠 레이스</div><h1>레이스를 골라요</h1><div class="meta">열린 레이스를 골라 출발하세요.</div></div>';
+  $app.innerHTML = `${header()}${bar}${card}<div class="panel empty">레이스를 불러오는 중…</div>`;
   document.getElementById('tleave').onclick = teamLeave;
   const mk = 'v-team-' + (++VIEWSEQ), ck = 'wordroom-races-' + TEAM.cls + '|' + TEAM.team, cached = store.get(ck, null);
   $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
@@ -1318,57 +1418,86 @@ async function viewTeamHome(force){
   store.set(ck, r); show(r);
   return;
   function show(r){
-  const MK = '<i hidden id="' + mk + '"></i>';
-
-  const tile = x => {
-    const m = x.mine, n = raceWords(x).length;
-    const state = m && m.status === '완료' ? `<span class="chip ok">완료 · ${fmtSec(m.seconds)}</span>` : m ? '<span class="chip run">달리는 중 · 이어 하기</span>' : x.status === '마감' ? '<span class="chip">마감</span>' : '<span class="chip go">출발 가능</span>';
-    const can = (m && m.status !== '완료') || (!m && x.status === '진행');
-    return `<button class="page racetile" data-race="${esc(x.id)}" ${can ? '' : 'disabled'}><b>${esc(x.name)}</b><span class="pc">${MODE_NAME[x.settings.mode]} · ${n}문제${x.settings.penalty ? ` · 틀리면 +${x.settings.penalty}초` : ''}</span>${state}</button>`;
-  };
-  $app.innerHTML = `${header()}${bar}<div class="setcard"><div class="eyebrow">모둠 레이스</div><h1>레이스를 골라요</h1><div class="meta">모둠당 한 번만 달릴 수 있어요. 준비되면 출발하세요.</div></div>
-  ${r.races.length ? `<div class="pages">${r.races.map(tile).join('')}</div>` : '<div class="panel empty">아직 열린 레이스가 없어요. 선생님이 레이스를 열면 여기에 나와요.</div>'}
-  <div class="foot"><button class="link" id="trefresh">새로고침</button></div>`;
-  document.getElementById('tleave').onclick = teamLeave;
-  document.getElementById('trefresh').onclick = () => viewTeamHome(true);
-  $app.querySelectorAll('[data-race]').forEach(b => b.onclick = () => viewRaceReady(r.races.find(x => x.id === b.dataset.race)));
-  scrollTo(0, 0);
-  $app.insertAdjacentHTML('beforeend', MK);
+    $app.innerHTML = `${header()}${bar}${card}
+    ${r.races.length ? `<div class="pages">${r.races.map(raceTile).join('')}</div>` : '<div class="panel empty">아직 열린 레이스가 없어요. 선생님이 레이스를 열면 여기에 나와요.</div>'}
+    <div class="foot"><button class="link" id="trefresh">새로고침</button></div>`;
+    document.getElementById('tleave').onclick = teamLeave;
+    document.getElementById('trefresh').onclick = () => viewTeamHome(true);
+    $app.querySelectorAll('[data-race]').forEach(b => b.onclick = () => viewRaceReady(r.races.find(x => x.id === b.dataset.race), teamCtx()));
+    scrollTo(0, 0);
+    $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
   }
 }
 
-function viewRaceReady(race){
+/* ---------- student: individual races on the first screen ---------- */
+const myRacesKey = () => 'wordroom-myraces-' + (AUTH ? AUTH.sid : '');
+function myRacesStale(){ const c = store.get(myRacesKey(), null); if (c) { c.at = 0; store.set(myRacesKey(), c); } }
+let myRacesLoading = null;
+function loadMyRaces(){
+  if (!ACCOUNTS || !AUTH || !API) return Promise.resolve(null);
+  const c = store.get(myRacesKey(), null);
+  if (c && Date.now() - c.at < 15000) return Promise.resolve(c);
+  if (myRacesLoading) return myRacesLoading;
+  const sid = AUTH.sid;
+  myRacesLoading = api('races', {token: AUTH.token, v: setsV()}).then(r => {
+    applySets(r.setsPack);
+    if (!AUTH || AUTH.sid !== sid) return null;
+    const v = {at: Date.now(), races: r.races}; store.set(myRacesKey(), v); return v;
+  }).catch(e => { onAuthErrorQuiet(e); return c; }).finally(() => { myRacesLoading = null; });
+  return myRacesLoading;
+}
+function myRacesList(){
+  const c = AUTH && store.get(myRacesKey(), null);
+  return c ? c.races.filter(x => x.status === '진행' || (x.mine && x.mine.status !== '완료')) : [];
+}
+const myRacesHTML = () => { const list = myRacesList(); return list.length ? `<div class="section-label" id="myraces-h">레이스</div><div class="pages" id="myraces">${list.map(raceTile).join('')}</div>` : ''; };
+/* draw the student's race buttons from the saved copy, then check the server and redraw if something changed */
+function bindMyRaces(redraw){
+  $app.querySelectorAll('#myraces [data-race]').forEach(b => b.onclick = () => viewRaceReady(myRacesList().find(x => x.id === b.dataset.race), studentCtx()));
+  const before = JSON.stringify(myRacesList()), mk = 'v-myr-' + (++VIEWSEQ);
+  $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
+  loadMyRaces().then(() => {
+    if (JSON.stringify(myRacesList()) === before || !document.getElementById(mk)) return;   // nothing new, or the student has moved on
+    const y = scrollY; redraw(); scrollTo(0, y);
+  });
+}
+
+function viewRaceReady(race, ctx){
   stopTimers();
-  const words = raceWords(race), resume = race.mine && race.mine.status !== '완료';
-  $app.innerHTML = `${header('<button class="link" id="back">← 레이스 목록</button>')}
-  <div class="setcard"><div class="eyebrow">${esc(TEAM.cls)} · ${esc(TEAM.team)}</div><h1>${esc(race.name)}</h1><div class="meta">${MODE_NAME[race.settings.mode]} · ${words.length}문제${race.settings.penalty ? ` · 틀리면 +${race.settings.penalty}초` : ''}</div></div>
+  if (!race) return ctx.home();
+  const items = raceItems(race), m = race.mine, resume = !ctx.trial && m && m.status !== '완료';
+  const rule = ctx.trial ? '풀어보기는 기록되지 않아요.' : race.settings.multi ? '여러 번 도전할 수 있어요. 순위는 가장 좋은 기록으로 매겨요.' : (ctx.kind === 'team' ? '모둠당 한 번만 할 수 있어요.' : '한 번만 할 수 있어요.');
+  $app.innerHTML = `${header(`<button class="link" id="back">${ctx.backText}</button>`)}
+  <div class="setcard"><div class="eyebrow">${esc(ctx.label)}</div><h1>${esc(race.name)}</h1><div class="meta">${MODE_NAME[race.settings.mode]} · ${items.length}문제${raceRule(race)}</div></div>
   <div class="panel" style="padding:18px;display:flex;flex-direction:column;gap:8px">
-    <p style="margin:0">${MODE_HELP[race.settings.mode]}</p>
-    <p class="help" style="margin:0">${resume ? '하던 레이스를 이어서 해요. 시간은 처음 출발한 때부터 계속 흘러요.' : '출발을 누르면 3초 뒤 시작해요. 모둠당 한 번만 할 수 있어요.'}</p>
-    <p class="help" style="margin:0">출처: ${race.sources.map(sourceName).map(esc).join(' + ')}</p>
+    <p style="margin:0">${isAcc(race) ? `문제마다 한 번씩 답을 골라요. 다 풀기 전에는 이전 문제로 돌아가 고칠 수 있어요.<br>${race.settings.limit ? `<b>제한 시간 ${race.settings.limit}분</b>이 지나면 그때까지 쓴 답으로 저절로 제출돼요. ` : ''}맞힌 개수로 순위를 매기고, 같으면 빨리 낸 쪽이 앞서요. 정답과 해설은 제출한 뒤에 보여요.` : MODE_HELP[race.settings.mode]}</p>
+    <p class="help" style="margin:0">${resume ? '하던 레이스를 이어서 해요. 시간은 처음 출발한 때부터 계속 흘러요.' : '출발을 누르면 3초 뒤 시작해요. ' + rule}</p>
+    ${race.settings.mode === 'quiz' ? '' : `<p class="help" style="margin:0">출처: ${race.sources.map(sourceName).map(esc).join(' + ')}</p>`}
+    ${m && m.best != null && !resume ? `<p class="help" style="margin:0">지금까지 최고 기록 <b>${isAcc(race) ? `${m.bestDone}/${m.bestTotal} (${pctOf(m.bestDone, m.bestTotal)})` : fmtSec(m.best)}</b> · ${m.finished}번 도전</p>` : ''}
   </div>
-  <button class="btn mark" id="go" style="font-size:20px;padding:18px">${resume ? '이어 하기' : '출발!'}</button>`;
-  document.getElementById('back').onclick = viewTeamHome;
+  <button class="btn mark" id="go" style="font-size:20px;padding:18px" ${items.length ? '' : 'disabled'}>${resume ? '이어 하기' : '출발!'}</button>`;
+  document.getElementById('back').onclick = () => ctx.home();
   document.getElementById('go').onclick = async e => {
     e.target.disabled = true; e.target.textContent = '준비하는 중…';
     let st;
-    try { st = await api('raceStart', {token: TEAM.token, race: race.id, total: words.length}); }
-    catch(err){ if (err.code === 'auth') return teamLeave(); toast(err.error || '출발하지 못했어요'); return viewTeamHome(); }
-    if (st.resumed) return runRace(race, words, st);
+    try { st = await raceApi(ctx, 'raceStart', {race: race.id, total: items.length}); }
+    catch(err){ if (err.code === 'auth') return ctx.authFail(); toast(err.error || '출발하지 못했어요'); return ctx.home(); }
+    if (ctx.kind === 'student') myRacesStale();   // the first screen should show "이어 하기" if the student comes back mid-race
+    if (st.resumed) return runRace(race, items, st, ctx);
     let n = 3;
     $app.innerHTML = `<div class="countdown" id="cd">${n}</div>`;
-    const t = setInterval(() => { n--; if (n > 0) document.getElementById('cd').textContent = n; else { clearInterval(t); runRace(race, words, {elapsed: 0, done: 0, wrong: 0, penalty: 0}); } }, 800);
+    const t = setInterval(() => { n--; if (n > 0) document.getElementById('cd').textContent = n; else { clearInterval(t); runRace(race, items, {elapsed: 0, done: 0, wrong: 0, penalty: 0}, ctx); } }, 800);
     timers.push(t);
   };
   scrollTo(0, 0);
 }
 
 /* ---------- the race itself ---------- */
-function runRace(race, words, st){
+function runRace(race, words, st, ctx){
   stopTimers();
   const S = race.settings, P = S.penalty || 0, total = words.length;
   const t0 = performance.now() - (st.elapsed || 0) * 1000;
-  const R = {done: st.done || 0, wrong: st.wrong || 0, penalty: st.penalty || 0, wrongWords: []};
+  const R = {done: st.done || 0, wrong: st.wrong || 0, penalty: st.penalty || 0, wrongWords: [], qres: {}, resumedAt: st.done || 0};
   // the wait for "출발" counted on the server too, so a resumed race keeps the same clock
   const elapsed = () => (performance.now() - t0) / 1000 + R.penalty;
   // progress goes to the server at most every 2 seconds, and always once more after the last answer
@@ -1377,7 +1506,7 @@ function runRace(race, words, st){
     if (finished) return;
     if (sending) { again = true; return; }
     sending = true; lastSent = Date.now();
-    api('raceProgress', {token: TEAM.token, race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty}).catch(() => {})
+    raceApi(ctx, 'raceProgress', {race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty}).catch(() => {})
       .finally(() => { sending = false; if (again) { again = false; send(); } });
   };
   const send = force => {
@@ -1390,18 +1519,21 @@ function runRace(race, words, st){
   document.addEventListener('visibilitychange', onHide);
   timers.push({off: () => document.removeEventListener('visibilitychange', onHide)});
   const miss = w => { R.wrong++; R.penalty += P; if (w && !R.wrongWords.includes(w[0])) R.wrongWords.push(w[0]); const tm = document.getElementById('rtime'); if (tm && P) { tm.classList.add('pen'); setTimeout(() => tm.classList.remove('pen'), 450); } send(); };
-  const top = () => `<div class="racehead"><div><div class="count">${esc(TEAM.cls)} · ${esc(TEAM.team)}</div><b>${esc(race.name)}</b></div><div class="rtime" id="rtime">${fmtSec(elapsed())}</div></div>
+  const top = () => `<div class="racehead"><div><div class="count">${esc(ctx.label)}</div><b>${esc(race.name)}</b></div><div class="rtime" id="rtime">${fmtSec(elapsed())}</div></div>
     <div class="bar"><i id="rbar" style="width:${total ? R.done / total * 100 : 0}%"></i></div><div class="count" id="rcount">${R.done} / ${total}${R.wrong ? ` · 틀림 ${R.wrong}` : ''}</div>`;
   const tick = setInterval(() => { const tm = document.getElementById('rtime'); if (tm) tm.textContent = fmtSec(elapsed()); }, 100); timers.push(tick);
   const prog = () => { const b = document.getElementById('rbar'), c = document.getElementById('rcount'); if (b) b.style.width = (R.done / total * 100) + '%'; if (c) c.textContent = `${R.done} / ${total}${R.wrong ? ` · 틀림 ${R.wrong}` : ''}`; };
   const finish = async () => {
     finished = true; stopTimers();
-    $app.innerHTML = `<div class="countdown small">도착!</div><div class="panel empty" style="text-align:center">기록을 저장하는 중…</div>`;
+    $app.innerHTML = `<div class="countdown small">도착!</div><div class="panel empty" style="text-align:center">${ctx.trial ? '' : '기록을 저장하는 중…'}</div>`;
     let r = null;
-    for (let k = 0; k < 3 && !r; k++) { try { r = await api('raceFinish', {token: TEAM.token, race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords}); } catch(e){ if (e.code === 'auth') break; await new Promise(z => setTimeout(z, 1500)); } }
-    viewRaceResult(race, r, R, elapsed());
+    for (let k = 0; k < 3 && !r; k++) { try { r = await raceApi(ctx, 'raceFinish', {race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords}); } catch(e){ if (e.code === 'auth') break; await new Promise(z => setTimeout(z, 1500)); } }
+    if (ctx.kind === 'student') myRacesStale();
+    viewRaceResult(race, r, R, elapsed(), ctx, words);
   };
 
+  if (S.mode === 'quiz' && S.scoring === 'acc') return accQuiz();
+  if (S.mode === 'quiz') return quizRace();
   if (S.mode === 'match') return matchRace();
   if (S.mode === 'spell') return spellRace();
   return timeRace();
@@ -1429,9 +1561,9 @@ function runRace(race, words, st){
   function spellRace(){
     const draw = () => {
       if (R.done >= total) return finish();
-      const w = words[R.done], key = plain(w[0]); let extra = 0, tries = 0;
+      const w = words[R.done], key = plain(w[0]); let extra = 0;
       const firsts = new Set(); key.replace(/[A-Za-z]+/g, (m, off) => { firsts.add(off); return m; });
-      const mask = () => { let seen = 0; return key.split('').map((ch, k) => { if (!/[A-Za-z]/.test(ch)) return ch === ' ' ? ' ' : ch; seen++; return firsts.has(k) || seen <= extra + 1 ? ch : '_'; }).join(' '); };
+      const mask = () => { let seen = 0; return key.split('').map((ch, k) => { if (!/[A-Za-z]/.test(ch)) return ch === ' ' ? ' ' : ch; seen++; return firsts.has(k) || seen <= extra + 1 ? ch : '_'; }).join(' '); };
       $app.innerHTML = `${top()}
       <div class="card" style="min-height:150px"><div class="ko big-ko">${esc(w[1])}</div><div class="mask" id="hn">${esc(mask())}</div></div>
       <form id="fm" class="row" style="flex-direction:column;align-items:stretch" autocomplete="off">
@@ -1444,7 +1576,7 @@ function runRace(race, words, st){
       document.getElementById('fm').onsubmit = e => {
         e.preventDefault(); if (!ans.value.trim()) return;
         if (norm(ans.value) === norm(w[0])) { R.done++; prog(); send(); fb.className = 'feedback ok'; fb.textContent = '정답!'; timers.push(setTimeout(draw, 300)); return; }
-        tries++; miss(w); prog();
+        miss(w); prog();
         extra = Math.min(extra + 1, key.replace(/[^A-Za-z]/g, '').length - 1);
         document.getElementById('hn').textContent = mask();
         fb.className = 'feedback no'; fb.textContent = '다시 써 보세요. 한 글자를 더 보여 줄게요.';
@@ -1490,21 +1622,170 @@ function runRace(race, words, st){
     };
     play();
   }
+
+  /* the teacher's questions: choose an option, or type a short answer. A wrong answer adds the penalty and
+     the student tries again; the first try decides whether it counts as right on the result screen */
+  function quizRace(){
+    const draw = () => {
+      if (R.done >= total) return finish();
+      const i = R.done, q = words[i], label = [q.no + '번'];
+      const mark = v => { if (!R.qres[i]) R.qres[i] = v; };
+      const passage = q.passage ? `<div class="qpass">${esc(q.passage)}</div>` : '';
+      const head = `<div class="qtext"><span class="qno">${i + 1}.</span> ${esc(q.q)}</div>`;
+      const next = () => { R.done++; prog(); send(); timers.push(setTimeout(draw, 350)); };
+      if (q.type === 'choice') {
+        $app.innerHTML = `${top()}<div class="card qcard">${passage}${head}</div>
+        <div class="choices">${q.options.map((o, k) => `<button class="choice qopt" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${esc(o)}</span></button>`).join('')}</div>`;
+        $app.querySelectorAll('.qopt').forEach(b => b.onclick = () => {
+          if (+b.dataset.k === q.answer) { mark('ok'); b.classList.add('ok'); $app.querySelectorAll('.qopt').forEach(c => c.disabled = true); next(); }
+          else { mark('wrong'); b.classList.add('no'); b.disabled = true; miss(label); prog(); }
+        });
+      } else {
+        $app.innerHTML = `${top()}<div class="card qcard">${passage}${head}</div>
+        <form id="fm" class="row" style="flex-direction:column;align-items:stretch" autocomplete="off">
+          <input class="answer" id="ans" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="답을 쓰세요" aria-label="답">
+          <div class="feedback" id="fb"></div>
+          <div class="row"><button type="button" class="btn ghost" id="skip">건너뛰기${P ? ` (+${P * 3}초)` : ''}</button><button type="submit" class="btn mark wide">확인</button></div>
+        </form>`;
+        const ans = document.getElementById('ans'), fb = document.getElementById('fb');
+        timers.push(setTimeout(() => ans.focus(), 30));
+        document.getElementById('fm').onsubmit = e => {
+          e.preventDefault(); if (!ans.value.trim()) return;
+          if (q.answer.some(a => normQ(a) === normQ(ans.value))) { mark('ok'); fb.className = 'feedback ok'; fb.textContent = '정답!'; ans.readOnly = true; next(); return; }
+          mark('wrong'); miss(label); prog();
+          fb.className = 'feedback no'; fb.textContent = '다시 생각해 보세요.';
+          ans.classList.add('no'); setTimeout(() => ans.classList.remove('no'), 400); ans.select();
+        };
+        document.getElementById('skip').onclick = () => {
+          mark('skip'); R.wrong++; R.penalty += P * 3; if (!R.wrongWords.includes(label[0])) R.wrongWords.push(label[0]);
+          next();
+        };
+      }
+      scrollTo(0, 0);
+    };
+    draw();
+  }
+
+  /* accuracy Quiz: one answer per question, free to move back and forth, submitted at the end or when time runs out.
+     Answers are kept in this browser too, so a refresh or a closed screen picks up where the student was */
+  function accQuiz(){
+    const LIM = (S.limit || 0) * 60, akey = ctx.trial ? '' : 'wordroom-acc-' + race.id + '-' + ctx.label;
+    let ans = {}; try { if (akey && st.resumed) ans = JSON.parse(localStorage.getItem(akey) || '{}') || {}; } catch(e){}
+    const keep = () => { if (akey) try { localStorage.setItem(akey, JSON.stringify(ans)); } catch(e){} };
+    const answered = () => Object.keys(ans).filter(k => String(ans[k]).trim() !== '').length;
+    let cur = 0, submitted = false;
+    const left = () => LIM ? Math.max(0, LIM - (performance.now() - t0) / 1000) : null;
+    const clock = () => LIM ? `<span class="rtlabel">남은 시간</span>${fmtSec(left())}` : fmtSec((performance.now() - t0) / 1000);
+    const head = () => `<div class="racehead"><div><div class="count">${esc(ctx.label)}</div><b>${esc(race.name)}</b></div><div class="rtime" id="rtime">${clock()}</div></div>
+      <div class="bar"><i id="rbar" style="width:${total ? answered() / total * 100 : 0}%"></i></div>
+      <div class="qdots">${words.map((q, i) => `<button class="qdot${i === cur ? ' on' : ''}${String(ans[i] ?? '').trim() !== '' ? ' done' : ''}" data-go="${i}" aria-label="${i + 1}번">${i + 1}</button>`).join('')}</div>`;
+    clearInterval(tick);
+    timers.push(setInterval(() => {
+      const tm = document.getElementById('rtime'); if (tm) tm.innerHTML = clock();
+      if (LIM && left() < 60 && tm) tm.classList.add('pen');
+      if (LIM && left() <= 0 && !submitted) submit(true);
+    }, 250));
+    const draw = () => {
+      const q = words[cur];
+      const passage = q.passage ? `<div class="qpass">${esc(q.passage)}</div>` : '';
+      const body = q.type === 'choice'
+        ? `<div class="choices">${q.options.map((o, k) => `<button class="choice qopt${ans[cur] === k ? ' sel' : ''}" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${esc(o)}</span></button>`).join('')}</div>`
+        : `<input class="answer" id="ans" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="답을 쓰세요" aria-label="답" value="${esc(ans[cur] || '')}">`;
+      $app.innerHTML = `${head()}<div class="card qcard">${passage}<div class="qtext"><span class="qno">${cur + 1}.</span> ${esc(q.q)}</div></div>${body}
+        <div class="row"><button class="btn ghost" id="qprev" ${cur ? '' : 'disabled'}>‹ 이전</button>${cur < total - 1 ? '<button class="btn mark wide" id="qnext">다음 ›</button>' : '<button class="btn mark wide" id="qsubmit">제출하기</button>'}</div>
+        <div class="count" id="qleft">${answered()} / ${total}문제 답함</div>`;
+      $app.querySelectorAll('.qopt').forEach(b => b.onclick = () => { ans[cur] = +b.dataset.k; keep(); upd(); $app.querySelectorAll('.qopt').forEach(c => c.classList.toggle('sel', c === b)); });
+      const inp = document.getElementById('ans');
+      if (inp) { inp.oninput = () => { ans[cur] = inp.value; keep(); upd(); }; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go(cur + 1); } }; timers.push(setTimeout(() => inp.focus(), 30)); }
+      $app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(+b.dataset.go));
+      const pv = document.getElementById('qprev'); if (pv) pv.onclick = () => go(cur - 1);
+      const nx = document.getElementById('qnext'); if (nx) nx.onclick = () => go(cur + 1);
+      const sb = document.getElementById('qsubmit'); if (sb) sb.onclick = () => submit(false);
+      scrollTo(0, 0);
+    };
+    const upd = () => {
+      R.done = answered(); prog(); send();
+      const b = document.getElementById('rbar'); if (b) b.style.width = (R.done / total * 100) + '%';
+      const l = document.getElementById('qleft'); if (l) l.textContent = `${R.done} / ${total}문제 답함`;
+      const d = $app.querySelector(`.qdot[data-go="${cur}"]`); if (d) d.classList.toggle('done', String(ans[cur] ?? '').trim() !== '');
+    };
+    const go = i => { if (i < 0) return; if (i >= total) return submit(false); cur = i; draw(); };
+    const submit = timeUp => {
+      if (submitted) return;
+      const blank = total - answered();
+      if (!timeUp && blank) {
+        const sb = document.getElementById('qsubmit') || document.getElementById('qnext');
+        if (sb && sb.dataset.sure !== '1') { if (!document.getElementById('qsubmit')) { cur = total - 1; draw(); } const b = document.getElementById('qsubmit'); b.dataset.sure = '1'; b.textContent = `답하지 않은 문제 ${blank}개 · 그래도 제출`; return; }
+      }
+      submitted = true;
+      let right = 0;
+      words.forEach((q, i) => {
+        const a = ans[i], empty = a === undefined || String(a).trim() === '';
+        const ok = !empty && (q.type === 'choice' ? a === q.answer : q.answer.some(x => normQ(x) === normQ(a)));
+        R.qres[i] = empty ? 'blank' : ok ? 'ok' : 'wrong'; R.mine = R.mine || {}; R.mine[i] = a;
+        if (ok) right++; else R.wrongWords.push((q.no || i + 1) + '번');
+      });
+      R.done = right; R.wrong = total - right; R.penalty = 0; R.timeUp = !!timeUp;
+      if (akey) try { localStorage.removeItem(akey); } catch(e){}
+      finish();
+    };
+    if (st.resumed && st.elapsed && LIM && st.elapsed >= LIM) return submit(true);
+    draw();
+  }
 }
 
-function viewRaceResult(race, r, R, localSec){
+function viewRaceResult(race, r, R, localSec, ctx, items){
+  if (isAcc(race)) return viewAccResult(race, r, R, localSec, ctx, items);
   stopTimers();
   const sec = r && r.seconds != null ? r.seconds : localSec;
+  const multi = race.settings.multi && !ctx.trial;
+  const unit = ctx.kind === 'team' ? '모둠' : '명';
+  const where = ctx.kind === 'team' ? TEAM.cls : '우리 반';
+  const quiz = race.settings.mode === 'quiz';
+  const qmark = i => R.qres[i] === 'ok' ? '<span class="chip ok">맞힘</span>' : R.qres[i] === 'skip' ? '<span class="chip">건너뜀</span>' : R.qres[i] ? '<span class="chip">틀림</span>' : (i < R.resumedAt ? '<span class="chip ok">풀었음</span>' : '');
   $app.innerHTML = `${header()}
-  <div class="setcard"><div class="eyebrow">${esc(TEAM.cls)} · ${esc(TEAM.team)}</div><h1>도착!</h1><div class="meta">${esc(race.name)}</div></div>
+  <div class="setcard"><div class="eyebrow">${esc(ctx.label)}</div><h1>도착!</h1><div class="meta">${esc(race.name)}</div></div>
   <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
-    <div class="count">기록</div><div class="score">${fmtSec(sec)}</div>
-    <div class="help">틀림 ${R.wrong}번${R.penalty ? ` · 벌점 ${R.penalty}초 포함` : ''}${r && race.settings.showRank && r.rank ? ` · <b>${esc(TEAM.cls)} ${r.rank}위</b> (지금까지 ${r.of}모둠)` : ''}</div>
-    ${r ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
+    <div class="count">${multi ? '이번 기록' : '기록'}</div><div class="score">${fmtSec(sec)}</div>
+    <div class="help">틀림 ${R.wrong}번${R.penalty ? ` · 벌점 ${R.penalty}초 포함` : ''}${multi && r && r.best != null && r.best < sec ? ` · 최고 기록 <b>${fmtSec(r.best)}</b>` : ''}${r && !ctx.trial && race.settings.showRank && r.rank ? ` · <b>${esc(where)} ${r.rank}위</b> (지금까지 ${r.of}${unit})` : ''}</div>
+    ${r || ctx.trial ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
   </div>
-  ${R.wrongWords.length ? `<div class="section-label">헷갈린 단어 ${R.wrongWords.length}개</div><div class="panel"><ul class="wl">${R.wrongWords.map(en => wordRow(raceWords(race).find(w => w[0] === en) || [en, ''])).join('')}</ul></div>` : ''}
-  <button class="btn" id="home">레이스 목록으로</button>`;
-  document.getElementById('home').onclick = viewTeamHome;
+  ${quiz ? `<div class="section-label">정답과 해설</div><div class="panel"><ol class="qres">${items.map((q, i) => `<li>
+      <div class="row" style="gap:8px"><b>${i + 1}번</b>${qmark(i)}</div>
+      <div class="qtext small">${esc(q.q)}</div>
+      <div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>
+      ${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`).join('')}</ol></div>`
+    : R.wrongWords.length ? `<div class="section-label">헷갈린 단어 ${R.wrongWords.length}개</div><div class="panel"><ul class="wl">${R.wrongWords.map(en => wordRow(raceWords(race).find(w => w[0] === en) || [en, ''])).join('')}</ul></div>` : ''}
+  <div class="row">${multi && race.status === '진행' ? '<button class="btn ghost" id="again">다시 도전</button>' : ''}<button class="btn wide" id="home">${ctx.homeText}</button></div>`;
+  document.getElementById('home').onclick = () => ctx.home();
+  const ag = document.getElementById('again');
+  if (ag) ag.onclick = () => viewRaceReady(Object.assign({}, race, {mine: null}), ctx);
+  scrollTo(0, 0);
+}
+
+function viewAccResult(race, r, R, localSec, ctx, items){
+  stopTimers();
+  const total = items.length, right = R.done, sec = r && r.seconds != null ? r.seconds : localSec;
+  const multi = race.settings.multi && !ctx.trial, unit = ctx.kind === 'team' ? '모둠' : '명', where = ctx.kind === 'team' ? TEAM.cls : '우리 반';
+  const mark = i => R.qres[i] === 'ok' ? '<span class="chip ok">맞힘</span>' : R.qres[i] === 'blank' ? '<span class="chip">답 안 함</span>' : '<span class="chip">틀림</span>';
+  const mineText = (q, i) => { const a = (R.mine || {})[i]; if (a === undefined || String(a).trim() === '') return '(답 안 함)'; return q.type === 'choice' ? `${CIRCLED[a] || ''} ${q.options[a] || ''}` : a; };
+  $app.innerHTML = `${header()}
+  <div class="setcard"><div class="eyebrow">${esc(ctx.label)}</div><h1>${R.timeUp ? '시간이 다 됐어요' : '제출했어요'}</h1><div class="meta">${esc(race.name)}</div></div>
+  <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+    <div class="count">${multi ? '이번 점수' : '점수'}</div><div class="score">${right}<small> / ${total}</small> <small>· 정답률 ${pctOf(right, total)}</small></div>
+    <div class="help">걸린 시간 ${fmtSec(sec)}${multi && r && r.bestDone != null && (r.bestDone > right) ? ` · 최고 점수 <b>${r.bestDone}/${total}</b>` : ''}${r && !ctx.trial && race.settings.showRank && r.rank ? ` · <b>${esc(where)} ${r.rank}위</b> (지금까지 ${r.of}${unit})` : ''}</div>
+    ${r || ctx.trial ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
+  </div>
+  <div class="section-label">정답과 해설</div><div class="panel"><ol class="qres">${items.map((q, i) => `<li>
+      <div class="row" style="gap:8px"><b>${i + 1}번</b>${mark(i)}</div>
+      <div class="qtext small">${esc(q.q)}</div>
+      <div class="small">내 답: ${esc(mineText(q, i))}</div>
+      <div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>
+      ${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`).join('')}</ol></div>
+  <div class="row">${multi && race.status === '진행' ? '<button class="btn ghost" id="again">다시 도전</button>' : ''}<button class="btn wide" id="home">${ctx.homeText}</button></div>`;
+  document.getElementById('home').onclick = () => ctx.home();
+  const ag = document.getElementById('again');
+  if (ag) ag.onclick = () => viewRaceReady(Object.assign({}, race, {mine: null}), ctx);
   scrollTo(0, 0);
 }
 
@@ -1515,7 +1796,7 @@ function viewRaceResult(race, r, R, localSec){
 /* 지난 레이스 기록 정리: N일 지난 레이스 기록을 '지난 레이스 기록' 탭으로 */
 function archivePanel(a){
   if (!a) return '';
-  const days = a.days || 90, opts = [30, 60, 90, 120, 180, 365];
+  const opts = [7, 14, 21, 28], days = opts.includes(a.days) ? a.days : 28;
   return `<div class="panel archive"><div><b>지난 레이스 기록 정리</b><div class="muted small">오래된 레이스 기록을 구글 시트 '지난 레이스 기록' 탭으로 옮겨 순위판을 가볍게 해요. 옮긴 기록도 시트에 그대로 남아요.</div></div>
     <div class="row small"><label for="ar-days" class="small">기준</label><select id="ar-days">${opts.map(d => `<option value="${d}" ${d === days ? 'selected' : ''}>${d}일 지난 기록</option>`).join('')}</select>
       <label class="check small"><input type="checkbox" id="ar-auto" ${a.auto ? 'checked' : ''}><span>매일 새벽 자동으로 옮기기</span></label></div>
@@ -1537,50 +1818,67 @@ function bindArchivePanel(){
   $('ar-save').onclick = e => go(false, e.target);
   $('ar-now').onclick = e => go(true, e.target);
 }
-let RACE_ADMIN = {classes: [], races: []};
-const raceClassNames = (race, teams) => race.classes.includes('*') ? (teams || RACE_ADMIN.classes).map(c => c.name) : race.classes;
+let RACE_ADMIN = {classes: [], studentClasses: [], races: []};
+/* the classes a race is for: "전체 반" means every registered class (team races) or every class found in student numbers (individual races) */
+const whoClasses = (who, data) => who === 'student' ? ((data || RACE_ADMIN).studentClasses || []).map(c => c.name) : ((data || RACE_ADMIN).classes || []).map(c => c.name);
+const raceClassNames = (race, teams) => race.classes.includes('*') ? (teams ? teams.map(c => c.name) : whoClasses(race.settings.who)) : race.classes;
 const raceClassLabel = race => race.classes.includes('*') ? '전체 반' : race.classes.join(', ');
-async function loadRaceAdmin(){ const r = await api('adminRaces', {token: ADMIN.token, v: setsV()}); applySets(r.setsPack); RACE_ADMIN = {classes: r.classes, races: r.races, archive: r.archive}; return r; }
+async function loadRaceAdmin(){ const r = await api('adminRaces', {token: ADMIN.token, v: setsV()}); applySets(r.setsPack); RACE_ADMIN = {classes: r.classes, studentClasses: r.studentClasses || [], races: r.races, archive: r.archive}; return r; }
 const STATUS_CHIP = {'준비': '<span class="chip">준비</span>', '진행': '<span class="chip go">열림</span>', '마감': '<span class="chip">마감</span>'};
+/* one chip for the whole race: the same state in every class, or "반마다 다름" */
+function raceStateChip(race){
+  const names = raceClassNames(race);
+  const sts = [...new Set((names.length ? names : ['*']).map(c => raceStatusFor(race, c)))];
+  return sts.length === 1 ? (STATUS_CHIP[sts[0]] || '') : `<span class="chip run">${sts.includes('진행') ? '일부 반 열림' : '반마다 다름'}</span>`;
+}
+async function setRaceStatus(race, cls, status, after){
+  try { await api('adminRaceStatus', {token: ADMIN.token, id: race.id, cls, status}); toast(`${cls === '*' ? '모든 반' : cls}: ${status === '진행' ? '열었어요' : '마감했어요'}`); after(); }
+  catch(e){ if (!adminErr(e, after)) toast(e.error || '바꾸지 못했어요'); }
+}
 
 async function viewRaceAdmin(){
   stopTimers();
   if (needAdmin(viewRaceAdmin)) return;
-  $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('race')}<h2>모둠 레이스</h2><div class="panel empty">불러오는 중…</div>`;
+  $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('race')}<h2>레이스</h2><div class="panel empty">불러오는 중…</div>`;
   document.getElementById('up').onclick = () => route(); bindAdminNav();
   const mk = 'v-race-' + (++VIEWSEQ), cached = store.get('wordroom-raceadmin', null);
   $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
-  if (cached) { RACE_ADMIN = cached; show(); }
+  if (cached && cached.studentClasses) { RACE_ADMIN = cached; show(); }
   try { await loadRaceAdmin(); }
   catch(e){ if (!adminErr(e, viewRaceAdmin)) { const el = $app.querySelector('.empty'); if (el && !cached) el.textContent = e.error || '불러오지 못했어요.'; } return; }
   if (!document.getElementById(mk)) return;
   store.set('wordroom-raceadmin', RACE_ADMIN); show();
   return;
-  function show(r){
-  const MK = '<i hidden id="' + mk + '"></i>';
-
-  const C = RACE_ADMIN.classes;
+  function show(){
+  const C = RACE_ADMIN.classes, allNames = [...new Set([...C.map(c => c.name), ...(RACE_ADMIN.studentClasses || []).map(c => c.name)])];
   let fcls = store.get('wordroom-race-filter', '');
-  if (fcls && !C.some(c => c.name === fcls)) fcls = '';
-  const races = RACE_ADMIN.races.filter(x => !fcls || x.classes.includes('*') || x.classes.includes(fcls));
+  if (fcls && !allNames.includes(fcls)) fcls = '';
+  const live = RACE_ADMIN.races.filter(x => !x.state.del), gone = RACE_ADMIN.races.filter(x => x.state.del);
+  const races = live.filter(x => !fcls || raceClassNames(x).includes(fcls));
+  const item = (x, i) => `<li class="who-${x.settings.who}"><div class="sl-main"><b>${esc(x.name)} <span class="chip who ${x.settings.who}">${WHO_NAME[x.settings.who]}</span> ${raceStateChip(x)}</b>
+        <span class="muted small">${MODE_NAME[x.settings.mode]} · ${raceItems(x).length}문제 · ${isAcc(x) ? `정확도${x.settings.limit ? ` · 제한 ${x.settings.limit}분` : ''}` : x.settings.penalty ? `벌점 ${x.settings.penalty}초` : '벌점 없음'} · ${x.settings.multi ? '여러 번 도전' : '한 번만'} · ${esc(raceClassLabel(x))} · 끝낸 ${x.settings.who === 'student' ? '학생' : '모둠'} ${x.done}${x.running ? ` · 달리는 중 ${x.running}` : ''}</span></div>
+      <div class="sl-act">
+        <button class="btn small mark" data-oc="${i}">열기·마감</button>
+        <button class="btn ghost small" data-board="${i}">순위판</button>
+        <button class="btn ghost small" data-edit="${i}">편집·풀어보기</button>
+        <button class="btn ghost small" data-del="${i}">삭제</button></div>
+      <div class="ocpanel" id="oc-${i}" hidden></div></li>`;
   $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('race')}
-  <div class="row" style="justify-content:space-between"><h2>모둠 레이스</h2><button class="btn mark" id="new" ${C.length ? '' : 'disabled'}>+ 새 레이스</button></div>
+  <div class="row" style="justify-content:space-between"><h2>레이스</h2><button class="btn mark" id="new">+ 새 레이스</button></div>
   <div class="panel teamsum">
-    <div><b>반·모둠</b><div class="muted small">${C.length ? C.map(c => `${esc(c.name)} ${c.teams.length}모둠`).join(' · ') : '아직 등록한 반이 없어요. 먼저 반과 모둠을 등록하세요.'}</div></div>
+    <div><b>반·모둠</b><div class="muted small">${C.length ? C.map(c => `${esc(c.name)} ${c.teams.length}모둠`).join(' · ') : '모둠 레이스를 하려면 먼저 반과 모둠을 등록하세요.'}</div>
+      <div class="muted small">개인 레이스는 학번으로 반을 알아요 (21201 → 2학년 12반)${(RACE_ADMIN.studentClasses || []).length ? ` · 등록한 학생: ${RACE_ADMIN.studentClasses.map(c => `${esc(c.name)} ${c.n}명`).join(' · ')}` : ''}</div></div>
     <button class="btn ghost small" id="teams">반·모둠 등록</button>
   </div>
-  ${C.length > 1 ? `<div class="chipsrow" role="group" aria-label="반별로 보기"><button class="fchip${fcls ? '' : ' on'}" data-fc="">전체 반</button>${C.map(c => `<button class="fchip${fcls === c.name ? ' on' : ''}" data-fc="${esc(c.name)}">${esc(c.name)}</button>`).join('')}</div>` : ''}
-  <div class="panel"><ul class="setlist">
-    ${races.map((x, i) => `<li><div class="sl-main"><b>${esc(x.name)} ${STATUS_CHIP[x.status] || ''}</b>
-        <span class="muted small">${MODE_NAME[x.settings.mode]} · ${raceWords(x).length}문제 · ${x.settings.penalty ? `벌점 ${x.settings.penalty}초` : '벌점 없음'} · ${esc(raceClassLabel(x))} · 끝낸 모둠 ${x.done}${x.running ? ` · 달리는 중 ${x.running}` : ''}</span></div>
-      <div class="sl-act">
-        <button class="btn small ${x.status === '진행' ? 'ghost' : 'mark'}" data-st="${i}">${x.status === '진행' ? '마감하기' : '열기'}</button>
-        <button class="btn ghost small" data-board="${i}">순위판</button>
-        <button class="btn ghost small" data-edit="${i}">편집</button>
-        <button class="btn ghost small" data-del="${i}">삭제</button></div></li>`).join('')}
-    ${!races.length ? `<li class="muted">${fcls ? `${esc(fcls)}에 해당하는 레이스가 없어요.` : '아직 만든 레이스가 없어요.'}</li>` : ''}
-  </ul></div>
-  <p class="help">모둠은 로그인 화면의 <b>모둠 입장</b> 탭에서 반과 모둠을 골라 들어와요. 열린 레이스만 모둠 화면에 보여요.</p>
+  ${allNames.length > 1 ? `<div class="chipsrow" role="group" aria-label="반별로 보기"><button class="fchip${fcls ? '' : ' on'}" data-fc="">전체 반</button>${allNames.map(c => `<button class="fchip${fcls === c ? ' on' : ''}" data-fc="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''}
+  ${['team', 'student'].map(w => { const list = races.map((x, i) => [x, i]).filter(([x]) => x.settings.who === w);
+    return `<div class="whohead ${w}"><span class="whodot"></span><b>${WHO_NAME[w]}</b><span class="muted small">${w === 'team' ? '모둠 입장으로 들어와 한 기기로 달려요' : '학생이 로그인한 첫 화면에 나와요'} · ${list.length}개</span></div>
+    <div class="panel whopanel ${w}"><ul class="setlist">${list.map(([x, i]) => item(x, i)).join('') || `<li class="muted">${fcls ? `${esc(fcls)}에 해당하는 ${WHO_NAME[w]}가 없어요.` : `아직 만든 ${WHO_NAME[w]}가 없어요.`}</li>`}</ul></div>`; }).join('')}
+  <p class="help">모둠 레이스는 로그인 화면의 <b>모둠 입장</b>에서, 개인 레이스는 학생이 로그인한 첫 화면에서 보여요. 그 반에 열린 레이스만 보여요.</p>
+  ${gone.length ? `<details class="panel gonebox"><summary>삭제한 레이스 ${gone.length}개 <span class="muted small">학생·모둠 화면에는 보이지 않아요</span></summary><ul class="setlist">
+    ${gone.map(x => `<li><div class="sl-main"><b>${esc(x.name)} <span class="chip who ${x.settings.who}">${WHO_NAME[x.settings.who]}</span></b><span class="muted small">${MODE_NAME[x.settings.mode]} · ${esc(raceClassLabel(x))} · 끝낸 ${x.settings.who === 'student' ? '학생' : '모둠'} ${x.done}</span></div>
+      <div class="sl-act"><button class="btn ghost small" data-gboard="${esc(x.id)}">순위판</button><button class="btn ghost small" data-restore="${esc(x.id)}">되살리기</button><button class="btn danger small" data-hard="${esc(x.id)}">완전 삭제</button></div></li>`).join('')}
+  </ul></details>` : ''}
   ${archivePanel(RACE_ADMIN.archive)}`;
   document.getElementById('up').onclick = () => route(); bindAdminNav();
   document.getElementById('teams').onclick = viewTeamsAdmin;
@@ -1589,19 +1887,35 @@ async function viewRaceAdmin(){
   document.getElementById('new').onclick = () => viewRaceEdit(null);
   $app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => viewRaceEdit(races[+b.dataset.edit]));
   $app.querySelectorAll('[data-board]').forEach(b => b.onclick = () => viewBoard(races[+b.dataset.board].id, fcls || undefined));
-  $app.querySelectorAll('[data-st]').forEach(b => b.onclick = async () => {
-    const x = races[+b.dataset.st];
-    try { await api('adminRaceStatus', {token: ADMIN.token, id: x.id, status: x.status === '진행' ? '마감' : '진행'}); toast(x.status === '진행' ? '마감했어요' : '열었어요. 모둠 화면에 보여요'); viewRaceAdmin(); }
-    catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '바꾸지 못했어요'); }
+  $app.querySelectorAll('[data-gboard]').forEach(b => b.onclick = () => viewBoard(b.dataset.gboard));
+  /* 열기·마감: all classes at once, or one class at a time */
+  $app.querySelectorAll('[data-oc]').forEach(b => b.onclick = () => {
+    const i = +b.dataset.oc, x = races[i], box = document.getElementById('oc-' + i);
+    if (!box.hidden) { box.hidden = true; return; }
+    // a class tab is chosen above: open and close only that class here
+    const names = fcls ? [fcls] : raceClassNames(x);
+    const row = (cls, label, st) => `<div class="ocrow"><span class="ocname">${esc(label)}</span>${st ? STATUS_CHIP[st] || '' : ''}<span class="sl-act">
+      <button class="btn small ${st === '진행' ? 'ghost' : 'mark'}" data-set="${esc(cls)}" data-to="진행" ${st === '진행' ? 'disabled' : ''}>열기</button>
+      <button class="btn small ghost" data-set="${esc(cls)}" data-to="마감" ${st === '진행' ? '' : 'disabled'}>마감하기</button></span></div>`;
+    const sts = names.map(c => raceStatusFor(x, c));
+    box.innerHTML = (fcls ? `<div class="muted small">${esc(fcls)}만 열고 마감해요. 모든 반을 한꺼번에 하려면 위에서 '전체 반'을 고르세요.</div>` : row('*', '모든 반', sts.length && sts.every(v => v === sts[0]) ? sts[0] : '')) + names.map((c, k) => row(c, c, sts[k])).join('')
+      + (names.length ? '' : '<div class="muted small">아직 이 레이스에 해당하는 반이 없어요.</div>');
+    box.hidden = false;
+    box.querySelectorAll('[data-set]').forEach(btn => btn.onclick = () => { btn.disabled = true; setRaceStatus(x, btn.dataset.set, btn.dataset.to, viewRaceAdmin); });
   });
   $app.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
     const x = races[+b.dataset.del], act = b.closest('.sl-act');
-    act.innerHTML = `<span class="small">"${esc(x.name)}"을(를) 지울까요? 기록은 시트에 남아요.</span><button class="btn ghost small" data-no>취소</button><button class="btn danger small" data-yes>삭제</button>`;
+    act.innerHTML = `<span class="small">"${esc(x.name)}"을(를) 학생·모둠 화면에서 지울까요? 선생님 화면의 '삭제한 레이스'에는 남아요.</span><button class="btn ghost small" data-no>취소</button><button class="btn danger small" data-yes>삭제</button>`;
     act.querySelector('[data-no]').onclick = viewRaceAdmin;
-    act.querySelector('[data-yes]').onclick = async () => { try { await api('adminRaceDelete', {token: ADMIN.token, id: x.id}); toast('레이스를 지웠어요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '지우지 못했어요'); } };
+    act.querySelector('[data-yes]').onclick = async () => { try { await api('adminRaceDelete', {token: ADMIN.token, id: x.id, how: 'soft'}); toast('삭제했어요. 학생·모둠 화면에서 보이지 않아요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '지우지 못했어요'); } };
+  });
+  $app.querySelectorAll('[data-restore]').forEach(b => b.onclick = async () => { try { await api('adminRaceDelete', {token: ADMIN.token, id: b.dataset.restore, how: 'restore'}); toast('되살렸어요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '되살리지 못했어요'); } });
+  $app.querySelectorAll('[data-hard]').forEach(b => b.onclick = async () => {
+    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '정말 완전 삭제 (되돌릴 수 없어요)'; return; }
+    try { await api('adminRaceDelete', {token: ADMIN.token, id: b.dataset.hard, how: 'hard'}); toast('완전히 삭제했어요. 기록은 시트에 남아요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '지우지 못했어요'); }
   });
   scrollTo(0, 0);
-  $app.insertAdjacentHTML('beforeend', MK);
+  $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
   }
 }
 
@@ -1610,9 +1924,9 @@ function viewTeamsAdmin(){
   if (needAdmin(viewTeamsAdmin)) return;
   let C = JSON.parse(JSON.stringify(RACE_ADMIN.classes));
   const draw = () => {
-    $app.innerHTML = `${header('<button class="link" id="up">← 모둠 레이스</button>')}${adminNav('race')}
+    $app.innerHTML = `${header('<button class="link" id="up">← 레이스</button>')}${adminNav('race')}
     <h2>반·모둠 등록</h2>
-    <p class="help">반 이름과 그 반의 모둠을 적어요. 모둠은 한 줄에 하나씩이에요. 모둠은 로그인 화면에서 반 → 모둠 순서로 골라 들어와요.</p>
+    <p class="help">반 이름과 그 반의 모둠을 적어요. 모둠은 한 줄에 하나씩이에요. 모둠은 로그인 화면에서 반 → 모둠 순서로 골라 들어와요. 반 이름은 "2학년 3반"처럼 쓰면 개인 레이스의 반(학번으로 계산)과 이름이 같아져요.</p>
     <div class="classlist">${C.map((c, i) => `<div class="panel classbox">
       <div class="row" style="justify-content:space-between"><input type="text" id="cn-${i}" data-cn="${i}" value="${esc(c.name)}" placeholder="예: 2학년 3반" maxlength="20"><button class="btn ghost small" data-cdel="${i}">반 지우기</button></div>
       <textarea id="ct-${i}" data-ct="${i}" rows="4" placeholder="1모둠&#10;2모둠&#10;3모둠">${esc(c.teams.join('\n'))}</textarea>
@@ -1639,68 +1953,230 @@ function viewTeamsAdmin(){
   draw(); scrollTo(0, 0);
 }
 
-function viewRaceEdit(race){
+/* ---------- quiz questions: pasted text → questions ----------
+   지문: …            (선택. 다음 "지문:"이 나올 때까지 뒤의 문제에 함께 붙어요)
+   1. 문제 …
+   ① 보기 ② 보기 …   (보기가 있으면 선다형, 없으면 단답형)
+   정답: ② / spend / spending
+   해설: …                                                                  */
+function parseQuizText(text){
+  const lines = String(text || '').replace(/\r/g, '').split('\n');
+  const out = [], bad = [];
+  let passage = '', inPassage = false, cur = null, field = null;
+  const optRe = /^\s*(?:[①②③④⑤⑥]|\(\s*[1-6]\s*\)|[A-Fa-f][.)])\s*/;
+  const flush = () => { if (cur) { out.push(cur); cur = null; } field = null; };
+  lines.forEach(raw => {
+    const line = raw.replace(/\s+$/, '');
+    let m;
+    if ((m = /^\s*(?:\[?지문\]?\s*[:：]|\[지문\])\s*(.*)$/.exec(line))) { flush(); passage = m[1]; inPassage = true; return; }
+    if ((m = /^\s*(\d{1,3})\s*[.)번]\s*(.*)$/.exec(line)) && !/^\s*\d+\)\s*$/.test(line)) { flush(); inPassage = false; cur = {type: 'text', passage: passage.trim(), q: m[2], options: [], answerRaw: '', exp: ''}; field = 'q'; return; }
+    if (inPassage) { passage += '\n' + line; return; }
+    if (!cur) { if (line.trim()) bad.push(line.trim()); return; }
+    if ((m = /^\s*(?:정답|답)\s*[:：]\s*(.*)$/.exec(line))) { cur.answerRaw = m[1].trim(); field = 'answer'; return; }
+    if ((m = /^\s*(?:해설|풀이|설명)\s*[:：]\s*(.*)$/.exec(line))) { cur.exp = m[1]; field = 'exp'; return; }
+    if (optRe.test(line) && field !== 'exp') {
+      // one line may hold several options: ① a ② b ③ c
+      line.split(/(?=[①②③④⑤⑥])/).map(s => s.replace(optRe, '').trim()).filter(Boolean).forEach(o => cur.options.push(o));
+      field = 'opt'; return;
+    }
+    if (field === 'exp') cur.exp += '\n' + line;
+    else if (field === 'q') cur.q += '\n' + line;
+    else if (field === 'opt' && line.trim() && cur.options.length) cur.options[cur.options.length - 1] += ' ' + line.trim();
+  });
+  flush();
+  const qs = out.map(c => {
+    const q = {passage: c.passage, q: c.q.trim(), exp: c.exp.trim()};
+    if (c.options.length >= 2) {
+      q.type = 'choice'; q.options = c.options.slice(0, 6);
+      const a = c.answerRaw.trim(); let k = '①②③④⑤⑥'.indexOf(a[0]);
+      if (k < 0 && /^\(?\d/.test(a)) k = parseInt(a.replace(/\D/g, ''), 10) - 1;
+      if (k < 0 && /^[A-Fa-f](\b|[.)])/.test(a)) k = a.toUpperCase().charCodeAt(0) - 65;
+      if (k < 0) k = q.options.findIndex(o => normQ(o) === normQ(a));
+      q.answer = k >= 0 && k < q.options.length ? k : -1;
+    } else {
+      q.type = 'text'; q.answer = c.answerRaw.split(/\s*\/\s*|\s+또는\s+/).map(s => s.trim()).filter(Boolean);
+    }
+    return q;
+  });
+  return {questions: qs, bad};
+}
+const quizProblem = q => !q.q ? '문제가 비어 있어요' : q.type === 'choice' ? (q.options.filter(Boolean).length < 2 ? '보기가 2개 이상 있어야 해요' : !(q.answer >= 0 && q.options[q.answer]) ? '정답 보기를 골라 주세요' : '') : (!q.answer.length ? '정답을 써 주세요' : '');
+
+function viewRaceEdit(race, draft){
   stopTimers();
-  if (needAdmin(() => viewRaceEdit(race))) return;
-  const s = race ? race.settings : {mode: 'time', count: 20, penalty: 0, rel: false, live: true, showRank: true};
-  const allCls = !race || race.classes.includes('*');
-  const src = new Set(race ? race.sources : []), cls = new Set(race && !allCls ? race.classes : []);
-  const srcList = [...SETS.map(x => ({id: x.id, label: x.t, n: (x.heads || x.w).length, nr: x.w.length})), ...PAGES.map(p => ({id: p.id, label: `${BOOK} ${p.t.replace('학습지 ', '')}`, n: p.heads.length, nr: p.w.length}))];
-  $app.innerHTML = `${header('<button class="link" id="up">← 모둠 레이스</button>')}${adminNav('race')}
+  if (needAdmin(() => viewRaceEdit(race, draft))) return;
+  const base = draft || race || {};
+  const s = Object.assign({mode: 'time', who: 'team', multi: false, shuffle: false, count: 20, penalty: 0, rel: false, live: true, showRank: true}, base.settings || {});
+  let who = s.who, Q = JSON.parse(JSON.stringify(base.questions || []));
+  let allCls = !base.classes || base.classes.includes('*');
+  const src = new Set(base.sources || []), cls = new Set(base.classes && !allCls ? base.classes : []);
+  const srcList = [...SETS.map(x => ({id: x.id, label: x.t, n: (x.heads || x.w).length})), ...PAGES.map(p => ({id: p.id, label: `${BOOK} ${p.t.replace('학습지 ', '')}`, n: p.heads.length}))];
+  const people = who === 'student' ? '학생' : '모둠';
+  $app.innerHTML = `${header('<button class="link" id="up">← 레이스</button>')}${adminNav('race')}
   <h2>${race ? '레이스 편집' : '새 레이스'}</h2>
-  ${race && (race.done || race.running) ? '<div class="badlines">이미 달린 모둠이 있어요. 지문·문제 수를 바꾸면 모둠마다 문제가 달라져요.</div>' : ''}
-  <div class="field"><label for="re-name">레이스 이름</label><input type="text" id="re-name" maxlength="40" placeholder="예: 모의고사 1·2번 레이스" value="${esc(race ? race.name : '')}"></div>
-  <div class="field"><span class="flabel">지문 묶기</span><div class="checks">${srcList.map(x => `<label class="check"><input type="checkbox" data-src="${esc(x.id)}" ${src.has(x.id) ? 'checked' : ''}><span>${esc(x.label)} <span class="muted small">${x.n}개</span></span></label>`).join('')}</div>
-    <label class="check"><input type="checkbox" id="re-rel" ${s.rel ? 'checked' : ''}><span>유의어·반의어 같은 관련어도 넣기</span></label>
-    <div class="parsed" id="re-n"></div></div>
-  <div class="field"><span class="flabel">레이스 방식</span><div class="seg">${['time', 'match', 'spell'].map(m => `<label class="segopt"><input type="radio" name="re-mode" value="${m}" ${s.mode === m ? 'checked' : ''}><span><b>${MODE_NAME[m]}</b><span class="muted small">${MODE_HELP[m]}</span></span></label>`).join('')}</div></div>
+  ${race && (race.done || race.running) ? `<div class="badlines">이미 달린 ${people}이(가) 있어요. 문제나 문제 수를 바꾸면 사람마다 문제가 달라져요.</div>` : ''}
+  <div class="field"><label for="re-name">레이스 이름</label><input type="text" id="re-name" maxlength="40" placeholder="예: 모의고사 1·2번 레이스" value="${esc(base.name || '')}"></div>
+  <div class="field"><span class="flabel">누가 달리나요</span><div class="seg two">
+    <label class="segopt"><input type="radio" name="re-who" value="team" ${who === 'team' ? 'checked' : ''}><span><b>모둠 레이스</b><span class="muted small">모둠이 '모둠 입장'으로 들어와 한 기기로 달려요.</span></span></label>
+    <label class="segopt"><input type="radio" name="re-who" value="student" ${who === 'student' ? 'checked' : ''}><span><b>개인 레이스</b><span class="muted small">학생이 로그인한 첫 화면에 나와요. 반은 학번으로 알아요.</span></span></label></div></div>
+  <div class="field"><span class="flabel">레이스 방식</span><div class="seg">${['time', 'match', 'spell', 'quiz'].map(m => `<label class="segopt"><input type="radio" name="re-mode" value="${m}" ${s.mode === m ? 'checked' : ''}><span><b>${MODE_NAME[m]}</b><span class="muted small">${m === 'quiz' ? '문제를 직접 만들어 내요. 선다형과 단답형, 지문, 정답과 해설을 넣을 수 있어요.' : MODE_HELP[m]}</span></span></label>`).join('')}</div></div>
+  <div class="field" id="re-words"><span class="flabel">지문 묶기</span><div class="checks">${srcList.map(x => `<label class="check"><input type="checkbox" data-src="${esc(x.id)}" ${src.has(x.id) ? 'checked' : ''}><span>${esc(x.label)} <span class="muted small">${x.n}개</span></span></label>`).join('')}</div>
+    <label class="check"><input type="checkbox" id="re-rel" ${s.rel ? 'checked' : ''}><span>유의어·반의어 같은 관련어도 넣기</span></label></div>
+  <div class="field" id="re-quiz"><span class="flabel">Quiz 문제</span>
+    <div id="qedit"></div>
+    <div class="row"><button type="button" class="btn ghost" id="q-add-c">+ 선다형 문제</button><button type="button" class="btn ghost" id="q-add-t">+ 단답형 문제</button></div>
+    <details class="panel qbulkbox"><summary><b>여러 문제 한꺼번에 붙여 넣기</b></summary>
+      <textarea id="qbulk" spellcheck="false" placeholder="지문: (여러 문제가 함께 쓰는 지문, 없으면 이 줄을 빼요)&#10;The study shows that ...&#10;&#10;1. 다음 글의 주제로 가장 적절한 것은?&#10;① the effect of ...&#10;② the reason ...&#10;③ ...&#10;정답: ②&#10;해설: 첫 문장에서 ...&#10;&#10;2. 빈칸에 들어갈 단어를 쓰시오.&#10;People ______ more when ...&#10;정답: spend / spending&#10;해설: 주어가 복수이므로 ..."></textarea>
+      <p class="help">"1." 처럼 번호로 문제를 시작해요. 보기(①②③… 또는 (1)(2)… 또는 A. B.)가 있으면 선다형, 없으면 단답형이에요. 단답형 정답이 여러 개면 / 로 나눠요. "지문:" 아래 글은 다음 "지문:"이 나올 때까지 뒤의 문제에 함께 붙어요.</p>
+      <div class="row"><button type="button" class="btn mark" id="qparse">문제로 바꿔 아래에 넣기</button><span class="muted small" id="qparse-msg"></span></div>
+    </details>
+    <span class="flabel" style="margin-top:6px">채점 방식</span>
+    <div class="seg two">
+      <label class="segopt"><input type="radio" name="re-scoring" value="speed" ${s.scoring === 'acc' ? '' : 'checked'}><span><b>빠르기</b><span class="muted small">맞혀야 다음 문제로 넘어가요. 걸린 시간(+벌점)으로 순위를 매겨요.</span></span></label>
+      <label class="segopt"><input type="radio" name="re-scoring" value="acc" ${s.scoring === 'acc' ? 'checked' : ''}><span><b>정확도</b><span class="muted small">문제마다 한 번씩 답하고 제출해요. 맞힌 개수(정답률)로 순위를 매기고, 같으면 빨리 낸 쪽이 앞서요.</span></span></label>
+    </div>
+    <div id="re-limitbox"><span class="flabel">제한 시간</span>
+      <div class="chipsrow" role="radiogroup" aria-label="제한 시간">${[5, 10, 15, 20, 0].map(n => `<button type="button" class="fchip${(s.limit || 0) === n ? ' on' : ''}" data-lim="${n}">${n ? n + '분' : '제한 없음'}</button>`).join('')}
+        <label class="fchip custom lim${[5, 10, 15, 20, 0].includes(s.limit || 0) ? '' : ' on'}">직접 <input type="number" id="re-limit" min="1" max="180" value="${[5, 10, 15, 20, 0].includes(s.limit || 0) ? '' : s.limit}" placeholder="분" class="inline-num" aria-label="제한 시간(분) 직접 입력"></label></div>
+      <p class="help">시간이 다 되면 그때까지 쓴 답으로 저절로 제출돼요.</p></div>
+    <label class="check"><input type="checkbox" id="re-shuffle" ${s.shuffle ? 'checked' : ''}><span>문제 순서 섞기 <span class="muted small">(모두에게 같은 순서로 섞어요)</span></span></label></div>
+  <div class="parsed" id="re-n"></div>
   <div class="field"><span class="flabel">문제 수</span>
     <div class="chipsrow" role="radiogroup" aria-label="문제 수">${[10, 20, 30, 0].map(n => `<button type="button" class="fchip${s.count === n ? ' on' : ''}" data-cnt="${n}">${n ? n + '문제' : '전부'}</button>`).join('')}
       <label class="fchip custom${[10, 20, 30, 0].includes(s.count) ? '' : ' on'}">직접 <input type="number" id="re-count" min="1" max="300" value="${[10, 20, 30, 0].includes(s.count) ? '' : s.count}" placeholder="수" class="inline-num" aria-label="문제 수 직접 입력"></label></div>
     <p class="help" id="re-cnt-help"></p></div>
-  <div class="field"><span class="flabel">틀릴 때 벌점</span>
+  <div class="field" id="re-penbox"><span class="flabel">틀릴 때 벌점</span>
     <div class="seg"><label class="segopt"><input type="radio" name="re-penon" value="0" ${s.penalty ? '' : 'checked'}><span><b>벌점 없음</b><span class="muted small">틀려도 시간만 흘러요. 맞혀야 넘어가는 건 같아요.</span></span></label>
     <label class="segopt"><input type="radio" name="re-penon" value="1" ${s.penalty ? 'checked' : ''}><span><b>틀릴 때마다 벌점</b><span class="muted small">틀릴 때마다 <input type="number" id="re-pen" min="1" max="30" value="${s.penalty || 3}" class="inline-num" aria-label="벌점 초"> 초를 더해요.</span></span></label></div></div>
-  <div class="field"><span class="flabel">참여할 반</span>${RACE_ADMIN.classes.length ? `<div class="checks">
-      <label class="check allcls"><input type="checkbox" id="re-allcls" ${allCls ? 'checked' : ''}><span><b>전체 반</b> <span class="muted small">나중에 등록하는 반도 들어가요</span></span></label>
-      ${RACE_ADMIN.classes.map(c => `<label class="check"><input type="checkbox" data-cls="${esc(c.name)}" ${allCls || cls.has(c.name) ? 'checked' : ''} ${allCls ? 'disabled' : ''}><span>${esc(c.name)} <span class="muted small">${c.teams.length}모둠</span></span></label>`).join('')}</div>` : '<p class="help">먼저 반·모둠을 등록해 주세요.</p>'}</div>
+  <div class="field"><span class="flabel">도전 횟수</span><div class="seg two">
+    <label class="segopt"><input type="radio" name="re-multi" value="0" ${s.multi ? '' : 'checked'}><span><b>한 번만</b><span class="muted small" id="re-once-help">한 번 끝내면 다시 할 수 없어요.</span></span></label>
+    <label class="segopt"><input type="radio" name="re-multi" value="1" ${s.multi ? 'checked' : ''}><span><b>여러 번</b><span class="muted small">끝낸 뒤에도 다시 도전할 수 있어요. 순위는 가장 좋은 기록으로 매겨요.</span></span></label></div></div>
+  <div class="field"><span class="flabel">참여할 반</span><div id="re-classes"></div></div>
   <div class="field"><span class="flabel">보여 주기</span>
-    <label class="check"><input type="checkbox" id="re-live" ${s.live ? 'checked' : ''}><span>순위판에 <b>실시간 진행 중계</b> (달리는 모둠의 진행 막대)</span></label>
-    <label class="check"><input type="checkbox" id="re-rank" ${s.showRank ? 'checked' : ''}><span>끝난 모둠 화면에 반 순위 보여 주기</span></label></div>
-  <div class="row"><button class="btn mark wide" id="re-save">저장하기</button></div>`;
+    <label class="check"><input type="checkbox" id="re-live" ${s.live ? 'checked' : ''}><span>순위판에 <b>실시간 진행 중계</b> (달리는 중인 진행 막대)</span></label>
+    <label class="check"><input type="checkbox" id="re-rank" ${s.showRank ? 'checked' : ''}><span>끝난 화면에 반 순위 보여 주기</span></label></div>
+  <details class="panel previewbox" id="re-prevbox"><summary><b>문제 보기</b> <span class="muted small" id="re-prev-n"></span></summary><ol class="qprev" id="re-prev"></ol></details>
+  <div class="row"><button class="btn ghost" id="re-try">풀어보기</button><button class="btn mark wide" id="re-save">저장하기</button></div>`;
   document.getElementById('up').onclick = viewRaceAdmin; bindAdminNav();
   const $ = id => document.getElementById(id);
   let cntPick = [10, 20, 30, 0].includes(s.count) ? s.count : 'custom';
-  const current = () => ({
-    name: $('re-name').value.trim(),
-    sources: [...$app.querySelectorAll('[data-src]:checked')].map(x => x.dataset.src),
-    classes: $('re-allcls') && $('re-allcls').checked ? ['*'] : [...$app.querySelectorAll('[data-cls]:checked')].map(x => x.dataset.cls),
-    settings: {mode: ($app.querySelector('[name=re-mode]:checked') || {}).value || 'time', count: cntPick === 'custom' ? Math.max(1, +$('re-count').value || 1) : cntPick,
-      penalty: ($app.querySelector('[name=re-penon]:checked') || {}).value === '1' ? Math.max(1, +$('re-pen').value || 3) : 0, rel: $('re-rel').checked, live: $('re-live').checked, showRank: $('re-rank').checked}
-  });
-  const upd = () => {
-    const c = current(); const n = raceWords({id: race ? race.id : 'preview', sources: c.sources, settings: c.settings}).length; const all = raceWords({id: 'x', sources: c.sources, settings: Object.assign({}, c.settings, {count: 0})}).length;
-    $('re-n').innerHTML = c.sources.length ? `단어 <b>${all}개</b> 중 <b>${n}문제</b>를 모든 모둠에 같은 순서로 내요.` : '레이스에 쓸 지문을 골라 주세요.';
-    $('re-cnt-help').textContent = c.sources.length ? (c.settings.count && c.settings.count > all ? `고른 지문에 단어가 ${all}개뿐이라 ${all}문제로 해요.` : `고른 지문의 단어 ${all}개 중에서 무작위로 뽑아요.`) : '';
+  let limPick = [5, 10, 15, 20, 0].includes(s.limit || 0) ? (s.limit || 0) : 'custom';
+  const scoring = () => ($app.querySelector('[name=re-scoring]:checked') || {}).value || 'speed';
+  const mode = () => ($app.querySelector('[name=re-mode]:checked') || {}).value || 'time';
+
+  /* the question editor: one box per question */
+  const readQ = () => { Q = [...$app.querySelectorAll('.qed')].map(el => {
+    const type = el.dataset.type, q = {type, passage: el.querySelector('[data-qpass]').value, q: el.querySelector('[data-qq]').value, exp: el.querySelector('[data-qexp]').value};
+    if (type === 'choice') { const opts = [...el.querySelectorAll('[data-qopt]')].map(x => x.value); const pick = el.querySelector('[data-qa]:checked'); q.options = opts; q.answer = pick ? +pick.value : -1; }
+    else q.answer = el.querySelector('[data-qans]').value.split(/\s*\/\s*/).map(x => x.trim()).filter(Boolean);
+    return q; }); };
+  const cleanQ = () => Q.map(q => q.type === 'choice' ? (() => { const keep = q.options.map((o, k) => ({o: o.trim(), k})).filter(x => x.o); return Object.assign({}, q, {options: keep.map(x => x.o), answer: keep.findIndex(x => x.k === q.answer)}); })() : q);
+  const drawQ = () => {
+    $('qedit').innerHTML = Q.length ? Q.map((q, i) => {
+      const opts = q.type === 'choice' ? (q.options || []).concat(['', '', '', '', '']).slice(0, Math.max(5, (q.options || []).length)) : [];
+      const prob = quizProblem(cleanQ()[i]);
+      return `<div class="panel qed" data-type="${q.type}" data-qi="${i}">
+        <div class="row qedhead"><b>${i + 1}번</b><span class="chip who">${q.type === 'choice' ? '선다형' : '단답형'}</span>${prob ? `<span class="chip">${esc(prob)}</span>` : ''}
+          <span class="sl-act"><button type="button" class="link small" data-qup="${i}" ${i ? '' : 'disabled'}>위로</button><button type="button" class="link small" data-qdown="${i}" ${i < Q.length - 1 ? '' : 'disabled'}>아래로</button><button type="button" class="link small" data-qtype="${i}">${q.type === 'choice' ? '단답형으로' : '선다형으로'}</button><button type="button" class="link small" data-qdel="${i}">지우기</button></span></div>
+        <textarea data-qpass rows="2" placeholder="지문 (없으면 비워 두세요)">${esc(q.passage || '')}</textarea>
+        <textarea data-qq rows="2" placeholder="문제 (예: 다음 글의 주제로 가장 적절한 것은?)">${esc(q.q || '')}</textarea>
+        ${q.type === 'choice' ? `<div class="qopts">${opts.map((o, k) => `<label class="qoptrow"><input type="radio" name="qa-${i}" data-qa value="${k}" ${q.answer === k ? 'checked' : ''} aria-label="${k + 1}번 보기가 정답"><span class="qnum">${CIRCLED[k] || k + 1}</span><input type="text" data-qopt value="${esc(o)}" placeholder="보기 ${k + 1}${k > 1 ? ' (없으면 비워 두세요)' : ''}"></label>`).join('')}</div><p class="help">정답 보기의 동그라미를 눌러 고르세요.</p>`
+          : `<input type="text" data-qans value="${esc((q.answer || []).join(' / '))}" placeholder="정답 (여러 개면 / 로 나눠요. 예: spend / spending)">`}
+        <textarea data-qexp rows="2" placeholder="해설 (학생이 다 푼 뒤에 봐요)">${esc(q.exp || '')}</textarea></div>`; }).join('')
+      : '<div class="panel empty">아직 문제가 없어요. 아래 버튼으로 하나씩 넣거나, 여러 문제를 한꺼번에 붙여 넣으세요.</div>';
+    $('qedit').querySelectorAll('textarea,input').forEach(el => el.addEventListener('input', () => { readQ(); upd(); }));
+    $('qedit').querySelectorAll('[data-qa]').forEach(el => el.addEventListener('change', () => { readQ(); drawQ(); upd(); }));
+    const act = (sel, fn) => $('qedit').querySelectorAll(sel).forEach(b => b.onclick = () => { readQ(); fn(+Object.values(b.dataset)[0]); drawQ(); upd(); });
+    act('[data-qup]', i => { [Q[i - 1], Q[i]] = [Q[i], Q[i - 1]]; });
+    act('[data-qdown]', i => { [Q[i + 1], Q[i]] = [Q[i], Q[i + 1]]; });
+    act('[data-qdel]', i => { Q.splice(i, 1); });
+    act('[data-qtype]', i => { const q = Q[i]; if (q.type === 'choice') { q.type = 'text'; q.answer = q.answer >= 0 && q.options[q.answer] ? [q.options[q.answer]] : []; } else { q.type = 'choice'; q.options = (q.answer || []).slice(0, 1); q.answer = q.options.length ? 0 : -1; } });
   };
-  $app.querySelectorAll('[data-cnt]').forEach(b => b.onclick = () => { cntPick = +b.dataset.cnt; $app.querySelectorAll('[data-cnt],.fchip.custom').forEach(x => x.classList.toggle('on', x === b)); upd(); });
-  $('re-count').addEventListener('focus', () => { cntPick = 'custom'; $app.querySelectorAll('[data-cnt]').forEach(x => x.classList.remove('on')); $app.querySelector('.fchip.custom').classList.add('on'); upd(); });
-  $app.querySelectorAll('input').forEach(el => el.addEventListener('input', upd)); upd();
-  const ac = $('re-allcls'); if (ac) ac.onchange = () => $app.querySelectorAll('[data-cls]').forEach(x => { x.disabled = ac.checked; if (ac.checked) x.checked = true; });
+  const addQ = type => { readQ(); Q.push(type === 'choice' ? {type, passage: Q.length ? Q[Q.length - 1].passage : '', q: '', options: [], answer: -1, exp: ''} : {type, passage: Q.length ? Q[Q.length - 1].passage : '', q: '', answer: [], exp: ''}); drawQ(); upd(); const last = $app.querySelectorAll('.qed [data-qq]'); if (last.length) last[last.length - 1].focus(); };
+  $('q-add-c').onclick = () => addQ('choice');
+  $('q-add-t').onclick = () => addQ('text');
+  $('qparse').onclick = () => {
+    const r = parseQuizText($('qbulk').value);
+    if (!r.questions.length) { $('qparse-msg').textContent = '문제를 찾지 못했어요. "1." 처럼 번호로 시작했는지 확인해 주세요.'; return; }
+    readQ(); Q = Q.concat(r.questions); drawQ(); upd();
+    const probs = r.questions.filter(q => quizProblem(q)).length;
+    $('qparse-msg').textContent = `${r.questions.length}문제를 넣었어요.${probs ? ` 정답을 확인할 문제가 ${probs}개 있어요.` : ''}`;
+    $('qbulk').value = '';
+  };
+
+  /* classes: registered team classes for team races, classes from student numbers for individual races */
+  const drawClasses = () => {
+    const list = who === 'student' ? (RACE_ADMIN.studentClasses || []).map(c => ({name: c.name, sub: c.n + '명'})) : RACE_ADMIN.classes.map(c => ({name: c.name, sub: c.teams.length + '모둠'}));
+    $('re-classes').innerHTML = `<div class="checks">
+      <label class="check allcls"><input type="checkbox" id="re-allcls" ${allCls ? 'checked' : ''}><span><b>전체 반</b> <span class="muted small">나중에 생기는 반도 들어가요</span></span></label>
+      ${list.map(c => `<label class="check"><input type="checkbox" data-cls="${esc(c.name)}" ${allCls || cls.has(c.name) ? 'checked' : ''} ${allCls ? 'disabled' : ''}><span>${esc(c.name)} <span class="muted small">${esc(c.sub)}</span></span></label>`).join('')}
+      ${!list.length ? `<div class="muted small">${who === 'student' ? '아직 등록한 학생이 없어요. 전체 반으로 열 수 있어요.' : '모둠 레이스를 하려면 먼저 반·모둠을 등록해 주세요.'}</div>` : ''}</div>`;
+    const ac = $('re-allcls');
+    ac.onchange = () => { allCls = ac.checked; $app.querySelectorAll('[data-cls]').forEach(x => { x.disabled = ac.checked; if (ac.checked) x.checked = true; }); };
+    $app.querySelectorAll('[data-cls]').forEach(x => x.onchange = () => { if (x.checked) cls.add(x.dataset.cls); else cls.delete(x.dataset.cls); });
+  };
+  $app.querySelectorAll('[name=re-who]').forEach(r => r.onchange = () => { who = r.value; drawClasses(); $('re-once-help').textContent = who === 'student' ? '한 번 끝내면 다시 할 수 없어요.' : '모둠마다 한 번 끝내면 다시 할 수 없어요.'; });
+
+  const current = () => {
+    readQ();
+    return {
+      name: $('re-name').value.trim(),
+      sources: [...$app.querySelectorAll('[data-src]:checked')].map(x => x.dataset.src),
+      classes: $('re-allcls').checked ? ['*'] : [...$app.querySelectorAll('[data-cls]:checked')].map(x => x.dataset.cls),
+      questions: cleanQ(),
+      settings: {mode: mode(), who, multi: ($app.querySelector('[name=re-multi]:checked') || {}).value === '1', shuffle: $('re-shuffle').checked,
+        scoring: mode() === 'quiz' ? scoring() : 'speed', limit: mode() === 'quiz' && scoring() === 'acc' ? (limPick === 'custom' ? Math.max(1, Math.min(180, +$('re-limit').value || 1)) : limPick) : 0,
+        count: cntPick === 'custom' ? Math.max(1, +$('re-count').value || 1) : cntPick,
+        penalty: ($app.querySelector('[name=re-penon]:checked') || {}).value === '1' ? Math.max(1, +$('re-pen').value || 3) : 0, rel: $('re-rel').checked, live: $('re-live').checked, showRank: $('re-rank').checked}
+    };
+  };
+  const asRace = c => Object.assign({id: race ? race.id : 'preview', state: race ? race.state : {open: {}}, status: '진행', mine: null}, c);
+  const upd = () => {
+    const c = current(), quiz = c.settings.mode === 'quiz';
+    $('re-words').hidden = quiz; $('re-quiz').hidden = !quiz;
+    const acc = quiz && c.settings.scoring === 'acc';
+    $('re-limitbox').hidden = !acc; $('re-penbox').hidden = acc;
+    const items = raceItems(asRace(c)), all = raceItems(asRace(Object.assign({}, c, {settings: Object.assign({}, c.settings, {count: 0})}))).length;
+    $('re-n').innerHTML = quiz ? (c.questions.length ? `Quiz <b>${all}문제</b> 중 <b>${items.length}문제</b>를 내요.` : '') : c.sources.length ? `단어 <b>${all}개</b> 중 <b>${items.length}문제</b>를 모든 ${who === 'student' ? '학생' : '모둠'}에게 같은 순서로 내요.` : '레이스에 쓸 지문을 골라 주세요.';
+    $('re-cnt-help').textContent = (quiz ? c.questions.length : c.sources.length) ? (c.settings.count && c.settings.count > all ? `${quiz ? '문제' : '단어'}가 ${all}개뿐이라 ${all}문제로 해요.` : quiz ? (c.settings.shuffle ? `${all}문제 중에서 섞어 뽑아요.` : `앞에서부터 차례로 내요.`) : `고른 지문의 단어 ${all}개 중에서 무작위로 뽑아요.`) : '';
+    $('re-prev-n').textContent = `${items.length}문제 · 학생에게 나오는 순서`;
+    $('re-prev').innerHTML = items.map(x => quiz ? `<li><div class="qtext small">${x.passage ? '<span class="muted">[지문] </span>' : ''}${esc(x.q)}</div><div class="small">정답: <b>${esc(quizAnswerText(x))}</b>${x.exp ? ` · <span class="muted">해설 있음</span>` : ''}</div></li>` : `<li><b class="en">${esc(x[0])}</b> <span class="muted">${esc(x[1])}</span></li>`).join('') || '<li class="muted">아직 문제가 없어요.</li>';
+  };
+  $app.querySelectorAll('[data-cnt]').forEach(b => b.onclick = () => { cntPick = +b.dataset.cnt; $app.querySelectorAll('[data-cnt],.fchip.custom:not(.lim)').forEach(x => x.classList.toggle('on', x === b)); upd(); });
+  $('re-count').addEventListener('focus', () => { cntPick = 'custom'; $app.querySelectorAll('[data-cnt]').forEach(x => x.classList.remove('on')); $app.querySelector('.fchip.custom:not(.lim)').classList.add('on'); upd(); });
+  [...$app.querySelectorAll('input')].filter(el => !el.closest('#qedit')).forEach(el => el.addEventListener('input', upd));
+  $app.querySelectorAll('[name=re-mode],[name=re-scoring]').forEach(el => el.addEventListener('change', upd));
+  $app.querySelectorAll('[data-lim]').forEach(b => b.onclick = () => { limPick = +b.dataset.lim; $app.querySelectorAll('[data-lim],.fchip.custom.lim').forEach(x => x.classList.toggle('on', x === b)); });
+  $('re-limit').addEventListener('focus', () => { limPick = 'custom'; $app.querySelectorAll('[data-lim]').forEach(x => x.classList.remove('on')); $app.querySelector('.fchip.custom.lim').classList.add('on'); });
   $('re-pen').addEventListener('focus', () => { $app.querySelector('[name=re-penon][value="1"]').checked = true; });
+  drawClasses(); drawQ(); upd();
+
+  const check = c => {
+    if (c.settings.mode === 'quiz') {
+      if (!c.questions.length) return 'Quiz 문제를 하나 이상 넣어 주세요';
+      const k = c.questions.findIndex(q => quizProblem(q)); if (k >= 0) return `${k + 1}번 문제: ${quizProblem(c.questions[k])}`;
+    } else if (!c.sources.length) return '지문을 하나 이상 골라 주세요';
+    return '';
+  };
+  $('re-try').onclick = () => {
+    const c = current(), msg = check(c); if (msg) return toast(msg);
+    const d = Object.assign({}, c);
+    viewRaceReady(asRace(c), trialCtx(() => viewRaceEdit(race, d)));
+  };
   $('re-save').onclick = async e => {
     const c = current();
     if (!c.name) { toast('레이스 이름을 써 주세요'); return $('re-name').focus(); }
-    if (!c.sources.length) return toast('지문을 하나 이상 골라 주세요');
+    const msg = check(c); if (msg) return toast(msg);
     if (!c.classes.length) return toast('참여할 반을 골라 주세요');
     e.target.disabled = true;
-    try { await api('adminRaceSave', Object.assign({token: ADMIN.token, id: race ? race.id : ''}, c)); toast('저장했어요. 목록에서 "열기"를 누르면 모둠 화면에 나와요'); viewRaceAdmin(); }
-    catch(err){ e.target.disabled = false; if (!adminErr(err, () => viewRaceEdit(race))) toast(err.error || '저장하지 못했어요'); }
+    try { await api('adminRaceSave', Object.assign({token: ADMIN.token, id: race ? race.id : ''}, c)); toast('저장했어요. 목록의 "열기·마감"에서 반을 골라 열면 학생 화면에 나와요'); viewRaceAdmin(); }
+    catch(err){ e.target.disabled = false; if (!adminErr(err, () => viewRaceEdit(race, c))) toast(err.error || '저장하지 못했어요'); }
   };
   scrollTo(0, 0);
 }
 
-/* the board: refreshes every 5 seconds, big mode for the classroom screen */
+/* the board: refreshes every 5 seconds, big mode for the classroom screen.
+   Each team (student) is ranked by its best finished run; "달리는 중" shows anyone in the middle of a run */
 function viewBoard(raceId, cls){
   stopTimers();
   if (needAdmin(() => viewBoard(raceId, cls))) return;
@@ -1708,39 +2184,52 @@ function viewBoard(raceId, cls){
   const draw = () => {
     if (!data) return;
     const race = data.race, classes = raceClassNames(race, data.teams);
-    const ALLK = '__all';
+    const ALLK = '__all', stu = race.settings.who === 'student', acc = isAcc(race);
     const sel = cls && (cls === ALLK || classes.includes(cls)) ? cls : (classes.length > 1 ? ALLK : classes[0] || '');
     const allMode = sel === ALLK;
-    const teams = allMode ? data.teams.filter(c => classes.includes(c.name)).flatMap(c => c.teams.map(t => c.name + ' ' + t)) : (((data.teams.find(c => c.name === sel) || {}).teams) || []);
-    const rows = (allMode ? data.rows.filter(r => classes.includes(r.cls)) : data.rows.filter(r => r.cls === sel)).map(r => Object.assign({}, r, {label: allMode ? r.cls + ' ' + r.team : r.team}));
-    const done = rows.filter(r => r.status === '완료').sort((a, b) => a.seconds - b.seconds);
-    const run = rows.filter(r => r.status !== '완료').sort((a, b) => b.done - a.done);
-    const wait = teams.filter(t => !rows.some(r => r.label === t));
-    const total = (rows[0] && rows[0].total) || raceWords(race).length || 1;
-    const resetBtn = r => `<button class="link small" data-reset="${esc(r.cls + '\n' + r.team)}">${confirmKey === r.cls + '\n' + r.team ? '정말 지우기' : '기록 지우기'}</button>`;
+    const inSel = c => allMode ? classes.includes(c) : c === sel;
+    const label = (c, t) => allMode && !stu ? c + ' ' + t : t;
+    const teams = data.teams.filter(c => inSel(c.name)).flatMap(c => c.teams.map(t => ({cls: c.name, team: t})));
+    const by = {};
+    data.rows.filter(r => inSel(r.cls)).forEach(r => { const k = r.cls + '\n' + r.team; (by[k] = by[k] || []).push(r); });
+    const ppl = Object.keys(by).map(k => {
+      const list = by[k], fin = list.filter(r => r.status === '완료' && r.seconds != null), last = list[list.length - 1];
+      const better = (a, b) => acc ? (a.done > b.done || (a.done === b.done && a.seconds < b.seconds)) : a.seconds < b.seconds;
+      const best = fin.length ? fin.reduce((a, b) => (better(b, a) ? b : a)) : null;
+      return {key: k, cls: last.cls, team: last.team, label: label(last.cls, last.team), best, tries: list.length, last};
+    });
+    const done = ppl.filter(p => p.best).sort((a, b) => acc ? (b.best.done - a.best.done || a.best.seconds - b.best.seconds) : a.best.seconds - b.best.seconds);
+    const run = ppl.filter(p => p.last.status !== '완료').sort((a, b) => b.last.done - a.last.done);
+    const wait = teams.filter(t => !by[t.cls + '\n' + t.team]).map(t => label(t.cls, t.team));
+    const total = (data.rows[0] && data.rows[0].total) || raceItems(race).length || 1;
+    const resetBtn = p => `<button class="link small" data-reset="${esc(p.key)}">${confirmKey === p.key ? '정말 지우기' : '기록 지우기'}</button>`;
+    const stNow = allMode ? [...new Set(classes.map(c => raceStatusFor(race, c)))] : [raceStatusFor(race, sel)];
+    const oneSt = stNow.length === 1 ? stNow[0] : '';
     $app.classList.toggle('wide', big);
-    $app.innerHTML = `${big ? '' : `${header('<button class="link" id="up">← 모둠 레이스</button>')}${adminNav('race')}`}
+    $app.innerHTML = `${big ? '' : `${header('<button class="link" id="up">← 레이스</button>')}${adminNav('race')}`}
     <div class="board${big ? ' big' : ''}">
       <div class="row" style="justify-content:space-between;align-items:flex-end">
-        <div><div class="count">${MODE_NAME[race.settings.mode]} · ${total}문제 ${STATUS_CHIP[race.status] || ''}</div><h2>${esc(race.name)}</h2></div>
-        <div class="row small"><button class="btn ghost small" id="bbig">${big ? '작게 보기' : '크게 보기 (TV)'}</button>${big ? '' : `<button class="btn small ${race.status === '진행' ? 'ghost' : 'mark'}" id="bst">${race.status === '진행' ? '마감하기' : '열기'}</button>`}</div>
+        <div><div class="count">${WHO_NAME[race.settings.who]} · ${MODE_NAME[race.settings.mode]} · ${total}문제${acc ? ` · 정확도${race.settings.limit ? ` · 제한 ${race.settings.limit}분` : ''}` : ''} ${oneSt ? STATUS_CHIP[oneSt] || '' : '<span class="chip run">반마다 다름</span>'}${race.state && race.state.del ? ' <span class="chip">삭제함</span>' : ''}</div><h2>${esc(race.name)}</h2></div>
+        <div class="row small"><button class="btn ghost small" id="bbig">${big ? '작게 보기' : '크게 보기 (TV)'}</button>${big ? '' : `
+          <button class="btn small mark" data-bst="진행" ${oneSt === '진행' ? 'disabled' : ''}>${allMode ? '모든 반 열기' : '이 반 열기'}</button>
+          <button class="btn small ghost" data-bst="마감" ${stNow.includes('진행') ? '' : 'disabled'}>${allMode ? '모든 반 마감' : '이 반 마감'}</button>`}</div>
       </div>
       ${classes.length > 1 ? `<div class="tabs scroll" role="tablist"><button class="tab" data-bcls="${ALLK}" aria-selected="${allMode}">전체 반</button>${classes.map(c => `<button class="tab" data-bcls="${esc(c)}" aria-selected="${c === sel}">${esc(c)}</button>`).join('')}</div>` : `<div class="count">${esc(sel)}</div>`}
-      <ol class="rank">${done.map((r, i) => `<li class="r-done"><span class="rk">${i + 1}</span><span class="tm">${esc(r.label)}</span><span class="sec">${fmtSec(r.seconds)}</span><span class="muted small">틀림 ${r.wrong}${r.penalty ? ` · +${r.penalty}초` : ''}</span>${big ? '' : resetBtn(r)}</li>`).join('')}</ol>
-      ${run.length ? `<div class="section-label">달리는 중</div><ul class="rank run">${run.map(r => `<li><span class="rk">·</span><span class="tm">${esc(r.label)}</span>${race.settings.live ? `<span class="pbar"><i style="width:${Math.min(100, r.done / (r.total || total) * 100)}%"></i></span><span class="muted small">${r.done}/${r.total || total} · ${fmtSec(r.elapsed || 0)}</span>` : '<span class="muted small">진행 중</span>'}${big ? '' : resetBtn(r)}</li>`).join('')}</ul>` : ''}
-      ${wait.length ? `<div class="section-label">아직 출발 전</div><div class="muted waiting">${wait.map(esc).join(' · ')}</div>` : ''}
-      ${!rows.length && !wait.length ? '<div class="panel empty">이 반에 등록된 모둠이 없어요.</div>' : ''}
-      <div class="muted small">5초마다 새로 고쳐요${race.settings.live ? ' · 실시간 진행 중계 켜짐' : ''}</div>
+      <ol class="rank">${done.map((p, i) => `<li class="r-done"><span class="rk">${i + 1}</span><span class="tm">${esc(p.label)}</span><span class="sec">${acc ? `${p.best.done}/${p.best.total || total} · ${pctOf(p.best.done, p.best.total || total)}` : fmtSec(p.best.seconds)}</span><span class="muted small">${acc ? fmtSec(p.best.seconds) : `틀림 ${p.best.wrong}${p.best.penalty ? ` · +${p.best.penalty}초` : ''}`}${p.tries > 1 ? ` · ${p.tries}번 도전` : ''}</span>${big ? '' : resetBtn(p)}</li>`).join('')}</ol>
+      ${run.length ? `<div class="section-label">달리는 중</div><ul class="rank run">${run.map(p => `<li><span class="rk">·</span><span class="tm">${esc(p.label)}</span>${race.settings.live ? `<span class="pbar"><i style="width:${Math.min(100, p.last.done / (p.last.total || total) * 100)}%"></i></span><span class="muted small">${p.last.done}/${p.last.total || total}${acc ? ' 답함' : ''} · ${fmtSec(p.last.elapsed || 0)}</span>` : '<span class="muted small">진행 중</span>'}${big || p.best ? '' : resetBtn(p)}</li>`).join('')}</ul>` : ''}
+      ${wait.length ? `<div class="section-label">아직 출발 전 ${wait.length}${stu ? '명' : '모둠'}</div><div class="muted waiting">${wait.map(esc).join(' · ')}</div>` : ''}
+      ${!ppl.length && !wait.length ? `<div class="panel empty">${stu ? '이 반에 등록한 학생이 없어요.' : '이 반에 등록된 모둠이 없어요.'}</div>` : ''}
+      <div class="muted small">5초마다 새로 고쳐요${race.settings.live ? ' · 실시간 진행 중계 켜짐' : ''}${acc ? ' · 맞힌 개수로 순위 (같으면 빨리 낸 순)' : ''}${race.settings.multi ? ' · 여러 번 도전: 가장 좋은 기록으로 순위' : ''}</div>
     </div>`;
     const up = document.getElementById('up'); if (up) up.onclick = () => { stopTimers(); viewRaceAdmin(); }; bindAdminNavStop();
     document.getElementById('bbig').onclick = () => { big = !big; store.set('wordroom-board-big', big); draw(); };
-    const bst = document.getElementById('bst'); if (bst) bst.onclick = async () => { try { await api('adminRaceStatus', {token: ADMIN.token, id: race.id, status: race.status === '진행' ? '마감' : '진행'}); await load(); } catch(e){ if (!adminErr(e, () => viewBoard(raceId, cls))) toast(e.error || '바꾸지 못했어요'); } };
+    $app.querySelectorAll('[data-bst]').forEach(b => b.onclick = () => { b.disabled = true; setRaceStatus(race, allMode ? '*' : sel, b.dataset.bst, load); });
     $app.querySelectorAll('[data-bcls]').forEach(b => b.onclick = () => { cls = b.dataset.bcls; draw(); });
     $app.querySelectorAll('[data-reset]').forEach(b => b.onclick = async () => {
       const key = b.dataset.reset, [rc, team] = key.split('\n');
       if (confirmKey !== key) { confirmKey = key; draw(); return; }
       confirmKey = '';
-      try { await api('adminRaceReset', {token: ADMIN.token, race: race.id, cls: rc, team}); toast(`${rc} ${team} 기록을 지웠어요. 다시 달릴 수 있어요`); await load(); }
+      try { await api('adminRaceReset', {token: ADMIN.token, race: race.id, cls: rc, team}); toast(`${team} 기록을 지웠어요. 다시 달릴 수 있어요`); await load(); }
       catch(e){ if (!adminErr(e, () => viewBoard(raceId, cls))) toast(e.error || '지우지 못했어요'); }
     });
   };
@@ -1760,15 +2249,18 @@ function bindAdminNavStop(){ $app.querySelectorAll('[data-anav]').forEach(b => b
 function viewPages(){
   if (gate()) return;
   SET = null; origin = 'pages'; SCOPE = 'all';
+  const first = !hasRoot();   // no passages registered: this is the first screen, so the student's races show here
   const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
   $app.innerHTML = `${header(hasRoot() ? '<button class="link" id="toRoot">← 지문 고르기</button>' : '')}${userBar()}${speechBanner()}
   <div class="setcard"><div class="eyebrow">${esc(BOOK)}</div><h1>학습지 페이지를 골라요</h1><div class="meta">${countLine(ALL)} · ${PAGES.length}개 구간</div></div>
+  ${first && ACCOUNTS && AUTH ? myRacesHTML() : ''}${first && ACCOUNTS && AUTH && myRacesList().length ? `<div class="section-label">${esc(BOOK)}</div>` : ''}
   <div class="pages">
     ${PAGES.map((p, i) => `<button class="page" data-id="${p.id}"><span class="pn">학습지</span><b>${esc(p.t.replace('학습지 ', ''))}</b><span class="pc">${countLine(p)}</span>${last(p.id)}</button>`).join('')}
     <button class="page all" data-id="all"><span class="pn">한꺼번에</span><b>전체 페이지</b><span class="pc">${ALL.w.length}개를 섞어서</span>${last('all')}</button>
   </div>`;
-  $app.querySelectorAll('[data-id]').forEach(b => b.onclick = () => { SET = b.dataset.id === 'all' ? ALL : PAGES.find(p => p.id === b.dataset.id); viewHome(); });
+  $app.querySelectorAll('.pages button.page[data-id]').forEach(b => b.onclick = () => { SET = b.dataset.id === 'all' ? ALL : PAGES.find(p => p.id === b.dataset.id); viewHome(); });
   const tr = document.getElementById('toRoot'); if (tr) tr.onclick = viewRoot;
+  if (first && ACCOUNTS && AUTH) bindMyRaces(viewPages);
   bindUserBar();
   scrollTo(0, 0);
 }
