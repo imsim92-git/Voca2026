@@ -2109,11 +2109,17 @@ function viewRaceEdit(race, draft){
     const list = who === 'student' ? (RACE_ADMIN.studentClasses || []).map(c => ({name: c.name, sub: c.n + '명'})) : RACE_ADMIN.classes.map(c => ({name: c.name, sub: c.teams.length + '모둠'}));
     $('re-classes').innerHTML = `<div class="checks">
       <label class="check allcls"><input type="checkbox" id="re-allcls" ${allCls ? 'checked' : ''}><span><b>전체 반</b> <span class="muted small">나중에 생기는 반도 들어가요</span></span></label>
-      ${list.map(c => `<label class="check"><input type="checkbox" data-cls="${esc(c.name)}" ${allCls || cls.has(c.name) ? 'checked' : ''} ${allCls ? 'disabled' : ''}><span>${esc(c.name)} <span class="muted small">${esc(c.sub)}</span></span></label>`).join('')}
+      ${list.map(c => `<label class="check"><input type="checkbox" data-cls="${esc(c.name)}" ${allCls || cls.has(c.name) ? 'checked' : ''}><span>${esc(c.name)} <span class="muted small">${esc(c.sub)}</span></span></label>`).join('')}
       ${!list.length ? `<div class="muted small">${who === 'student' ? '아직 등록한 학생이 없어요. 전체 반으로 열 수 있어요.' : '모둠 레이스를 하려면 먼저 반·모둠을 등록해 주세요.'}</div>` : ''}</div>`;
     const ac = $('re-allcls');
-    ac.onchange = () => { allCls = ac.checked; $app.querySelectorAll('[data-cls]').forEach(x => { x.disabled = ac.checked; if (ac.checked) x.checked = true; }); };
-    $app.querySelectorAll('[data-cls]').forEach(x => x.onchange = () => { if (x.checked) cls.add(x.dataset.cls); else cls.delete(x.dataset.cls); });
+    /* 전체 반 ticks or clears every class; ticking every class by hand ticks 전체 반, clearing one clears it */
+    const boxes = [...$app.querySelectorAll('[data-cls]')];
+    ac.onchange = () => { allCls = ac.checked; cls.clear(); boxes.forEach(x => { x.checked = ac.checked; if (ac.checked) cls.add(x.dataset.cls); }); };
+    boxes.forEach(x => x.onchange = () => {
+      if (x.checked) cls.add(x.dataset.cls); else cls.delete(x.dataset.cls);
+      if (allCls && !x.checked) boxes.forEach(y => { if (y.checked) cls.add(y.dataset.cls); });   // leaving 전체 반: keep the other ticked classes
+      allCls = ac.checked = boxes.every(y => y.checked);
+    });
   };
   $app.querySelectorAll('[name=re-who]').forEach(r => r.onchange = () => { who = r.value; drawClasses(); $('re-once-help').textContent = who === 'student' ? '한 번 끝내면 다시 할 수 없어요.' : '모둠마다 한 번 끝내면 다시 할 수 없어요.'; });
 
