@@ -797,7 +797,8 @@ function teacherBar(){
   {
     const list = store.get(TCLS_KEY, null) || [];
     const opts = `<option value="" ${AUTH.cls ? '' : 'selected'}>반 고르기</option>` + [...new Set([...(AUTH.cls ? [AUTH.cls] : []), ...list])].map(n => `<option value="${esc(n)}" ${n === AUTH.cls ? 'selected' : ''}>${esc(n)}</option>`).join('');
-    const stu = ((store.get(TSTU_KEY, null) || []).find(c => c.name === AUTH.cls) || {}).students || [];
+    const stu = (((store.get(TSTU_KEY, null) || []).find(c => c.name === AUTH.cls) || {}).students || []).slice()
+      .sort((x, y) => String(x.sid).localeCompare(String(y.sid), 'ko', {numeric: true}));   // in student-number order
     const v = AUTH.view, sopts = `<option value="">${AUTH.cls ? '학생 고르기' : '반을 먼저 골라요'}</option>` + [...(v && !stu.some(x => x.sid === v.sid) ? [v] : []), ...stu].map(x => `<option value="${esc(x.sid)}" ${v && v.sid === x.sid ? 'selected' : ''}>${esc(x.sid)} ${esc(x.name)}</option>`).join('');
     return `<div class="userbar tbar"><span><b>선생님</b> <span class="muted">${v ? `${esc(v.sid)} ${esc(v.name)} 학생 화면 · 여기서 한 것은 저장되지 않아요` : '반별 화면 · 학생 기록에는 남지 않아요'}</span></span>
     <span class="row tsel"><select id="tcls" aria-label="어느 반 학생 화면을 볼까요">${opts}</select><select id="tstu" aria-label="어느 학생 화면을 볼까요" ${AUTH.cls ? '' : 'disabled'}>${sopts}</select></span></div>`;
