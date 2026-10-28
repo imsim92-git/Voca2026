@@ -489,6 +489,39 @@ const SITE_NAME = window.WORD_SITE || "영어 학습 사이트";  // the name at
 const PAGES = window.WORD_PAGES || [];
 /* each page keeps its head words (shown in the word list) and practises them together with their
    related words (synonyms, antonyms, derived forms from the 4th column of words.js) */
+/* words that must never be offered together, as wrong choices or in one matching round:
+   - a word and its synonyms (유의어), and synonyms of the same word, even when a synonym has its own meaning
+   - words whose Korean meanings overlap: one sense equals or contains another (therapy 치료 / treatment 치료, 처치)
+   (parts in ( ) are left out; [반응, 작용] counts as more senses) */
+const lc = t => String(t || '').trim().toLowerCase();
+function synFamily(w){
+  const h = w.rel === '유의어' ? w.head : (w.rel ? null : w), out = new Set([lc(w[0])]);
+  if (h) { out.add(lc(h[0])); (Array.isArray(h[3]) ? h[3] : []).forEach(r => { if (r[0] === '유의어') out.add(lc(r[1])); }); }
+  return out;
+}
+const SENSES = new Map();
+function koSenses(ko){
+  ko = String(ko || '');
+  if (!SENSES.has(ko)) SENSES.set(ko, ko.replace(/\([^)]*\)/g, ' ').replace(/[\[\]]/g, ',').split(/[,;/·]/)
+    .map(x => x.replace(/[\s~.…'"’“”!?]/g, '')).filter(Boolean));
+  return SENSES.get(ko);
+}
+function similarKo(a, b){
+  const A = koSenses(a), B = koSenses(b);
+  return A.some(x => B.some(y => x === y || (Math.min(x.length, y.length) >= 2 && (x.includes(y) || y.includes(x)))));
+}
+function clash(a, b){
+  if (a === b || lc(a[0]) === lc(b[0]) || a[1] === b[1]) return true;
+  if (synFamily(a).has(lc(b[0])) || synFamily(b).has(lc(a[0]))) return true;
+  return similarKo(a[1], b[1]);
+}
+/* up to n wrong choices for w: never clashing with w, and not with each other when there are enough words */
+function wrongChoices(w, pool, n, text){
+  const pick = [], seen = new Set([text(w)]);
+  const take = strict => { for (const x of pool) { if (pick.length >= n) return; const t = text(x); if (!x[1] || seen.has(t) || clash(w, x) || (strict && pick.some(p => clash(p, x)))) continue; seen.add(t); pick.push(x); } };
+  take(true); take(false);
+  return pick.map(text);
+}
 function relWord(h, r, pid){
   const w = [r[1], r[0] === '유의어' ? (r[2] || h[1]) : (r[2] || ''), `${r[0]} · ${h[0]}`];
   w.pid = pid; w.rel = r[0]; w.head = h; return w;
@@ -1544,7 +1577,7 @@ function matchRounds(words){
   const rounds = []; let rest = words.slice();
   while (rest.length) {
     const r = [], en = new Set(), ko = new Set(), left = [];
-    rest.forEach(w => { if (r.length < 8 && !en.has(w[0]) && !ko.has(w[1])) { r.push(w); en.add(w[0]); ko.add(w[1]); } else left.push(w); });
+    rest.forEach(w => { if (r.length < 8 && !en.has(w[0]) && !ko.has(w[1]) && !r.some(p => clash(p, w))) { r.push(w); en.add(w[0]); ko.add(w[1]); } else left.push(w); });
     rounds.push(r); rest = left;
   }
   return rounds;
@@ -1725,8 +1758,7 @@ function runRace(race, words, st, ctx){
     const draw = () => {
       if (R.done >= total) return finish();
       const w = words[R.done], rng = seededRng(race.id + ':' + R.done), toKo = rng() < .5;
-      const answer = toKo ? w[1] : w[0], seen = new Set([answer]), pick = [];
-      for (const x of seededShuffle(words, rng)) { const t = toKo ? x[1] : x[0]; if (x !== w && x[1] !== w[1] && !seen.has(t)) { seen.add(t); pick.push(t); } if (pick.length === 3) break; }
+      const answer = toKo ? w[1] : w[0], pick = wrongChoices(w, seededShuffle(words, rng), 3, x => toKo ? x[1] : x[0]);
       const opts = seededShuffle([answer, ...pick], rng);
       $app.innerHTML = `${top()}
       <div class="card" style="min-height:150px">${toKo ? `<div class="big">${esc(w[0])}</div><div class="hint">알맞은 뜻을 고르세요</div>` : `<div class="ko big-ko">${esc(w[1])}</div><div class="hint">알맞은 영어 단어를 고르세요</div>`}</div>
@@ -2751,9 +2783,7 @@ function viewQuiz(words, mode){
     const w = deck[i];
     // wrong choices come from every word when practising the combined confusing list, which can be short
     const pool = SET.id === 'allconf' ? [...PAGES.flatMap(p => p.w), ...SETS.flatMap(s => s.w)] : SET.w;
-    const others = shuffle(pool.filter(x => x[1] && x[1] !== w[1] && x[0] !== w[0]));
-    const seen = new Set([toKo ? w[1] : w[0]]), pick = [];
-    for (const x of others) { const t = toKo ? x[1] : x[0]; if (!seen.has(t)) { seen.add(t); pick.push(t); } if (pick.length === 3) break; }
+    const pick = wrongChoices(w, shuffle(pool), 3, x => toKo ? x[1] : x[0]);
     const answer = toKo ? w[1] : w[0], opts = shuffle([answer, ...pick]);
     $app.innerHTML = `${header(back())}${prog(i, deck.length)}
     <div class="card has-star" style="min-height:170px">${starBtn(w)}${toKo ? `<div class="big">${esc(w[0])}</div>${sayBtn(w[0])}` : `<div class="ko big-ko">${esc(w[1])}</div>${w.rel ? `<div class="tag">${esc(w[2])}</div>` : ''}<div class="hint">알맞은 영어 단어를 고르세요</div>`}</div>
@@ -2814,7 +2844,7 @@ function viewSpell(words){
 function viewMatch(words){
   stopTimers();
   const pool = [], seenEn = new Set(), seenKo = new Set();
-  for (const w of shuffle(words)) { if (seenEn.has(w[0]) || seenKo.has(w[1])) continue; seenEn.add(w[0]); seenKo.add(w[1]); pool.push(w); if (pool.length === 8) break; }
+  for (const w of shuffle(words)) { if (seenEn.has(w[0]) || seenKo.has(w[1]) || pool.some(p => clash(p, w))) continue; seenEn.add(w[0]); seenKo.add(w[1]); pool.push(w); if (pool.length === 8) break; }
   const tiles = shuffle(pool.flatMap((w, n) => [{n, t: w[0], en: true}, {n, t: w[1], en: false}]));
   let sel = null, matched = 0, penalty = 0, misses = 0, start = 0, done = false; const missed = new Set();
   const bestKey = SET.id + '-' + pool.length;
