@@ -490,7 +490,7 @@ const PAGES = window.WORD_PAGES || [];
 /* each page keeps its head words (shown in the word list) and practises them together with their
    related words (synonyms, antonyms, derived forms from the 4th column of words.js) */
 function relWord(h, r, pid){
-  const w = [r[1], r[0] === '유의어' ? h[1] : (r[2] || ''), `${r[0]} · ${h[0]}`];
+  const w = [r[1], r[0] === '유의어' ? (r[2] || h[1]) : (r[2] || ''), `${r[0]} · ${h[0]}`];
   w.pid = pid; w.rel = r[0]; w.head = h; return w;
 }
 PAGES.forEach(p => {
@@ -607,7 +607,7 @@ function relHTML(w){
   const rel = Array.isArray(w[3]) ? w[3] : []; if (!rel.length) return '';
   const groups = [];
   rel.forEach(r => { let g = groups.find(x => x.type === r[0]); if (!g) groups.push(g = {type: r[0], items: []}); g.items.push(r); });
-  return groups.map(g => `<span class="rel"><b>${esc(g.type)}</b> ${g.items.map(r => `<span class="rel-en">${esc(r[1])}</span>${r[2] && g.type !== '유의어' ? ' ' + esc(r[2]) : ''}`).join(', ')}</span>`).join('');
+  return groups.map(g => `<span class="rel"><b>${esc(g.type)}</b> ${g.items.map(r => `<span class="rel-en">${esc(r[1])}</span>${r[2] ? ' ' + esc(r[2]) : ''}`).join(', ')}</span>`).join('');
 }
 const wordRow = w => { const [en, ko, note] = w; const rel = relHTML(w);
   return `<li><span class="en">${esc(en)}</span>${sayBtn(en)}<span class="ko">${esc(ko)}</span>${rel ? `<span class="rels">${rel}</span>` : note ? `<span class="note">${esc(note)}</span>` : ''}</li>`; };
@@ -1052,6 +1052,18 @@ function splitMeaning(raw){
   if (k >= 0) { note = (note + ' ' + m.slice(k + 1)).trim(); m = m.slice(0, k); }
   return [m.replace(/^[\s,;]+|[\s,;]+$/g, ''), note];
 }
+/* split "deprive A of B A에게서 B를 빼앗다" into the English and its meaning. The meaning starts at the word that holds
+   the first Korean letter, so "A에게서" stays with the meaning ("be likely to ~ ~할 것 같다" keeps its "~" in the English).
+   "deprive A of B - A에게서 …" (with a dash) works the same. No Korean at all: everything is English */
+function splitEnKo(rest){
+  rest = String(rest || '').trim();
+  const dash = rest.search(/\s[-–—]\s/);
+  if (dash > 0 && /[A-Za-z]/.test(rest.slice(0, dash)) && /[가-힣]/.test(rest.slice(dash))) return [rest.slice(0, dash).trim(), rest.slice(dash).replace(/^\s*[-–—]\s*/, '').trim()];
+  const k = rest.search(/[가-힣]/);
+  if (k < 0) return [rest, ''];
+  const j = rest.lastIndexOf(' ', k) + 1;
+  return [rest.slice(0, j).trim(), rest.slice(j).trim()];
+}
 const REL_TYPE = {'=': '유의어', '↔': '반의어', 'v)': '동사', 'a)': '형용사', 'n)': '명사', 'adv)': '부사', 'cf)': '참고'};
 /* note → related words, the same rules used to build words.js */
 function relFromNote(note){
@@ -1060,8 +1072,9 @@ function relFromNote(note){
   for (const part of normMarkers(note).split(/\s(?=(?:=|↔|adv\)|cf\)|[vna]\))\s)/)) {
     const m = part.match(/^(=|↔|adv\)|cf\)|[vna]\))\s+(.*)$/); if (!m) continue;
     const type = REL_TYPE[m[1]], rest = m[2].trim(); if (!rest) continue;
-    if (type === '유의어') (/\(/.test(rest) ? [rest] : rest.split(/\s*,\s*/)).filter(Boolean).forEach(en => out.push([type, en]));
-    else { const k = rest.search(/[가-힣~(\[]/); const en = (k > 0 ? rest.slice(0, k) : rest).trim(), ko = k > 0 ? rest.slice(k).trim() : ''; if (en && (ko || type === '참고')) out.push(ko ? [type, en, ko] : [type, en]); }   // 참고 may be English only: shown, not practised
+    const [en, ko] = splitEnKo(rest);
+    if (type === '유의어') (/\(/.test(en) ? [en] : en.split(/\s*,\s*/)).filter(Boolean).forEach(x => out.push(ko ? [type, x, ko] : [type, x]));   // a synonym's own meaning, or the head word's
+    else if (en && (ko || type === '참고')) out.push(ko ? [type, en, ko] : [type, en]);   // 참고 may be English only: shown, not practised
   }
   return out;
 }
@@ -1075,7 +1088,7 @@ function parseWordLine(line){
   else {
     const k = line.search(/\s[-–—:|]\s|[:|]\s/);
     if (k > 0) { en = line.slice(0, k); rest = line.slice(k).replace(/^\s*[-–—:|]\s*/, ''); }
-    else { const h = line.search(/[가-힣(~\[]/); if (h > 0) { en = line.slice(0, h); rest = line.slice(h); } }
+    else { const [e1, r1] = splitEnKo(line); if (e1 && r1) { en = e1; rest = r1; } }
   }
   en = en.replace(/[,\s]+$/, '').trim(); rest = rest.trim();
   if (!en || !rest || !/[A-Za-z]/.test(en)) return null;
@@ -1411,7 +1424,7 @@ function viewSetEdit(set){
   </div>
   <div class="field"><label for="se-text">단어와 뜻 <span class="muted">· 한 줄에 하나씩 "영어 - 뜻", 또는 엑셀 표를 복사해 붙여넣기</span></label>
     <textarea id="se-text" spellcheck="false" placeholder="solely - 오로지, 단지 = only, exclusively&#10;crucial - 중대한, 결정적인 ↔ trivial 사소한&#10;varied - 다양한 v) vary 다르다&#10;affect - 영향을 미치다 cf) effect 영향, 효과">${esc(startText)}</textarea>
-    <p class="help">엑셀·구글 시트에서 <b>단어 칸과 뜻 칸</b>을 함께 골라 복사(Ctrl+C)한 뒤 이 칸에 붙여넣으면(Ctrl+V) 한 줄씩 "영어 - 뜻"으로 바뀌어 들어가요. 번호 칸과 제목 줄은 알아서 빠져요. 사진에서 읽은 내용은 꼭 한 번 확인하고 고쳐 주세요. 뜻 뒤에 <b>= 유의어</b>, <b>↔ 반의어 뜻</b>, <b>v) 동사 뜻</b>, <b>cf) 참고 단어 뜻</b>처럼 적으면 관련어도 연습에 들어가요. (cf) 뒤에 뜻 없이 영어만 쓰면 '참고'로 보이기만 해요.)</p>
+    <p class="help">엑셀·구글 시트에서 <b>단어 칸과 뜻 칸</b>을 함께 골라 복사(Ctrl+C)한 뒤 이 칸에 붙여넣으면(Ctrl+V) 한 줄씩 "영어 - 뜻"으로 바뀌어 들어가요. 번호 칸과 제목 줄은 알아서 빠져요. 사진에서 읽은 내용은 꼭 한 번 확인하고 고쳐 주세요. 뜻 뒤에 <b>= 유의어</b>, <b>↔ 반의어 뜻</b>, <b>v) 동사 뜻</b>, <b>cf) 참고 단어 뜻</b>처럼 적으면 관련어도 연습에 들어가요. 유의어 뒤에 뜻을 쓰면 그 뜻이, 안 쓰면 원래 단어 뜻이 나와요. (cf) 뒤에 뜻 없이 영어만 쓰면 '참고'로 보이기만 해요.)</p>
     <div class="parsed" id="se-count"></div>
     <div id="se-bad"></div>
   </div>
