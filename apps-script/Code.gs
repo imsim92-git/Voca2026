@@ -130,6 +130,7 @@ const ACTIONS = {
   races: races_,
   ranks: ranks_,
   adminNotices: adminNotices_,
+  adminViewAs: adminViewAs_,
   adminNoticeSave: adminNoticeSave_,
   adminNoticeDelete: adminNoticeDelete_,
   raceStart: raceStart_,
@@ -414,7 +415,7 @@ function ranks_(req) {
   const page = String(req.page || '').slice(0, 30);
   if (!page) fail_('지문을 골라 주세요.');
   let cls = '', sid = '';
-  if (String(req.token || '').split('.')[0] === 'a') { checkToken_(req.token, 'a'); cls = String(req.cls || '').slice(0, 40); }   // 관리자 화면의 '학생 화면 관리'
+  if (String(req.token || '').split('.')[0] === 'a') { checkToken_(req.token, 'a'); cls = String(req.cls || '').slice(0, 40); if (req.sid) { const v = viewStudent_(req.sid); sid = v.sid; cls = v.cls; } }   // 관리자 화면의 '학생 화면 관리'
   else { sid = checkToken_(req.token, 's'); cls = sidClass_(sid); }
   const rows = rankRows_(page), out = {};
   const pairs = Math.max(1, Math.min(8, Math.floor(Number(req.pairs) || 8)));
@@ -423,6 +424,19 @@ function ranks_(req) {
     out[m] = {all: rankList_(rows, m, key, 10, sid, cls, RANK_MIN_ALL), cls: cls ? rankList_(rows.filter(x => x.cls === cls), m, key, 3, sid, cls, RANK_MIN_CLASS) : null};
   });
   return {ok: true, page: page, cls: cls, ranks: out};
+}
+
+/* 반별 화면에서 학생 한 명의 화면 보기: 그 학생의 이름·반과 내 학습 데이터(헷갈리는 단어·최근 점수·매칭 기록)를 읽기만 함 */
+function viewStudent_(sidIn) {
+  const sid = cleanSid_(sidIn), c = stuCacheGet_(sid), name = c ? c.name : (stuFromSheet_(sid) || {}).name;
+  if (name === undefined) fail_('그 학생을 찾을 수 없어요.');
+  return {sid: sid, name: String(name), cls: sidClass_(sid)};
+}
+function adminViewAs_(req) {
+  checkToken_(req.token, 'a');
+  const v = viewStudent_(req.sid), sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, v.sid);
+  const my = row ? cleanMy_(parseJ_(sh.getRange(row, MY_COL).getValue(), {})) : cleanMy_({});
+  return {ok: true, student: v, my: my};
 }
 
 /* ---------------- 관리자 ---------------- */
@@ -1000,9 +1014,11 @@ function raceListFor_(who) {
 function races_(req) {
   if (String(req.token || '').split('.')[0] === 'a') {   // 관리자 화면의 '학생 화면': 선생님이 고른 반 학생에게 보이는 개인 레이스 (기록은 남지 않음)
     checkToken_(req.token, 'a');
-    const classes = cached_('c_stucls', () => studentClasses_().map(c => c.name));
-    const cls = String(req.cls || '').slice(0, 40);
-    return {ok: true, team: null, cls: cls, classes: classes, races: cls ? raceListFor_({who: 'student', cls: cls, team: '#teacher'}) : [], setsPack: setsFor_(req.v)};
+    const list = cached_('c_stucls2', () => studentClasses_().map(c => ({name: c.name, students: c.students})));
+    const view = req.sid ? viewStudent_(req.sid) : null;   // 반별 화면에서 고른 학생: 그 학생의 레이스 기록(완료·최고 기록)이 보이게 함
+    const cls = view ? view.cls : String(req.cls || '').slice(0, 40);
+    const who = view ? {who: 'student', cls: cls, team: view.sid + ' ' + view.name} : {who: 'student', cls: cls, team: '#teacher'};
+    return {ok: true, team: null, cls: cls, classes: list.map(c => c.name), students: list, races: cls ? raceListFor_(who) : [], setsPack: setsFor_(req.v)};
   }
   const who = participant_(req.token);
   return {ok: true, team: who.who === 'team' ? {cls: who.cls, team: who.team} : null, cls: who.cls, races: raceListFor_(who), setsPack: setsFor_(req.v)};
