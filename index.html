@@ -168,6 +168,11 @@ table{border-collapse:collapse;width:100%;font-size:14px}
 th,td{padding:9px 12px;text-align:left;border-top:1px solid var(--line);white-space:nowrap}
 thead th{border-top:0;font-size:12px;color:var(--muted);font-weight:700;background:var(--paper)}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.rectable th,.rectable td{padding:5px 8px;vertical-align:middle}
+.rectable td{height:46px}   /* every row the same height, whether a cell takes one line or two */
+.rectable td.wt{white-space:normal;word-break:keep-all;min-width:6em;max-width:11em}
+.rectable .cl2{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;line-height:1.25}
+.rectable .cl2.sm{font-size:12.5px}
 td.en{font-family:var(--f-word)}
 tbody tr[data-sid]{cursor:pointer}
 tbody tr[data-sid]:hover,tbody tr[data-sid]:focus-visible{background:var(--paper)}
@@ -899,6 +904,18 @@ function lookupWord(en, page){
   const p = PAGES.find(p => p.id === page) || SETS.find(s => s.id === page);
   return (p && p.w.find(w => w[0] === en)) || ALL.w.find(w => w[0] === en) || SETS.flatMap(s => s.w).find(w => w[0] === en) || [en, '', ''];
 }
+/* the teacher's record tables: where the practice was. 교과서 pages get "[교]" ([교] 5-6페이지, [교] 전체),
+   passages show their own name, "헷갈리는 단어 전체" mixes every list so it stays as it is */
+const CONF_MARK = '헷갈리는 단어 · ';   // practice on a list's 헷갈리는 단어 tab is sent with this in front of the title
+const logTitle = () => (SCOPE === 'conf' && SET.id !== 'allconf' ? CONF_MARK : '') + SET.t;
+const recPage = (id, title, long) => { const pg = PAGES.find(p => p.id === id), conf = String(title || '').startsWith(CONF_MARK) && id !== 'allconf' ? '헷갈리는 단어 ' : '';
+  const tb = long ? '[교과서] ' : '[교] ';   // the narrow table says [교], the logs and the student's own screens [교과서]
+  const tail = conf ? ' 헷갈리는 단어' : '';   // the 헷갈리는 단어 tab: "[교] 5-6페이지 헷갈리는 단어"
+  if (pg) return tb + pg.t.replace('학습지 ', '') + tail; if (id === 'all') return tb + '전체' + tail;
+  const name = pageName(id) || String(title || '').replace(CONF_MARK, '');
+  return conf ? name + ' 헷갈리는 단어' : name; };   // a passage's 헷갈리는 단어 tab: "모의고사 1번 헷갈리는 단어"
+/* a table cell that wraps to two lines at most; long text gets a smaller font so it fits the same row height */
+const cell2 = t => `<span class="cl2${String(t).length > 13 ? ' sm' : ''}">${esc(t)}</span>`;
 const pageName = id => id === 'all' ? '전체' : id === 'mywrong' ? '내 오답' : id === 'allconf' ? '헷갈리는 단어 전체' : id === 'custom' ? '단어장' : ((PAGES.find(p => p.id === id) || SETS.find(s => s.id === id) || {}).t || id || '').replace('학습지 ', '');
 
 async function viewMe(){
@@ -1021,12 +1038,12 @@ async function viewAdmin(next){
       tb.querySelectorAll('tr[data-sid]').forEach(tr => { tr.onclick = () => showStudent(tr.dataset.sid); tr.onkeydown = e => { if (e.key === 'Enter') showStudent(tr.dataset.sid); }; });
     } else if (tab === 'recent') {
       const rows = r.recent.filter(l => match(l.sid, l.name));
-      tb.innerHTML = rows.length ? `<div class="tablewrap"><table><thead><tr><th>시각</th><th>학번</th><th>이름</th><th>학습지</th><th>연습</th><th class="num">점수</th></tr></thead><tbody>
-        ${rows.map(l => `<tr class="${l.total ? '' : 'event'}"><td>${esc(fmtTime(l.at))}</td><td>${esc(l.sid)}</td><td>${esc(l.name)}</td><td>${esc(pageName(l.page) || l.pageTitle)}</td><td>${esc(l.mode)}</td><td class="num">${l.total ? `${l.score}/${l.total}` : ''}</td></tr>`).join('')}
+      tb.innerHTML = rows.length ? `<div class="tablewrap"><table class="rectable"><thead><tr><th>시각</th><th>학번</th><th>이름</th><th>학습지</th><th>연습</th><th class="num">점수</th></tr></thead><tbody>
+        ${rows.map(l => `<tr class="${l.total ? '' : 'event'}"><td>${esc(fmtTime(l.at))}</td><td>${esc(l.sid)}</td><td>${esc(l.name)}</td><td class="wt">${cell2(recPage(l.page, l.pageTitle))}</td><td>${esc(l.mode)}</td><td class="num">${l.total ? `${l.score}/${l.total}` : ''}</td></tr>`).join('')}
         </tbody></table></div><p class="help">최근 300건이에요. 전체 기록은 구글 시트의 '기록' 탭에 있어요.</p>` : '<div class="panel empty">아직 기록이 없어요.</div>';
     } else {
       tb.innerHTML = r.wrongTop.length ? `<div class="tablewrap"><table><thead><tr><th>단어</th><th>뜻</th><th>학습지</th><th class="num">틀린 횟수</th><th class="num">학생 수</th></tr></thead><tbody>
-        ${r.wrongTop.map(w => { const x = lookupWord(w.en, w.page); return `<tr><td class="en">${esc(w.en)}</td><td>${esc(x[1])}</td><td>${esc(pageName(w.page))}</td><td class="num">${w.count}</td><td class="num">${w.students}</td></tr>`; }).join('')}
+        ${r.wrongTop.map(w => { const x = lookupWord(w.en, w.page); return `<tr><td class="en">${esc(w.en)}</td><td>${esc(x[1])}</td><td>${esc(recPage(w.page))}</td><td class="num">${w.count}</td><td class="num">${w.students}</td></tr>`; }).join('')}
         </tbody></table></div>` : '<div class="panel empty">아직 틀린 단어 기록이 없어요.</div>';
     }
   };
@@ -1050,7 +1067,7 @@ async function viewAdmin(next){
       <div class="section-label">자주 틀리는 단어</div>
       ${s.wrong.length ? `<ul class="wl">${s.wrong.slice(0, 15).map(w => { const x = lookupWord(w.en, w.page); return `<li><span class="en">${esc(w.en)}</span><span class="cnt">${w.count}번</span><span class="ko">${esc(x[1])}</span></li>`; }).join('')}</ul>` : '<p class="help">틀린 단어 기록이 없어요.</p>'}
       <div class="section-label">최근 연습</div>
-      ${s.recent.length ? `<ul class="log">${s.recent.slice(0, 15).map(l => `<li><span>${esc(fmtTime(l.at))}</span><span>${esc(pageName(l.page) || l.pageTitle)} · ${esc(l.mode)}</span><b>${l.score}/${l.total}</b></li>`).join('')}</ul>` : '<p class="help">연습 기록이 없어요.</p>'}
+      ${s.recent.length ? `<ul class="log">${s.recent.slice(0, 15).map(l => `<li><span>${esc(fmtTime(l.at))}</span><span>${esc(recPage(l.page, l.pageTitle, true))} · ${esc(l.mode)}</span><b>${l.score}/${l.total}</b></li>`).join('')}</ul>` : '<p class="help">연습 기록이 없어요.</p>'}
       <div class="reset" id="rs">
         <button class="btn ghost" id="rs1">비밀번호 초기화</button>
       </div>
@@ -2646,7 +2663,7 @@ function viewHome(){
     ${tile('match', '매칭 게임', '단어와 뜻 짝을 빨리 맞혀요. 틀리면 +1초', 2)}
   </div>
   <p class="help">퀴즈에서 틀린 단어는 '헷갈리는 단어'에 자동으로 모여요.</p>
-  ${ACCOUNTS && AUTH && rankable(true) ? '<div class="foot"><button class="btn ghost" id="toRanks">순위 보기 · 매칭 게임 · 뜻 고르기 · 단어 고르기 · 철자 쓰기</button></div>' : ''}
+  ${ACCOUNTS && AUTH && SCOPE === 'all' && rankable(true) ? '<div class="foot"><button class="btn ghost" id="toRanks">순위 보기 · 매칭 게임 · 뜻 고르기 · 단어 고르기 · 철자 쓰기</button></div>' : ''}
   ${origin === 'link' ? '<div class="foot"><button class="link" id="toPages">학습지 페이지 전체 보기</button></div>' : ''}`;
   $app.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { SCOPE = b.dataset.scope; viewHome(); });
   bindToRanks('match', viewHome);
@@ -2733,7 +2750,7 @@ function viewCards(words){
     const st = confHas(w); $('star').innerHTML = STAR(st); $('star').classList.toggle('on', st); $('star').setAttribute('aria-pressed', st);
     $('prev').disabled = i === 0;
     $('next').textContent = i === order.length - 1 ? '처음부터' : '다음 ›';
-    if (i === order.length - 1 && !logged && order.length > 1) { logged = true; if (canLog()) sendLog({page: SET.id, pageTitle: SET.t, mode: '카드 넘기기', score: 0, total: 0, wrong: []}); }
+    if (i === order.length - 1 && !logged && order.length > 1) { logged = true; if (canLog()) sendLog({page: SET.id, pageTitle: logTitle(), mode: '카드 넘기기', score: 0, total: 0, wrong: []}); }
   };
   const go = d => {
     if (d > 0 && i === order.length - 1) { i = 0; if (cardOpts.shuffle) order = shuffle(words); }
@@ -2884,7 +2901,7 @@ function viewMatch(words){
     const miss = [...missed].map(n => pool[n]);
     confAdd(miss);
     const ranked = rankable();
-    if (canLog()) sendLog(Object.assign({page: SET.id, pageTitle: SET.t, mode: '매칭 ' + t.toFixed(1) + '초', score: pool.length - miss.length, total: pool.length, wrong: miss.map(w => w[0])}, ranked ? {rank: 'match', secs: Math.round(t * 10) / 10} : {}));
+    if (canLog()) sendLog(Object.assign({page: SET.id, pageTitle: logTitle(), mode: '매칭 ' + t.toFixed(1) + '초', score: pool.length - miss.length, total: pool.length, wrong: miss.map(w => w[0])}, ranked ? {rank: 'match', secs: Math.round(t * 10) / 10} : {}));
     setTimeout(() => {
       $app.innerHTML = `${header(back())}
       <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
@@ -2959,7 +2976,7 @@ function viewResult(mode, right, total, miss){
   { const c = confLoad(); confAdd(miss.filter(w => !((c.removed[wkey(w)] || 0) >= RUN_T))); }
   if (SCOPE === 'all' && total === SET.w.length && SET.id !== 'custom' && SET.id !== 'mywrong' && SET.id !== 'allconf') { myLoad().last[SET.id] = {m: M.name, s: right, n: total, at: Date.now()}; myChanged(); }
   const ranked = rankable() && total === SET.w.length && RANK_MODES.includes(mode);
-  const logged = canLog() ? sendLog(Object.assign({page: SET.id, pageTitle: SET.t, mode: M.name, score: right, total, wrong: miss.map(w => w[0])}, ranked ? {rank: mode} : {})) : null;
+  const logged = canLog() ? sendLog(Object.assign({page: SET.id, pageTitle: logTitle(), mode: M.name, score: right, total, wrong: miss.map(w => w[0])}, ranked ? {rank: mode} : {})) : null;
   $app.innerHTML = `${header(back())}
   <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
     <div class="count">${esc(SET.t)} · ${esc(M.name)} · 맞힌 문제</div>
