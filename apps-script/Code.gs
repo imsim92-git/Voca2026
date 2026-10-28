@@ -7,6 +7,8 @@
  *  - '지난 기록' 시트: 예전 방식(연습 한 번에 한 줄)으로 쌓였던 기록. 더는 늘어나지 않음
  *  - '지문' 시트: 선생님이 등록한 지문 목록(교과서, 모의고사 1번 …)과 그 단어
  *  - '모둠', '레이스', '레이스 기록' 시트: 반·모둠 목록, 레이스(모둠·개인, 단어·Quiz) 설정과 기록
+ *  - '공지' 시트: 선생님이 학생 첫 화면에 띄우는 공지사항
+ *  - '선생님 학습 데이터' 시트(숨김): 선생님이 관리자 화면의 '학생 화면'에서 모은 헷갈리는 단어·최근 점수
  *
  * 단어표 사진 인식을 쓰려면: 편집기 왼쪽 '서비스' 옆 + → Drive API → 추가 (안내서 참고)
  *
@@ -14,6 +16,7 @@
  * 실행이 끝나면 비밀번호는 안전하게 저장되므로, 여기 적은 글자는 지워도 됩니다.
  */
 const ADMIN_PASSWORD_INIT = '';
+const RANK_EXCLUDE = ['21201'];   // 순위에서 뺄 학번 (선생님 시험용 계정)
 
 const SHEET_STUDENTS = '학생';
 const SHEET_LOG = '기록';
@@ -21,6 +24,9 @@ const STUDENT_HEADERS = ['학번', '이름', '가입 시각', '최근 접속', '
   '연습 횟수', '푼 문제', '맞힌 문제', '정답률', '마지막 연습', '자주 틀린 단어', '최근 연습(데이터)', '틀린 단어(데이터)', '내 학습 데이터'];
 const S_COLS = STUDENT_HEADERS.length;   // 15
 const MY_COL = 15;                       // 헷갈리는 단어·페이지별 최근 점수·매칭 최고 기록 (어느 브라우저에서나 같게 보이도록)
+const RANK_COL = 16;                     // P열 '순위 기록(데이터)': 지문·연습별 가장 좋은 기록 (매칭은 가장 빠른 시간, 나머지는 가장 높은 정답률)
+const RANK_HEADER = '순위 기록(데이터)';
+const RANK_MODES = ['match', 'choice', 'pick', 'spell'];
 const RECENT_KEEP = 30;                  // 학생 줄에 남기는 최근 연습 수
 const WRONG_KEEP = 200;                  // 학생 줄에 남기는 틀린 단어 수
 const LOG_HEADERS = ['시각', '학번', '이름', '학습지', '연습', '점수', '문항 수', '정답률', '틀린 단어', '페이지 ID'];
@@ -31,6 +37,10 @@ const TEAM_HEADERS = ['반', '모둠', '순서'];
 const SHEET_RACES = '레이스';
 const RACE_HEADERS = ['ID', '이름', '반(JSON)', '지문(JSON)', '설정(JSON)', '상태', '만든 시각', '고친 시각', '문제(JSON)'];
 const SHEET_RACELOG = '레이스 기록';
+const SHEET_NOTICES = '공지';
+const NOTICE_HEADERS = ['ID', '제목', '내용', '보이기', '만든 시각', '고친 시각'];
+const SHEET_TEACHER = '선생님 학습 데이터';
+const TEACHER_HEADERS = ['선생님 학습 데이터 (관리자 화면의 \'학생 화면\'에서 쓰는 헷갈리는 단어·최근 점수. 사이트가 쓰는 칸이니 고치지 마세요)'];
 const RACELOG_HEADERS = ['시작 시각', '레이스 ID', '레이스', '반', '모둠', '상태', '맞힌 수', '문항 수', '기록(초)', '벌점(초)', '틀린 수', '틀린 단어', '마지막 갱신'];
 const TOKEN_DAYS = 180;          // 학생 로그인 유지 기간
 const ADMIN_TOKEN_HOURS = 12;    // 관리자 로그인 유지 시간
@@ -46,10 +56,12 @@ function setup() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const st = ensureSheet_(ss, SHEET_STUDENTS, STUDENT_HEADERS);
   st.getRange(1, 1, 1, S_COLS).setValues([STUDENT_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
+  st.getRange(1, RANK_COL).setValue(RANK_HEADER).setFontWeight('bold');
   ensureSheet_(ss, SHEET_SETS, SET_HEADERS);
   ensureSheet_(ss, SHEET_TEAMS, TEAM_HEADERS);
   ensureSheet_(ss, SHEET_RACES, RACE_HEADERS).getRange(1, 1, 1, RACE_HEADERS.length).setValues([RACE_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
   ensureSheet_(ss, SHEET_RACELOG, RACELOG_HEADERS);
+  ensureSheet_(ss, SHEET_NOTICES, NOTICE_HEADERS);
   const props = PropertiesService.getScriptProperties();
   if (!props.getProperty('SECRET')) props.setProperty('SECRET', Utilities.getUuid() + Utilities.getUuid());
   props.setProperty('CACHE_GEN', String(Date.now())); GEN_ = null;   // 시트를 직접 고쳤을 때: 서버가 기억해 둔 것을 모두 버림
@@ -114,6 +126,10 @@ const ACTIONS = {
   teams: teams_,
   teamLogin: teamLogin_,
   races: races_,
+  ranks: ranks_,
+  adminNotices: adminNotices_,
+  adminNoticeSave: adminNoticeSave_,
+  adminNoticeDelete: adminNoticeDelete_,
   raceStart: raceStart_,
   raceProgress: raceProgress_,
   raceFinish: raceFinish_,
@@ -224,6 +240,7 @@ function log_(req) {
   const entry = total ? {at: (isNaN(when) ? new Date() : when).toISOString(), pageTitle: String(req.pageTitle || '').slice(0, 60), mode: String(req.mode || '').slice(0, 20),
     score: Math.min(score, total), total: total, page: String(req.page || '').slice(0, 30), wrong: wrong} : null;
   if (!entry && !req.my) return {ok: true};
+  if (entry && RANK_MODES.indexOf(req.rank) >= 0 && entry.page) entry.rank = {mode: req.rank, secs: Math.round(Number(req.secs) * 10) / 10};
   const out = addPractice_(sid, entry, req.my);
   // 학생 화면이 '내 기록'과 '내 학습 데이터'를 바로 새로 고칠 수 있게 함께 보냄
   return Object.assign({ok: true}, out.me ? {me: out.me} : {}, out.myPack ? {myPack: out.myPack} : {});
@@ -299,6 +316,7 @@ function myPack_(sid, my) {
   return {my: my, v: v};
 }
 function mySync_(req) {
+  if (String(req.token || '').split('.')[0] === 'a') return teacherMySync_(req);
   const sid = checkToken_(req.token, 's');
   if (!req.my) {   // 가져가기만: 서버가 기억해 둔 것이 있으면 시트를 열지 않음
     const c = CacheService.getScriptCache().get(gk_('my_' + sid));
@@ -313,6 +331,95 @@ function mySync_(req) {
     if (!req.my && req.v === pack.v) return {ok: true, same: true, v: pack.v};
     return Object.assign({ok: true}, pack);
   });
+}
+
+/* 관리자 화면의 '학생 화면': 선생님의 헷갈리는 단어·최근 점수는 숨긴 '선생님 학습 데이터' 시트 A2 칸에 학생과 같은 방식으로 저장 */
+function teacherSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_TEACHER);
+  if (!sh) { sh = ensureSheet_(ss, SHEET_TEACHER, TEACHER_HEADERS); try { sh.hideSheet(); } catch (e) {} }
+  return sh;
+}
+function teacherMySync_(req) {
+  checkToken_(req.token, 'a');
+  const key = '#teacher';
+  if (!req.my) {
+    const c = CacheService.getScriptCache().get(gk_('my_' + key));
+    if (c) { const o = JSON.parse(c); return o.v === req.v ? {ok: true, same: true, v: o.v} : {ok: true, my: o.my, v: o.v}; }
+  }
+  return withLock_(() => {
+    const sh = teacherSheet_(), cell = sh.getRange(2, 1);
+    const mm = myMerge_(cell.getValue(), req.my);
+    if (mm.changed) cell.setValue(JSON.stringify(mm.my));
+    const pack = myPack_(key, mm.my);
+    if (!req.my && req.v === pack.v) return {ok: true, same: true, v: pack.v};
+    return Object.assign({ok: true}, pack);
+  });
+}
+
+/* ---------------- 순위 ----------------
+   지문 전체로 한 연습만 순위에 들어감. 학생마다 P열에 {"지문ID|연습": 가장 좋은 기록}을 둠
+   - 매칭 게임: 가장 빠른 시간 {t, n(짝 수)} · 키에 짝 수를 붙임 ("s1a2b3c4|match8")
+   - 뜻 고르기·단어 고르기·철자 쓰기: 가장 높은 정답률 {s, n} */
+const rankBetter_ = (mode, a, b) => mode === 'match' ? a.t < b.t : a.s * b.n > b.s * a.n;   // a가 b보다 좋은가
+const rankSame_ = (mode, a, b) => mode === 'match' ? a.t === b.t : a.s * b.n === b.s * a.n;
+function rankUpdate_(sh, row, entry) {
+  const m = entry.rank.mode, isMatch = m === 'match';
+  if (isMatch && !(entry.rank.secs > 0)) return;
+  const key = entry.page + '|' + m + (isMatch ? entry.total : '');
+  const data = parseJ_(sh.getRange(row, RANK_COL).getValue(), {});
+  const v = isMatch ? {t: entry.rank.secs, n: entry.total, at: entry.at} : {s: entry.score, n: entry.total, at: entry.at};
+  const cur = data[key];
+  if (cur && !(isMatch ? rankBetter_(m, v, cur) : (cur.n !== v.n || rankBetter_(m, v, cur)))) return;   // 단어 수가 바뀐 지문은 새 기록으로 바꿈
+  data[key] = v;
+  sh.getRange(row, RANK_COL).setValue(JSON.stringify(data));
+  if (sh.getRange(1, RANK_COL).getValue() !== RANK_HEADER) sh.getRange(1, RANK_COL).setValue(RANK_HEADER).setFontWeight('bold');
+  forget_('c_rank_' + entry.page);
+}
+/* 한 지문의 기록: 모든 학생의 P열에서 그 지문 것만 모음 (서버가 잠깐 기억해 둠) */
+function rankRows_(page) {
+  return cached_('c_rank_' + page, () => {
+    const sh = sheet_(SHEET_STUDENTS), n = sh.getLastRow(); if (n < 2) return [];
+    const names = sh.getRange(2, 1, n - 1, 2).getValues(), cells = sh.getRange(2, RANK_COL, n - 1, 1).getValues(), out = [];
+    names.forEach((r, i) => {
+      const sid = String(r[0]).trim(); if (!sid || RANK_EXCLUDE.indexOf(sid) >= 0 || !cells[i][0]) return;
+      const data = parseJ_(cells[i][0], {}), mine = {};
+      Object.keys(data).forEach(k => { const j = k.indexOf('|'); if (k.slice(0, j) === page) mine[k.slice(j + 1)] = data[k]; });
+      if (Object.keys(mine).length) out.push({sid: sid, name: String(r[1]), cls: sidClass_(sid), r: mine});
+    });
+    return out;
+  });
+}
+/* 등수 매기기: 같은 기록은 같은 등수(1, 1, 3 …). limit 등까지 모두 보여 주므로 동점자는 다 들어감 */
+/* 다른 반 학생 이름은 가운데를 ○로 가림: 김민준 → 김○준, 이수 → 이○, 남궁민수 → 남○○수 */
+function maskName_(name) {
+  const c = Array.from(String(name || '').trim());
+  if (c.length <= 1) return c.join('');
+  if (c.length === 2) return c[0] + '○';
+  return c[0] + '○'.repeat(c.length - 2) + c[c.length - 1];
+}
+function rankList_(rows, mode, key, limit, mySid, myCls) {
+  const list = rows.filter(x => x.r[key]).map(x => ({sid: x.sid, name: x.name, cls: x.cls, v: x.r[key]}));
+  list.sort((a, b) => rankBetter_(mode, a.v, b.v) ? -1 : rankBetter_(mode, b.v, a.v) ? 1 : 0);
+  let rank = 0;
+  list.forEach((x, i) => { if (i === 0 || !rankSame_(mode, x.v, list[i - 1].v)) rank = i + 1; x.rank = rank; });
+  const me = list.find(x => x.sid === mySid);
+  const show = x => ({rank: x.rank, name: x.cls === myCls ? x.name : maskName_(x.name), cls: x.cls, t: x.v.t, s: x.v.s, n: x.v.n, me: x.sid === mySid});
+  return {top: list.filter(x => x.rank <= limit).map(show), count: list.length, mine: me ? show(me) : null};
+}
+function ranks_(req) {
+  const page = String(req.page || '').slice(0, 30);
+  if (!page) fail_('지문을 골라 주세요.');
+  let cls = '', sid = '';
+  if (String(req.token || '').split('.')[0] === 'a') { checkToken_(req.token, 'a'); cls = String(req.cls || '').slice(0, 40); }   // 관리자 화면의 '학생 화면 관리'
+  else { sid = checkToken_(req.token, 's'); cls = sidClass_(sid); }
+  const rows = rankRows_(page), out = {};
+  const pairs = Math.max(1, Math.min(8, Math.floor(Number(req.pairs) || 8)));
+  RANK_MODES.forEach(m => {
+    const key = m === 'match' ? 'match' + pairs : m;
+    out[m] = {all: rankList_(rows, m, key, 10, sid, cls), cls: cls ? rankList_(rows.filter(x => x.cls === cls), m, key, 3, sid, cls) : null};
+  });
+  return {ok: true, page: page, cls: cls, ranks: out};
 }
 
 /* ---------------- 관리자 ---------------- */
@@ -453,6 +560,7 @@ function addPractice_(sid, entry, cliMy) {
       sh.getRange(row, 7, 1, 9).setValues([statsCells_(st).concat([mm.changed ? JSON.stringify(mm.my) : r[MY_COL - 1]])]);   // G~O열
       sh.getRange(row, 4).setValue(new Date());   // 최근 접속
       out.me = meCachePut_(sid, String(r[1]), st);
+      if (entry.rank) rankUpdate_(sh, row, entry);
     } else if (mm.changed) {
       sh.getRange(row, MY_COL).setValue(JSON.stringify(mm.my));
     }
@@ -500,17 +608,59 @@ function readSets_() {
     return {row: i + 2, id: String(r[0]).trim(), name: String(r[1]), order: Number(r[2]) || 0, words: words, updated: iso_(r[6])};
   }).filter(x => x.id).sort((a, b) => a.order - b.order || a.row - b.row);
 }
-/* 지문 꾸러미: 내용으로 만든 짧은 버전과 함께 보냄. 브라우저가 가진 버전과 같으면 단어는 보내지 않음 */
+/* 지문 꾸러미: 지문과 학생에게 보이는 공지를 내용으로 만든 짧은 버전과 함께 보냄. 브라우저가 가진 버전과 같으면 내용은 보내지 않음 */
 function setsBundle_() {
-  return cached_('c_sets2', () => {
+  return cached_('c_sets3', () => {
     const sets = readSets_().map(x => ({id: x.id, name: x.name, words: x.words, updated: x.updated}));
-    const v = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(sets), Utilities.Charset.UTF_8)).slice(0, 12);
-    return {v: v, sets: sets};
+    const notices = readNotices_().filter(x => x.show).map(x => ({id: x.id, title: x.title, body: x.body, created: x.created, updated: x.updated}));
+    const v = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify([sets, notices]), Utilities.Charset.UTF_8)).slice(0, 12);
+    return {v: v, sets: sets, notices: notices};
   });
 }
 function setsFor_(have) {
   const b = setsBundle_();
-  return have && have === b.v ? {v: b.v, same: true} : {v: b.v, sets: b.sets};
+  return have && have === b.v ? {v: b.v, same: true} : {v: b.v, sets: b.sets, notices: b.notices};
+}
+
+/* ---------------- 공지 ---------------- */
+/* '공지' 시트: 한 줄에 공지 하나. '보이기'가 TRUE인 것만 학생 첫 화면에 새 공지부터 보임 */
+function readNotices_() {
+  const sh = sheet_(SHEET_NOTICES), n = sh.getLastRow(); if (n < 2) return [];
+  return sh.getRange(2, 1, n - 1, NOTICE_HEADERS.length).getValues().map((r, i) => ({
+    row: i + 2, id: String(r[0]).trim(), title: String(r[1]), body: String(r[2]), show: r[3] === true || String(r[3]).toUpperCase() === 'TRUE',
+    created: iso_(r[4]), updated: iso_(r[5])
+  })).filter(x => x.id).sort((a, b) => (b.created > a.created ? 1 : b.created < a.created ? -1 : b.row - a.row));
+}
+const noticesAdmin_ = () => readNotices_().map(x => ({id: x.id, title: x.title, body: x.body, show: x.show, created: x.created, updated: x.updated}));
+function adminNotices_(req) {
+  checkToken_(req.token, 'a');
+  return {ok: true, notices: noticesAdmin_()};
+}
+function adminNoticeSave_(req) {
+  checkToken_(req.token, 'a');
+  const title = String(req.title || '').trim().replace(/\s+/g, ' ');
+  const body = String(req.body || '').replace(/\r\n?/g, '\n').trim();
+  if (!title || title.length > 60) fail_('공지 제목을 1~60자로 써 주세요.');
+  if (body.length > 2000) fail_('공지 내용은 2000자까지 쓸 수 있어요.');
+  const show = req.show !== false;
+  return withLock_(() => {
+    const sh = sheet_(SHEET_NOTICES), now = new Date();
+    const cur = req.id ? readNotices_().find(x => x.id === String(req.id)) : null;
+    if (req.id && !cur) fail_('그 공지를 찾을 수 없어요. 새로고침해 주세요.');
+    if (cur) sh.getRange(cur.row, 2, 1, 3).setValues([[asText_(title), asText_(body), show]]), sh.getRange(cur.row, 6).setValue(now);
+    else sh.appendRow(['n' + Utilities.getUuid().replace(/-/g, '').slice(0, 7), asText_(title), asText_(body), show, now, now]);
+    forget_('c_sets3');
+    return {ok: true, notices: noticesAdmin_(), setsPack: setsFor_('')};
+  });
+}
+function adminNoticeDelete_(req) {
+  checkToken_(req.token, 'a');
+  return withLock_(() => {
+    const cur = readNotices_().find(x => x.id === String(req.id || ''));
+    if (cur) sheet_(SHEET_NOTICES).deleteRow(cur.row);
+    forget_('c_sets3');
+    return {ok: true, notices: noticesAdmin_(), setsPack: setsFor_('')};
+  });
 }
 function sets_(req) {
   return Object.assign({ok: true}, setsFor_(req && req.v));
@@ -540,13 +690,13 @@ function adminSetSave_(req) {
     if (cur) {
       sh.getRange(cur.row, 2, 1, 4).setValues([[asText_(name), cur.order, words.length, json]]);
       sh.getRange(cur.row, 7).setValue(now);
-      forget_('c_sets2');
+      forget_('c_sets3');
       return {ok: true, id: cur.id, setsPack: setsFor_('')};
     }
     const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
     const order = list.reduce((m, x) => Math.max(m, x.order), 0) + 1;
     sh.appendRow([id, asText_(name), order, words.length, json, now, now]);
-    forget_('c_sets2');
+    forget_('c_sets3');
     return {ok: true, id: id, setsPack: setsFor_('')};
   });
 }
@@ -556,7 +706,7 @@ function adminSetDelete_(req) {
     const cur = readSets_().find(x => x.id === String(req.id || ''));
     if (!cur) fail_('그 지문을 찾을 수 없어요.');
     sheet_(SHEET_SETS).deleteRow(cur.row);
-    forget_('c_sets2');
+    forget_('c_sets3');
     return {ok: true, setsPack: setsFor_('')};
   });
 }
@@ -566,7 +716,7 @@ function adminSetOrder_(req) {
   return withLock_(() => {
     const sh = sheet_(SHEET_SETS);
     readSets_().forEach(x => { const k = ids.indexOf(x.id); sh.getRange(x.row, 3).setValue(k < 0 ? ids.length + x.order : k + 1); });
-    forget_('c_sets2');
+    forget_('c_sets3');
     return {ok: true, setsPack: setsFor_('')};
   });
 }
@@ -845,6 +995,12 @@ function raceListFor_(who) {
   }).filter(r => r.status !== '준비');
 }
 function races_(req) {
+  if (String(req.token || '').split('.')[0] === 'a') {   // 관리자 화면의 '학생 화면': 선생님이 고른 반 학생에게 보이는 개인 레이스 (기록은 남지 않음)
+    checkToken_(req.token, 'a');
+    const classes = cached_('c_stucls', () => studentClasses_().map(c => c.name));
+    const cls = String(req.cls || '').slice(0, 40);
+    return {ok: true, team: null, cls: cls, classes: classes, races: cls ? raceListFor_({who: 'student', cls: cls, team: '#teacher'}) : [], setsPack: setsFor_(req.v)};
+  }
   const who = participant_(req.token);
   return {ok: true, team: who.who === 'team' ? {cls: who.cls, team: who.team} : null, cls: who.cls, races: raceListFor_(who), setsPack: setsFor_(req.v)};
 }
@@ -988,7 +1144,7 @@ function adminArchive_(req) {
 /* ---------------- 시트 읽기·쓰기 ---------------- */
 function sheet_(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const headers = {[SHEET_STUDENTS]: STUDENT_HEADERS, [SHEET_SETS]: SET_HEADERS, [SHEET_TEAMS]: TEAM_HEADERS, [SHEET_RACES]: RACE_HEADERS, [SHEET_RACELOG]: RACELOG_HEADERS, [SHEET_LOG_OLD]: LOG_HEADERS}[name] || LOG_HEADERS;
+  const headers = {[SHEET_STUDENTS]: STUDENT_HEADERS, [SHEET_SETS]: SET_HEADERS, [SHEET_TEAMS]: TEAM_HEADERS, [SHEET_RACES]: RACE_HEADERS, [SHEET_RACELOG]: RACELOG_HEADERS, [SHEET_NOTICES]: NOTICE_HEADERS, [SHEET_LOG_OLD]: LOG_HEADERS}[name] || LOG_HEADERS;
   return ss.getSheetByName(name) || ensureSheet_(ss, name, headers);
 }
 function findStudentRow_(sh, sid) {
