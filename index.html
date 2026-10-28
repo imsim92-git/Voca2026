@@ -201,7 +201,11 @@ tr.event td{color:var(--muted)}
 .face .no{position:absolute;top:14px;left:18px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em}
 .face.back .no{color:var(--navy-fg);opacity:.7}
 .face .hint{position:absolute;bottom:14px;left:0;right:0;font-size:12px;color:var(--muted)}
-.face .big{font-family:var(--f-word);font-size:clamp(30px,9vw,44px);line-height:1.15;overflow-wrap:anywhere}
+.face .big{font-family:var(--f-word);font-size:clamp(34px,10vw,64px);line-height:1.15;overflow-wrap:anywhere}
+.face .big-ko{font-size:clamp(24px,7vw,42px)!important}
+/* cards on a classroom TV or projector: bigger still, so students can read and copy them from their seats */
+@media (min-width:1000px){.wrap.cardwide{max-width:1100px}.cardwide .flip-in{min-height:440px}.cardwide .face .big{font-size:clamp(72px,6.5vw,104px)}.cardwide .face .big-ko{font-size:clamp(44px,4vw,64px)!important}.cardwide .face .rels{font-size:28px;gap:8px}.cardwide .face .rels .rel b{font-size:20px;padding:2px 8px}.cardwide .face .rel-en{font-size:30px}.cardwide .face .note{font-size:26px}}
+@media (min-width:700px){.face .rel-en{font-size:20px}.flip-in{min-height:340px}.face .big{font-size:clamp(56px,7vw,80px)}.face .big-ko{font-size:clamp(36px,4.6vw,52px)!important}.face .rels{font-size:18px}.face .note{font-size:20px}}
 .big-ko{font-size:clamp(20px,6vw,26px)!important;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .star{position:absolute;top:8px;right:8px;width:44px;height:44px;border:0;background:none;color:var(--muted);display:grid;place-items:center;z-index:2;border-radius:50%}
 .star svg{width:24px;height:24px}
@@ -349,6 +353,8 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 .fchip{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700}
 .fchip.on{background:var(--navy);color:var(--navy-fg);border-color:var(--navy)}
 .tabs.scroll{overflow-x:auto}
+.admintabs .tab{word-break:keep-all;line-height:1.25}
+@media (max-width:440px){.admintabs .tab{font-size:13px;padding:8px 2px}}
 .fchip.custom{display:inline-flex;align-items:center;gap:2px;font-weight:700;cursor:text}
 .tabs.scroll .tab{flex:none;padding-inline:14px}
 
@@ -376,6 +382,26 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .wl li .star.inl{position:static;grid-column:3;grid-row:1/3;width:40px;height:40px;align-self:center}
 .wl:not(.conf) li{grid-template-columns:1fr auto auto}
 
+.tbar{background:var(--accent-soft, rgba(0,0,0,.04));border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.tback{display:flex;justify-content:flex-end;margin:-2px 0 2px}
+.notices{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.notice{align-self:stretch;background:var(--surface);border:1px solid var(--line);border-left:4px solid #f5c518;border-radius:12px;padding:12px 14px}
+.notice-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.notice-title{flex:1;min-width:0}
+.notice-chip{background:#f5c518;color:#3a2a00}
+.notice-x{margin-left:auto;font-size:18px;line-height:1}
+.notice-body{margin-top:6px;white-space:pre-wrap;word-break:break-word;line-height:1.55}
+.notice-body a{color:inherit;text-decoration:underline}
+.rklist{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.rklist li{display:flex;align-items:center;gap:12px;padding:11px 14px;border-top:1px solid var(--line)}
+.rklist li:first-child{border-top:0}
+.rklist li.me{background:var(--accent-soft, rgba(255,214,77,.18))}
+.rk{min-width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;background:var(--line);color:var(--ink);font-size:14px}
+.rklist li.p1 .rk{background:#f5c518;color:#3a2a00}.rklist li.p2 .rk{background:#c9d1db;color:#22303f}.rklist li.p3 .rk{background:#e0a77a;color:#3d2210}
+.rkname{flex:1;min-width:0;font-weight:700}
+.rkcls{font-weight:500;color:var(--muted)}
+.rkv{font-weight:800;white-space:nowrap}
+.tbar select{font:inherit;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .pwwarn{display:flex;flex-direction:column;gap:4px;background:var(--bad-bg);border:2px solid var(--bad);border-radius:12px;padding:12px 14px;color:var(--ink);font-size:14px;line-height:1.5}
 .pwwarn > b{color:var(--bad);font-size:15px}
 .pwwarn span b{color:var(--bad)}
@@ -539,6 +565,28 @@ function speak(text){
   } catch(e){}
 }
 /* shown on the page picker and set home when this browser cannot speak */
+/* notices on the student's first screen. A student can close one; it comes back when the teacher edits it */
+const NOTICE_CLOSED = 'wordroom-notice-closed';
+const fmtDay = s => { const d = new Date(s); return isNaN(d) ? '' : d.toLocaleDateString('ko-KR', {month: 'long', day: 'numeric'}); };
+const linkify = t => esc(t).replace(/https?:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
+function noticesHTML(){
+  if (!NOTICES.length) return '';
+  const closed = store.get(NOTICE_CLOSED, {}) || {};
+  const open = NOTICES.filter(n => closed[n.id] !== n.updated), hidden = NOTICES.length - open.length;
+  return `<div class="notices" id="notices">${open.map(n => `<div class="notice" role="note">
+    <div class="notice-top"><span class="chip notice-chip">공지</span><b class="notice-title">${esc(n.title)}</b><span class="muted small">${fmtDay(n.updated || n.created)}</span>
+    <button class="iconbtn notice-x" data-nclose="${esc(n.id)}" aria-label="이 공지 닫기">×</button></div>
+    ${n.body ? `<div class="notice-body">${linkify(n.body)}</div>` : ''}</div>`).join('')}
+    ${hidden ? `<button class="link small" id="nreopen">닫은 공지 ${hidden}개 다시 보기</button>` : ''}</div>`;
+}
+function bindNotices(redraw){
+  $app.querySelectorAll('[data-nclose]').forEach(b => b.onclick = () => {
+    const n = NOTICES.find(x => x.id === b.dataset.nclose); if (!n) return;
+    const c = store.get(NOTICE_CLOSED, {}) || {}; c[n.id] = n.updated; store.set(NOTICE_CLOSED, c);
+    const y = scrollY; redraw(); scrollTo(0, y);
+  });
+  const r = document.getElementById('nreopen'); if (r) r.onclick = () => { store.set(NOTICE_CLOSED, {}); const y = scrollY; redraw(); scrollTo(0, y); };
+}
 function speechBanner(){
   if (canSpeak) return '';
   const url = location.href;
@@ -551,7 +599,9 @@ document.addEventListener('click', e => { const b = e.target.closest('[data-say]
 
 /* ---------- state ---------- */
 let SET = null, origin = 'pages';   // origin: 'pages' (from the page picker) | 'link' (teacher-made link) | 'maker'
-const header = right => `<div class="top"><div class="brand">${esc(SITE_NAME)}</div>${right || ''}</div>`;
+const header = right => isTeacher()
+  ? `<div class="top"><div class="brand">${esc(SITE_NAME)}</div><button class="link" id="tostu">← 학생 화면</button></div>${adminTabs('student')}${teacherBar()}${right ? `<div class="tback">${right}</div>` : ''}`
+  : `<div class="top"><div class="brand">${esc(SITE_NAME)}</div>${right || ''}</div>`;
 /* related words beside a head word: "유의어 only, exclusively" / "반의어 trivial 사소한" */
 function relHTML(w){
   const rel = Array.isArray(w[3]) ? w[3] : []; if (!rel.length) return '';
@@ -575,7 +625,7 @@ let ADMIN = store.get('wordroom-admin', null);         // {token, exp}
    Such requests are sent again after a short, slightly random wait (so they don't all come back together).
    Requests that only read, or are safe to repeat, are also retried after a dropped connection;
    requests that save something are retried only when the server clearly did not run them. */
-const SAFE_RETRY = new Set(['login', 'me', 'sets', 'teams', 'teamLogin', 'races', 'admin', 'adminLogin', 'adminStudent', 'adminRaces', 'adminBoard', 'raceProgress', 'mySync']);   // mySync merges by time, so sending it twice does no harm
+const SAFE_RETRY = new Set(['adminNotices', 'login', 'me', 'sets', 'teams', 'teamLogin', 'races', 'ranks', 'admin', 'adminLogin', 'adminStudent', 'adminRaces', 'adminBoard', 'raceProgress', 'mySync']);   // mySync merges by time, so sending it twice does no harm
 const RETRY_WAIT = [700, 1800];
 async function api(action, data){
   if (!API) throw {error: 'config.js에 서버 주소(apiUrl)가 아직 없어요.'};
@@ -596,9 +646,45 @@ async function api(action, data){
     throw {error: '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.', offline: true};
   }
 }
+/* the teacher's "학생 화면": the student screens as a student of one class sees them, opened from the teacher menu.
+   AUTH is replaced (not saved) by a teacher identity that uses the admin token; nothing goes into the student records,
+   races can be tried without being recorded, and the teacher's confusing words are kept apart from every student's */
+const TV_KEY = 'wordroom-teacherview';   // this tab is in the teacher's 학생 화면; the value is the class the teacher picked ('-': none yet)
+const tvGet = () => { try { return sessionStorage.getItem(TV_KEY); } catch(e){ return null; } };
+const tvSet = v => { try { v === null ? sessionStorage.removeItem(TV_KEY) : sessionStorage.setItem(TV_KEY, v || '-'); } catch(e){} };
+const tvClass = () => { const v = tvGet(); return v && v !== '-' ? v : ''; };
+const TCLS_KEY = 'wordroom-teacher-classes';
+const isTeacher = () => !!(AUTH && AUTH.teacher);
+const canLog = () => ACCOUNTS && AUTH && !AUTH.teacher;
+function enterTeacher(cls){
+  if (needAdmin(() => enterTeacher(cls))) return;
+  stopTimers();
+  cls = cls !== undefined ? cls : tvClass();
+  AUTH = {sid: '#teacher', name: '선생님', token: ADMIN.token, teacher: true, cls}; TEAM = null; MY = null;
+  tvSet(cls); setHash('');
+  route(); syncMy();
+}
+$app.addEventListener('change', e => {
+  if (e.target.id !== 'tcls' || !isTeacher()) return;
+  stopTimers(); AUTH.cls = e.target.value; tvSet(e.target.value); route();
+});
+$app.addEventListener('click', e => {
+  if (!isTeacher()) return;
+  const t = e.target.closest('[data-anav], #tostu'); if (!t) return;
+  e.stopPropagation();
+  if (t.id === 'tostu') return leaveTeacher(() => route());   // the real student screen: log in with a student number
+  const go = {records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin}[t.dataset.anav];
+  if (go) leaveTeacher(go);
+}, true);
+function leaveTeacher(next){
+  stopTimers(); tvSet(null);
+  AUTH = store.get('wordroom-auth', null); TEAM = store.get('wordroom-team', null); MY = null;
+  (next || viewAdmin)();
+}
 function setAuth(a){ AUTH = a; store.set('wordroom-auth', a); viewHome.synced = false; MY = null; if (a) setTimeout(syncMy, 0); }
 function logout(){ if (AUTH) store.set('wordroom-me-' + AUTH.sid, null); setAuth(null); LOGIN ? viewLogin(route) : route(); }   // a shared device keeps nothing of the last student
 function onAuthError(e, retry){
+  if (e && e.code === 'auth' && isTeacher()) { ADMIN = null; store.set('wordroom-admin', null); toast('관리자 로그인이 끝났어요. 다시 들어가 주세요'); leaveTeacher(() => viewAdmin(() => enterTeacher())); return true; }
   if (e && e.code === 'auth') { setAuth(null); toast('다시 로그인해 주세요'); viewLogin(retry || route); return true; }
   return false;
 }
@@ -606,7 +692,7 @@ function onAuthError(e, retry){
 /* practice results go into a queue first, so a dropped connection never loses them */
 const QKEY = 'wordroom-queue';
 async function sendLog(entry){
-  if (!API || !AUTH) return 'off';
+  if (!API || !AUTH || AUTH.teacher) return 'off';
   const q = store.get(QKEY, []); q.push(Object.assign({token: AUTH.token, sid: AUTH.sid, at: new Date().toISOString()}, entry)); store.set(QKEY, q.slice(-100));
   return flushQueue();
 }
@@ -621,7 +707,7 @@ function keepMe(me){
 }
 let flushing = null;
 function flushQueue(){
-  if (!API) return Promise.resolve('off');
+  if (!API || isTeacher()) return Promise.resolve('off');
   if (flushing) return flushing;
   flushing = (async () => {
     let q = store.get(QKEY, []), status = 'saved';
@@ -638,7 +724,19 @@ function flushQueue(){
 }
 
 function userBar(){
-  if (!ACCOUNTS) return '';
+  if (!ACCOUNTS || isTeacher()) return '';   // the teacher's class bar is part of the top (header)
+  return studentBar();
+}
+/* the teacher's 반별 화면: which class's students to look as (under the teacher menu tabs, above the screen's back button) */
+function teacherBar(){
+  {
+    const list = store.get(TCLS_KEY, null) || [];
+    const opts = `<option value="" ${AUTH.cls ? '' : 'selected'}>반 고르기</option>` + [...new Set([...(AUTH.cls ? [AUTH.cls] : []), ...list])].map(n => `<option value="${esc(n)}" ${n === AUTH.cls ? 'selected' : ''}>${esc(n)}</option>`).join('');
+    return `<div class="userbar tbar"><span><b>선생님</b> <span class="muted">반별 화면 · 학생 기록에는 남지 않아요</span></span>
+    <select id="tcls" aria-label="어느 반 학생 화면을 볼까요">${opts}</select></div>`;
+  }
+}
+function studentBar(){
   if (!AUTH) return `<div class="userbar"><span class="muted">로그인하면 내 기록과 오답이 저장돼요</span><button class="link" data-act="login">로그인</button></div>`;
   return `<div class="userbar"><span><b>${esc(AUTH.name)}</b> <span class="muted">${esc(AUTH.sid)}</span></span>
     <span class="row" style="gap:14px"><button class="link" data-act="me">내 기록</button><button class="link" data-act="logout">로그아웃</button></span></div>`;
@@ -1100,6 +1198,7 @@ function ocrToLines(text){
 /* ---------- passages the teacher registers (교과서, 모의고사 1번 …), kept in the '지문' sheet ---------- */
 let SETS = (store.get('wordroom-sets', null) || []).map(toSet);   // last copy, so the first screen paints at once
 let setsLoaded = false;
+let NOTICES = store.get('wordroom-notices', null) || [];   // the teacher's notices for the first screen (newest first)
 function toSet(s){
   const heads = (s.words || []).map(w => { const h = [String(w[0]), String(w[1]), String(w[2] || '')]; const rel = relFromNote(h[2]); if (rel.length) h[3] = rel; h.pid = s.id; return h; });
   return {id: s.id, t: s.name, kind: 'passage', heads, w: heads.flatMap(h => [h, ...(h[3] || []).map(r => relWord(h, r, s.id)).filter(x => x[1])])};
@@ -1114,6 +1213,7 @@ function applySets(pack){
   const before = store.get('wordroom-sets-v', '');
   store.set('wordroom-sets', pack.sets); store.set('wordroom-sets-v', pack.v);
   SETS = pack.sets.map(toSet);
+  NOTICES = pack.notices || []; store.set('wordroom-notices', NOTICES);
   return before !== pack.v;
 }
 async function loadSets(){
@@ -1137,9 +1237,9 @@ function viewRoot(){
   SET = null; origin = 'root'; SCOPE = 'all';
   if (ACCOUNTS && !SETS.length && setsLoaded && hasBook()) return viewPages();   // nothing registered yet: straight to 교과서
   const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
-  $app.innerHTML = `${header()}${userBar()}${speechBanner()}
+  $app.innerHTML = `${header()}${userBar()}${speechBanner()}${ACCOUNTS ? noticesHTML() : ''}
   <div class="setcard"><div class="eyebrow">영어 학습</div><h1>지문을 골라요</h1><div class="meta">연습할 지문을 누르면 단어 연습 메뉴가 열려요.</div></div>
-  ${ACCOUNTS && AUTH ? myRacesHTML() : ''}${ACCOUNTS && AUTH && myRacesList().length ? '<div class="section-label">지문</div>' : ''}
+  ${ACCOUNTS && AUTH ? myRacesHTML() : ''}${ACCOUNTS && AUTH && (myRacesList().length || isTeacher()) ? '<div class="section-label">지문</div>' : ''}
   <div class="pages">
     ${hasBook() ? `<button class="page" data-root="book"><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
     ${SETS.map((s, i) => `<button class="page" data-root="${esc(s.id)}"><b>${esc(s.t)}</b><span class="pc">${countLine(s)}</span>${last(s.id)}</button>`).join('')}
@@ -1151,20 +1251,20 @@ function viewRoot(){
     if (b.dataset.root === 'book') return viewPages();
     SET = SETS.find(s => s.id === b.dataset.root); origin = 'root'; viewHome();
   });
-  bindConfAll('root');
+  bindConfAll('root'); bindNotices(viewRoot);
   if (ACCOUNTS && AUTH) bindMyRaces(viewRoot);
   bindUserBar();
   scrollTo(0, 0);
 }
 
 /* ---------- teacher only: navigation between the admin screens ---------- */
-function adminNav(active){
-  setHash('admin');
+function adminNav(active){ setHash('admin'); return adminTabs(active); }
+function adminTabs(active){
   const item = (k, label) => `<button class="tab" data-anav="${k}" aria-selected="${active === k}">${label}</button>`;
-  return `<div class="tabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('race', '레이스')}${item('qr', 'QR')}</div>`;
+  return `<div class="tabs admintabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('race', '레이스')}${item('notice', '공지 관리')}${item('student', '반별 화면')}${item('qr', 'QR')}</div>`;
 }
 function bindAdminNav(){
-  $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake()})[b.dataset.anav](); });
+  $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin, student: () => enterTeacher()})[b.dataset.anav](); });
 }
 function needAdmin(next){
   if (!API) { viewAdmin(); return true; }
@@ -1177,6 +1277,70 @@ function adminErr(e, retry){
 }
 
 /* ---------- teacher only: the passage list ---------- */
+/* ---------- teacher: notices on the student's first screen ---------- */
+async function viewNoticesAdmin(){
+  if (needAdmin(viewNoticesAdmin)) return;
+  let list = null;
+  const top = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('notice')}`;
+  const bindTop = () => { document.getElementById('up').onclick = () => route(); bindAdminNav(); };
+  const draw = msg => {
+    $app.innerHTML = `${top}
+    <div class="row" style="justify-content:space-between"><h2>공지 관리</h2><button class="btn mark" id="nnew">+ 새 공지</button></div>
+    <p class="help">'학생에게 보이기'를 켠 공지가 학생 첫 화면 맨 위에 새 공지부터 보여요. 학생이 닫은 공지도 고치면 다시 보여요.</p>
+    ${msg ? `<div class="panel empty">${esc(msg)}</div>` : ''}
+    ${list ? `<div class="panel"><ul class="setlist" id="nl">
+      ${list.map((n, i) => `<li><div class="sl-main"><b>${esc(n.title)}</b><span class="muted">${n.show ? '<span class="chip go">보이는 중</span>' : '<span class="chip">숨김</span>'} ${fmtDay(n.updated || n.created)} 고침${n.body ? ' · ' + esc(n.body.slice(0, 40)) + (n.body.length > 40 ? '…' : '') : ''}</span></div>
+        <div class="sl-act"><button class="btn ghost small" data-nshow="${i}">${n.show ? '숨기기' : '보이기'}</button><button class="btn ghost small" data-nedit="${i}">편집</button><button class="btn ghost small" data-ndel="${i}">삭제</button></div></li>`).join('')}
+      ${!list.length ? '<li class="muted">아직 공지가 없어요. "+ 새 공지"를 눌러 써 보세요.</li>' : ''}
+    </ul></div>` : ''}`;
+    bindTop();
+    document.getElementById('nnew').onclick = () => edit(null);
+    $app.querySelectorAll('[data-nedit]').forEach(b => b.onclick = () => edit(list[+b.dataset.nedit]));
+    $app.querySelectorAll('[data-nshow]').forEach(b => b.onclick = async () => {
+      const n = list[+b.dataset.nshow]; b.disabled = true;
+      if (!await save({id: n.id, title: n.title, body: n.body, show: !n.show}, n.show ? '공지를 숨겼어요' : '공지를 학생 화면에 보이게 했어요') && document.getElementById('nnew')) b.disabled = false;
+    });
+    $app.querySelectorAll('[data-ndel]').forEach(b => b.onclick = () => {
+      const n = list[+b.dataset.ndel], li = b.closest('li');
+      li.querySelector('.sl-act').innerHTML = `<span class="small">"${esc(n.title)}" 공지를 지울까요?</span><button class="btn ghost small" data-no>취소</button><button class="btn danger small" data-yes>삭제</button>`;
+      li.querySelector('[data-no]').onclick = () => draw();
+      li.querySelector('[data-yes]').onclick = async () => {
+        try { const r = await api('adminNoticeDelete', {token: ADMIN.token, id: n.id}); list = r.notices; applySets(r.setsPack); toast('공지를 지웠어요'); draw(); }
+        catch(e){ if (!adminErr(e, viewNoticesAdmin)) toast(e.error || '지우지 못했어요'); }
+      };
+    });
+    scrollTo(0, 0);
+  };
+  async function save(n, okMsg){
+    try { const r = await api('adminNoticeSave', Object.assign({token: ADMIN.token}, n)); list = r.notices; applySets(r.setsPack); toast(okMsg); draw(); return true; }
+    catch(e){ if (!adminErr(e, viewNoticesAdmin)) toast(e.error || '저장하지 못했어요'); return false; }
+  }
+  function edit(n){
+    $app.innerHTML = `${top}
+    <h2>${n ? '공지 고치기' : '새 공지'}</h2>
+    <div class="field"><label for="nt">제목</label><input type="text" id="nt" maxlength="60" placeholder="예: 순위 보기가 생겼어요" value="${esc(n ? n.title : '')}"></div>
+    <div class="field"><label for="nb">내용</label><textarea id="nb" rows="8" maxlength="2000" placeholder="학생에게 알릴 내용을 써요. 줄 바꿈은 그대로 보여요.">${esc(n ? n.body : '')}</textarea></div>
+    <label class="check"><input type="checkbox" id="ns" ${!n || n.show ? 'checked' : ''}><span>학생에게 보이기</span></label>
+    <div class="section-label">학생 화면에서 이렇게 보여요</div><div id="npv"></div>
+    <div class="row"><button class="btn ghost wide" id="ncancel">취소</button><button class="btn mark wide" id="nsave">저장하기</button></div>`;
+    bindTop();
+    const pv = () => { const t = document.getElementById('nt').value.trim() || '(제목)', b = document.getElementById('nb').value;
+      document.getElementById('npv').innerHTML = `<div class="notices"><div class="notice"><div class="notice-top"><span class="chip notice-chip">공지</span><b class="notice-title">${esc(t)}</b><span class="muted small">${fmtDay(new Date())}</span></div>${b.trim() ? `<div class="notice-body">${linkify(b.trim())}</div>` : ''}</div></div>`; };
+    ['nt', 'nb'].forEach(id => document.getElementById(id).addEventListener('input', pv)); pv();
+    document.getElementById('ncancel').onclick = () => draw();
+    document.getElementById('nsave').onclick = async e => {
+      const title = document.getElementById('nt').value.trim();
+      if (!title) { toast('제목을 써 주세요'); document.getElementById('nt').focus(); return; }
+      e.target.disabled = true; e.target.textContent = '저장하는 중…';
+      if (!await save({id: n ? n.id : '', title, body: document.getElementById('nb').value, show: document.getElementById('ns').checked}, n ? '공지를 고쳤어요' : '공지를 올렸어요')) { e.target.disabled = false; e.target.textContent = '저장하기'; }
+    };
+    document.getElementById('nt').focus();
+  }
+  draw('불러오는 중…');
+  try { list = (await api('adminNotices', {token: ADMIN.token})).notices; }
+  catch(e){ if (adminErr(e, viewNoticesAdmin)) return; return draw(e.error || '공지를 불러오지 못했어요.'); }
+  if (document.getElementById('nnew')) draw();
+}
 async function viewSetsAdmin(){
   if (needAdmin(viewSetsAdmin)) return;
   const draw = (msg) => {
@@ -1430,7 +1594,8 @@ async function viewTeamHome(force){
 }
 
 /* ---------- student: individual races on the first screen ---------- */
-const myRacesKey = () => 'wordroom-myraces-' + (AUTH ? AUTH.sid : '');
+const myRacesKey = () => 'wordroom-myraces-' + (AUTH ? AUTH.sid + (AUTH.teacher ? '-' + AUTH.cls : '') : '');
+const teacherRaceCtx = () => ({kind: 'trial', trial: true, label: `선생님 · ${AUTH.cls} · 기록되지 않아요`, home: () => route(), homeText: '처음 화면으로', backText: '← 처음 화면', authFail: () => route()});
 function myRacesStale(){ const c = store.get(myRacesKey(), null); if (c) { c.at = 0; store.set(myRacesKey(), c); } }
 let myRacesLoading = null;
 function loadMyRaces(){
@@ -1439,10 +1604,12 @@ function loadMyRaces(){
   if (c && Date.now() - c.at < 15000) return Promise.resolve(c);
   if (myRacesLoading) return myRacesLoading;
   const sid = AUTH.sid;
-  myRacesLoading = api('races', {token: AUTH.token, v: setsV()}).then(r => {
+  const key = myRacesKey();
+  myRacesLoading = api('races', Object.assign({token: AUTH.token, v: setsV()}, AUTH.teacher ? {cls: AUTH.cls} : {})).then(r => {
     applySets(r.setsPack);
-    if (!AUTH || AUTH.sid !== sid) return null;
-    const v = {at: Date.now(), races: r.races}; store.set(myRacesKey(), v); return v;
+    if (!AUTH || AUTH.sid !== sid || myRacesKey() !== key) return null;
+    if (r.classes) store.set(TCLS_KEY, r.classes);
+    const v = {at: Date.now(), races: r.races}; store.set(key, v); return v;
   }).catch(e => { onAuthErrorQuiet(e); return c; }).finally(() => { myRacesLoading = null; });
   return myRacesLoading;
 }
@@ -1450,14 +1617,17 @@ function myRacesList(){
   const c = AUTH && store.get(myRacesKey(), null);
   return c ? c.races.filter(x => x.status === '진행' || (x.mine && x.mine.status !== '완료')) : [];
 }
-const myRacesHTML = () => { const list = myRacesList(); return list.length ? `<div class="section-label" id="myraces-h">레이스</div><div class="pages" id="myraces">${list.map(raceTile).join('')}</div>` : ''; };
+const myRacesHTML = () => { const list = myRacesList();
+  if (isTeacher() && !list.length) return `<div class="section-label" id="myraces-h">레이스</div><div class="panel empty" id="myraces">${AUTH.cls ? `${esc(AUTH.cls)} 학생에게 보이는 레이스가 없어요. 레이스 탭에서 이 반에 연 개인 레이스만 여기에 나와요.` : '위에서 반을 고르면 그 반 학생에게 보이는 레이스가 여기에 나와요.'}</div>`;
+  return list.length ? `<div class="section-label" id="myraces-h">레이스</div><div class="pages" id="myraces">${list.map(raceTile).join('')}</div>` : ''; };
 /* draw the student's race buttons from the saved copy, then check the server and redraw if something changed */
 function bindMyRaces(redraw){
-  $app.querySelectorAll('#myraces [data-race]').forEach(b => b.onclick = () => viewRaceReady(myRacesList().find(x => x.id === b.dataset.race), studentCtx()));
-  const before = JSON.stringify(myRacesList()), mk = 'v-myr-' + (++VIEWSEQ);
+  $app.querySelectorAll('#myraces [data-race]').forEach(b => b.onclick = () => viewRaceReady(myRacesList().find(x => x.id === b.dataset.race), isTeacher() ? teacherRaceCtx() : studentCtx()));
+  const snap = () => JSON.stringify([myRacesList(), isTeacher() ? store.get(TCLS_KEY, null) : 0]);   // the teacher's class list can arrive too
+  const before = snap(), mk = 'v-myr-' + (++VIEWSEQ);
   $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
   loadMyRaces().then(() => {
-    if (JSON.stringify(myRacesList()) === before || !document.getElementById(mk)) return;   // nothing new, or the student has moved on
+    if (snap() === before || !document.getElementById(mk)) return;   // nothing new, or the student has moved on
     const y = scrollY; redraw(); scrollTo(0, y);
   });
 }
@@ -2249,7 +2419,7 @@ function viewBoard(raceId, cls){
   timers.push(setInterval(() => { if (document.hidden) return; load(); }, 5000));
   scrollTo(0, 0);
 }
-function bindAdminNavStop(){ $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake()})[b.dataset.anav](); }); }
+function bindAdminNavStop(){ $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin, student: () => enterTeacher()})[b.dataset.anav](); }); }
 
 /* ---------- page picker ---------- */
 function viewPages(){
@@ -2257,7 +2427,7 @@ function viewPages(){
   SET = null; origin = 'pages'; SCOPE = 'all';
   const first = !hasRoot();   // no passages registered: this is the first screen, so the student's races show here
   const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
-  $app.innerHTML = `${header(hasRoot() ? '<button class="link" id="toRoot">← 지문 고르기</button>' : '')}${userBar()}${speechBanner()}
+  $app.innerHTML = `${header(hasRoot() ? '<button class="link" id="toRoot">← 지문 고르기</button>' : '')}${userBar()}${speechBanner()}${first && ACCOUNTS ? noticesHTML() : ''}
   <div class="setcard"><div class="eyebrow">${esc(BOOK)}</div><h1>학습지 페이지를 골라요</h1><div class="meta">${countLine(ALL)} · ${PAGES.length}개 구간</div></div>
   ${first && ACCOUNTS && AUTH ? myRacesHTML() : ''}${first && ACCOUNTS && AUTH && myRacesList().length ? `<div class="section-label">${esc(BOOK)}</div>` : ''}
   <div class="pages">
@@ -2266,6 +2436,7 @@ function viewPages(){
   </div>`;
   $app.querySelectorAll('.pages button.page[data-id]').forEach(b => b.onclick = () => { SET = b.dataset.id === 'all' ? ALL : PAGES.find(p => p.id === b.dataset.id); viewHome(); });
   const tr = document.getElementById('toRoot'); if (tr) tr.onclick = viewRoot;
+  if (first) bindNotices(viewPages);
   if (first && ACCOUNTS && AUTH) bindMyRaces(viewPages);
   bindUserBar();
   scrollTo(0, 0);
@@ -2358,7 +2529,7 @@ function syncMy(){
 function allConfWords(){
   const seen = new Set(), out = [];
   [...PAGES.flatMap(p => p.w), ...SETS.flatMap(s => s.w)].forEach(w => { const k = wkey(w); if (!seen.has(k) && confHas(w)) { seen.add(k); out.push(w); } });
-  return out;
+  return confOrder(out);
 }
 const confAllTile = () => { const n = allConfWords().length;
   return `<button class="page wide starall" data-allconf ${n ? '' : 'disabled'}><b>헷갈리는 단어 전체 보기</b><span class="pc">${n ? n + '개 단어를 한꺼번에 연습' : '아직 헷갈리는 단어가 없어요'}</span></button>`; };
@@ -2378,7 +2549,8 @@ function myRefresh(){
 function confAdd(words, star){
   if (!words.length) return;
   const c = confLoad(), now = Date.now();
-  words.forEach(w => { const k = wkey(w); c.items[k] = Object.assign(c.items[k] || {}, {added: now}, star ? {star: true} : {}); delete c.removed[k]; });
+  words.forEach(w => { const k = wkey(w); if (isTeacher() && c.items[k]) { if (star) c.items[k].star = true; return; }   // the teacher's list keeps a word where it was first put
+    c.items[k] = Object.assign(c.items[k] || {}, {added: now}, star ? {star: true} : {}); delete c.removed[k]; });
   confSave(c);
 }
 function confRemove(w){ const c = confLoad(), k = wkey(w); delete c.items[k]; c.removed[k] = Date.now(); confSave(c); }
@@ -2395,8 +2567,14 @@ const bindStar = w => { const b = $app.querySelector('.card [data-star]'); if (b
 /* a wrong answer goes in at once, so the star lights up and the student can take it back out */
 const markStar = w => { confAdd([w]); const b = $app.querySelector('.card [data-star]'); if (b) { b.classList.add('on'); b.setAttribute('aria-pressed', true); b.innerHTML = STAR(true); } };
 let RUN_T = 0;   // when the current quiz started: a word taken out during it is not put back at the end
-const confIn = words => { const c = confLoad(); return words.filter(w => c.items[wkey(w)]); };
-function onAuthErrorQuiet(e){ if (e && e.code === 'auth') setAuth(null); }
+const confIn = words => { const c = confLoad(); return confOrder(words.filter(w => c.items[wkey(w)])); };
+/* in the teacher's 학생 화면 the confusing words come in the order they were put in (oldest first) */
+function confOrder(words){
+  if (!isTeacher()) return words;
+  const c = confLoad(), at = w => (c.items[wkey(w)] || {}).added || 0;
+  return words.slice().sort((a, b) => at(a) - at(b));
+}
+function onAuthErrorQuiet(e){ if (e && e.code === 'auth') { if (isTeacher()) onAuthError(e); else setAuth(null); } }
 
 /* ---------- set home ---------- */
 let SCOPE = 'all';   // 'all' | 'conf'
@@ -2423,8 +2601,10 @@ function viewHome(){
     ${tile('match', '매칭 게임', '단어와 뜻 짝을 빨리 맞혀요. 틀리면 +1초', 2)}
   </div>
   <p class="help">퀴즈에서 틀린 단어는 '헷갈리는 단어'에 자동으로 모여요.</p>
+  ${ACCOUNTS && AUTH && rankable(true) ? '<div class="foot"><button class="btn ghost" id="toRanks">순위 보기 · 매칭 게임 · 뜻 고르기 · 단어 고르기 · 철자 쓰기</button></div>' : ''}
   ${origin === 'link' ? '<div class="foot"><button class="link" id="toPages">학습지 페이지 전체 보기</button></div>' : ''}`;
   $app.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { SCOPE = b.dataset.scope; viewHome(); });
+  bindToRanks('match', viewHome);
   $app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => MODES[b.dataset.go].run(scopeWords()));
   const up = document.getElementById('up'); if (up) up.onclick = () => { SCOPE = 'all'; origin === 'maker' ? viewMake(SET) : origin === 'me' ? viewMe() : origin === 'root' ? viewRoot() : origin === 'setedit' && SET.back ? SET.back() : viewPages(); };
   bindUserBar();
@@ -2433,16 +2613,18 @@ function viewHome(){
   if (ACCOUNTS && AUTH && !viewHome.synced) { viewHome.synced = true; syncMy(); }
 }
 const back = () => '<button class="link" id="back">← 연습 고르기</button>';
+/* a screen whose top stays on screen while scrolling: in the teacher's 반별 화면 only the back button stays, not the teacher menu */
+const stickyTop = r => isTeacher() ? `${header('')}<div class="stickybar"><div class="tback">${r}</div>` : `<div class="stickybar">${header(r)}`;
 function bindBack(){ document.getElementById('back').onclick = () => { stopTimers(); viewHome(); }; }
 const prog = (i, n) => `<div class="bar"><i style="width:${n ? i / n * 100 : 0}%"></i></div><div class="count">${i} / ${n}</div>`;
 let timers = [];
-function stopTimers(){ $app.classList.remove('wide'); timers.forEach(t => { if (t && t.off) t.off(); else { clearTimeout(t); clearInterval(t); } }); timers = []; document.onkeydown = null; }
+function stopTimers(){ $app.classList.remove('wide', 'cardwide'); timers.forEach(t => { if (t && t.off) t.off(); else { clearTimeout(t); clearInterval(t); } }); timers = []; document.onkeydown = null; }
 
 /* ---------- list ---------- */
 function viewList(words){
   let hide = false; const conf = SCOPE === 'conf';
   if (!conf && SET.heads) words = SET.heads;
-  $app.innerHTML = `<div class="stickybar">${header(back())}
+  $app.innerHTML = `${stickyTop(back())}
     <div class="row tools"><button class="btn ghost small" id="hk">뜻 가리기</button><button class="btn ghost small" id="sh">순서 섞기</button><button class="btn ghost small" id="od">원래 순서</button><span class="count" id="wn"></span></div></div>
   <h2>${SET.id === 'allconf' ? esc(SET.t) : `${esc(SET.t)} · ${conf ? '헷갈리는 단어' : '단어 목록'}`}</h2>
   <p class="help" style="margin:0">${conf ? '다 외운 단어는 "외웠어요"를 눌러 목록에서 빼세요. 다시 틀리면 또 들어와요.' : '뜻을 가린 상태에서 단어를 누르면 뜻이 보여요. ☆을 누르면 헷갈리는 단어에 들어가요.'}</p>
@@ -2474,7 +2656,7 @@ function viewList(words){
 const STAR = on => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.1 5.9L12 16.5l-5.3 2.9 1.1-5.9L3.4 9.4l6-.7z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
 const cardOpts = store.get('wordroom-card-opts', {shuffle: false, koFirst: false});
 function viewCards(words){
-  stopTimers();
+  stopTimers(); $app.classList.add('cardwide');   // wide and big on a classroom TV
   let order = cardOpts.shuffle ? shuffle(words) : words.slice(), i = 0, flipped = false, auto = false, logged = false;
   $app.innerHTML = `${header(back())}
   <div class="row" style="justify-content:space-between"><div class="count" id="cnum"></div><div class="count">${esc(SET.t)}</div></div>
@@ -2506,7 +2688,7 @@ function viewCards(words){
     const st = confHas(w); $('star').innerHTML = STAR(st); $('star').classList.toggle('on', st); $('star').setAttribute('aria-pressed', st);
     $('prev').disabled = i === 0;
     $('next').textContent = i === order.length - 1 ? '처음부터' : '다음 ›';
-    if (i === order.length - 1 && !logged && order.length > 1) { logged = true; if (ACCOUNTS && AUTH) sendLog({page: SET.id, pageTitle: SET.t, mode: '카드 넘기기', score: 0, total: 0, wrong: []}); }
+    if (i === order.length - 1 && !logged && order.length > 1) { logged = true; if (canLog()) sendLog({page: SET.id, pageTitle: SET.t, mode: '카드 넘기기', score: 0, total: 0, wrong: []}); }
   };
   const go = d => {
     if (d > 0 && i === order.length - 1) { i = 0; if (cardOpts.shuffle) order = shuffle(words); }
@@ -2658,7 +2840,8 @@ function viewMatch(words){
     if (isBest) { myLoad().best[bestKey] = Math.round(t * 10) / 10; myChanged(); }
     const miss = [...missed].map(n => pool[n]);
     confAdd(miss);
-    if (ACCOUNTS && AUTH) sendLog({page: SET.id, pageTitle: SET.t, mode: '매칭 ' + t.toFixed(1) + '초', score: pool.length - miss.length, total: pool.length, wrong: miss.map(w => w[0])});
+    const ranked = rankable();
+    if (canLog()) sendLog(Object.assign({page: SET.id, pageTitle: SET.t, mode: '매칭 ' + t.toFixed(1) + '초', score: pool.length - miss.length, total: pool.length, wrong: miss.map(w => w[0])}, ranked ? {rank: 'match', secs: Math.round(t * 10) / 10} : {}));
     setTimeout(() => {
       $app.innerHTML = `${header(back())}
       <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
@@ -2667,8 +2850,9 @@ function viewMatch(words){
         <div class="help">${misses ? `틀린 짝 ${misses}번 (+${misses}초)` : '한 번도 안 틀렸어요!'} · ${isBest ? '최고 기록이에요' : `최고 기록 ${best.toFixed(1)}초`}</div>
       </div>
       ${miss.length ? `<div class="section-label">헷갈린 단어 ${miss.length}개</div><div class="panel"><ul class="wl">${miss.map(wordRow).join('')}</ul></div>` : ''}
-      <div class="row"><button class="btn mark wide" id="again">${words.length > 8 ? '새 단어로 한 판 더' : '한 판 더'}</button></div>`;
-      bindBack();
+      <div class="row"><button class="btn mark wide" id="again">${words.length > 8 ? '새 단어로 한 판 더' : '한 판 더'}</button></div>
+      ${ranked && AUTH ? '<div class="foot"><button class="link" id="toRanks">순위 보기</button></div>' : ''}`;
+      bindBack(); bindToRanks('match');
       document.getElementById('again').onclick = () => viewMatch(words);
       scrollTo(0, 0);
     }, 450);
@@ -2686,12 +2870,53 @@ const MODES = {
 };
 
 /* ---------- result ---------- */
+/* ---------- rankings: a passage's best records, for this class (1~3위) and for every class (1~10위) ----------
+   Only a whole-passage try counts (not the confusing words alone). 매칭 게임: the fastest time; the others: the best accuracy.
+   Each student counts once, with their best try; equal records share a place and are all shown. */
+const RANK_MODES = ['match', 'choice', 'pick', 'spell'];
+const RANK_NAME = {match: '매칭 게임', choice: '뜻 고르기', pick: '단어 고르기', spell: '철자 쓰기'};
+function rankable(menu){ return !!(ACCOUNTS && SET && (menu || SCOPE === 'all') && SET.w.length && !['custom', 'mywrong', 'allconf'].includes(SET.id)); }
+const matchPairs = words => Math.min(8, new Set(words.map(w => w[0])).size);
+function bindToRanks(mode, back){ const b = document.getElementById('toRanks'); if (b) b.onclick = () => viewRanks(mode, back || viewHome); }
+async function viewRanks(mode, back){
+  stopTimers();
+  const set = SET, mk = 'v-rank-' + (++VIEWSEQ);
+  const draw = (body) => {
+    $app.innerHTML = `${header('<button class="link" id="back">← 연습 고르기</button>')}
+    <div class="setcard"><div class="eyebrow">순위</div><h1>${esc(set.t)}</h1><div class="meta">지문 전체로 한 연습만 들어가요. 한 사람은 가장 좋은 기록 하나로 순위를 매겨요.</div></div>
+    <div class="tabs" role="tablist" aria-label="연습">${RANK_MODES.map(m => `<button role="tab" class="tab" data-rmode="${m}" aria-selected="${m === mode}">${RANK_NAME[m]}</button>`).join('')}</div>
+    ${body}<i hidden id="${mk}"></i>`;
+    document.getElementById('back').onclick = () => { stopTimers(); SET = set; back(); };
+    $app.querySelectorAll('[data-rmode]').forEach(b => b.onclick = () => { mode = b.dataset.rmode; show(); });
+  };
+  let data = null;
+  const val = x => mode === 'match' ? `${Number(x.t).toFixed(1)}초` : `${Math.round(x.s / x.n * 100)}% <span class="muted small">(${x.s}/${x.n})</span>`;
+  const list = (r, withCls) => r.top.length ? `<ol class="rklist">${r.top.map(x => `<li class="${x.me ? 'me' : ''}${x.rank <= 3 ? ' p' + x.rank : ''}"><span class="rk">${x.rank}</span><span class="rkname"><span class="rkcls">${esc(x.cls)}</span> ${esc(x.name)}${x.me ? ' <span class="chip ok">나</span>' : ''}</span><span class="rkv">${val(x)}</span></li>`).join('')}</ol>` : '<div class="panel empty">아직 기록이 없어요.</div>';
+  const mine = (r, label) => r && r.mine && !r.top.some(x => x.me) ? `<p class="help">${label} 내 순위: <b>${r.mine.rank}위</b> / ${r.count}명 · ${val(r.mine)}</p>` : '';
+  function show(){
+    if (!data) return;
+    const R = data.ranks[mode];
+    draw(`<p class="help">${mode === 'match' ? '가장 빠른 시간 순서예요. (틀리면 +1초가 들어간 시간)' : '가장 높은 정답률 순서예요. 같은 정답률은 같은 등수예요.'}</p>
+    <div class="section-label">${data.cls ? `우리 반 · ${esc(data.cls)} 1~3위` : '우리 반 1~3위'}</div>
+    ${R.cls ? list(R.cls, false) + mine(R.cls, '우리 반') : '<div class="panel empty">위에서 반을 고르면 그 반의 순위가 나와요.</div>'}
+    <div class="section-label">전체 반 1~10위</div>
+    ${list(R.all, true)}${mine(R.all, '전체')}`);
+  }
+  draw('<div class="panel empty">순위를 불러오는 중…</div>');
+  try {
+    if (flushing) await flushing;   // the result just finished goes in first
+    data = await api('ranks', Object.assign({token: AUTH.token, page: set.id, pairs: matchPairs(set.w)}, AUTH.teacher ? {cls: AUTH.cls} : {}));
+  } catch(e){ if (onAuthError(e, () => viewRanks(mode, back))) return; const el = $app.querySelector('.empty'); if (el) el.textContent = e.error || '순위를 불러오지 못했어요.'; return; }
+  if (!document.getElementById(mk)) return;
+  show(); scrollTo(0, 0);
+}
 function viewResult(mode, right, total, miss){
   stopTimers();
   const M = MODES[mode];
   { const c = confLoad(); confAdd(miss.filter(w => !((c.removed[wkey(w)] || 0) >= RUN_T))); }
   if (SCOPE === 'all' && total === SET.w.length && SET.id !== 'custom' && SET.id !== 'mywrong' && SET.id !== 'allconf') { myLoad().last[SET.id] = {m: M.name, s: right, n: total, at: Date.now()}; myChanged(); }
-  const logged = ACCOUNTS && AUTH ? sendLog({page: SET.id, pageTitle: SET.t, mode: M.name, score: right, total, wrong: miss.map(w => w[0])}) : null;
+  const ranked = rankable() && total === SET.w.length && RANK_MODES.includes(mode);
+  const logged = canLog() ? sendLog(Object.assign({page: SET.id, pageTitle: SET.t, mode: M.name, score: right, total, wrong: miss.map(w => w[0])}, ranked ? {rank: mode} : {})) : null;
   $app.innerHTML = `${header(back())}
   <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
     <div class="count">${esc(SET.t)} · ${esc(M.name)} · 맞힌 문제</div>
@@ -2703,8 +2928,9 @@ function viewResult(mode, right, total, miss){
   <div class="row">
     ${miss.length ? '<button class="btn mark wide" id="redo">틀린 것만 다시</button>' : ''}
     <button class="btn ghost wide" id="again">전체 다시</button>
-  </div>`;
-  bindBack();
+  </div>
+  ${ranked && AUTH ? '<div class="foot"><button class="link" id="toRanks">순위 보기</button></div>' : ''}`;
+  bindBack(); bindToRanks(mode);
   if (miss.length) document.getElementById('redo').onclick = () => M.run(miss);
   document.getElementById('again').onclick = () => M.run(scopeWords());
   if (logged) logged.then(st => { const el = document.getElementById('sv'); if (!el) return;
@@ -2796,7 +3022,8 @@ let setsPromise = null;
 function boot(){
   const h = decodeURIComponent((location.hash || '').slice(1));
   if (API && !setsPromise) setsPromise = loadSets().then(changed => { if ($app.querySelector('[data-root]') || ($app.querySelector('.pages [data-id]') && hasRoot() && origin === 'root')) viewRoot(); return changed; });
-  if (h === 'admin') return viewAdmin();
+  if (h === 'admin') return isTeacher() ? leaveTeacher() : viewAdmin();
+  if (tvGet() && !isTeacher()) { if (adminValid()) return enterTeacher(tvClass()); tvSet(null); }
   if (h === 'team' && !TEAM) return viewLogin(route, 'team');
   if (TEAM) return viewTeamHome();
   if (LOGIN && !AUTH) return viewLogin(route);
@@ -2828,7 +3055,7 @@ let lastHref = location.href;
 const GUARDS = 12;
 const UP_BUTTONS = ['#back', '#up', '#toRoot', '#toPages', '#tologin', '#home'];
 function upButton(){ for (const sel of UP_BUTTONS) { const b = $app.querySelector(sel); if (b && b.getClientRects().length) return b; } return null; }
-const isFirstScreen = () => !!($app.querySelector('[data-root]') || $app.querySelector('#af') || $app.querySelector('#tf') || $app.querySelector('#trefresh')
+const isFirstScreen = () => !isTeacher() && !!($app.querySelector('[data-root]') || $app.querySelector('#af') || $app.querySelector('#tf') || $app.querySelector('#trefresh')
   || ($app.querySelector('.pages button.page[data-id]') && !$app.querySelector('#toRoot')));
 const ours = st => st && (st.wr === 'base' || st.wr === 'g');
 let curI = ours(history.state) ? history.state.i || 0 : 0;
@@ -2848,6 +3075,7 @@ window.addEventListener('popstate', () => {
   while (steps-- > 0) {
     const up = upButton();
     if (up) { up.click(); continue; }
+    if (isTeacher()) { leaveTeacher(); continue; }
     if (isFirstScreen()) { history.go(-(i + 1)); return; }   // the first screen: leave the site
     break;                                         // no way back from here: stay
   }
