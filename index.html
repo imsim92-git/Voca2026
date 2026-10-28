@@ -208,9 +208,13 @@ tr.event td{color:var(--muted)}
 .face .hint{position:absolute;bottom:14px;left:0;right:0;font-size:12px;color:var(--muted)}
 .face .big{font-family:var(--f-word);font-size:clamp(34px,10vw,64px);line-height:1.15;overflow-wrap:anywhere}
 .face .big-ko{font-size:clamp(24px,7vw,42px)!important}
-/* cards on a classroom TV or projector: bigger still, so students can read and copy them from their seats */
-@media (min-width:1000px){.wrap.cardwide{max-width:1100px}.cardwide .flip-in{min-height:440px}.cardwide .face .big{font-size:clamp(72px,6.5vw,104px)}.cardwide .face .big-ko{font-size:clamp(44px,4vw,64px)!important}.cardwide .face .rels{font-size:28px;gap:8px}.cardwide .face .rels .rel b{font-size:20px;padding:2px 8px}.cardwide .face .rel-en{font-size:30px}.cardwide .face .note{font-size:26px}}
-@media (min-width:700px){.face .rel-en{font-size:20px}.flip-in{min-height:340px}.face .big{font-size:clamp(56px,7vw,80px)}.face .big-ko{font-size:clamp(36px,4.6vw,52px)!important}.face .rels{font-size:18px}.face .note{font-size:20px}}
+/* 크게 보기 (PC, classroom TV or projector only): the card keeps its width, the word and meaning get big and clear.
+   On a phone the button is hidden and cards stay as they are */
+.bigbtn{display:none}
+@media (min-width:700px){.bigbtn{display:inline-flex}
+  .cardbig .flip-in{min-height:380px}.cardbig .face .big,.cardbig .face .big-ko{overflow-wrap:normal;word-break:keep-all}.cardbig .face .big{font-size:84px;line-height:1.1}.cardbig .face .big-ko{font-size:54px!important;line-height:1.3}.cardbig .face .rels{font-size:22px;gap:6px}.cardbig .face .rels .rel b{font-size:16px;padding:2px 7px}.cardbig .face .rel-en{font-size:26px}.cardbig .face .note{font-size:22px}}
+/* on a big screen (classroom TV): the card gets wide too, as the TV view used to be */
+@media (min-width:1000px){.wrap.cardbig{max-width:1100px}.cardbig .flip-in{min-height:440px}.cardbig .face .big{font-size:clamp(72px,6.5vw,104px)}.cardbig .face .big-ko{font-size:clamp(44px,4vw,64px)!important}.cardbig .face .rels{font-size:28px;gap:8px}.cardbig .face .rels .rel b{font-size:20px;padding:2px 8px}.cardbig .face .rel-en{font-size:30px}.cardbig .face .note{font-size:26px}}
 .big-ko{font-size:clamp(20px,6vw,26px)!important;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .star{position:absolute;top:8px;right:8px;width:44px;height:44px;border:0;background:none;color:var(--muted);display:grid;place-items:center;z-index:2;border-radius:50%}
 .star svg{width:24px;height:24px}
@@ -1072,8 +1076,8 @@ async function viewAdmin(next){
         ${rows.map(l => `<tr class="${l.total ? '' : 'event'}"><td>${esc(fmtTime(l.at))}</td><td>${esc(l.sid)}</td><td>${esc(l.name)}</td><td class="wt">${cell2(recPage(l.page, l.pageTitle))}</td><td>${esc(l.mode)}</td><td class="num">${l.total ? `${l.score}/${l.total}` : ''}</td></tr>`).join('')}
         </tbody></table></div><p class="help">최근 300건이에요. 전체 기록은 구글 시트의 '기록' 탭에 있어요.</p>` : '<div class="panel empty">아직 기록이 없어요.</div>';
     } else {
-      tb.innerHTML = r.wrongTop.length ? `<div class="tablewrap"><table><thead><tr><th>단어</th><th>뜻</th><th>학습지</th><th class="num">틀린 횟수</th><th class="num">학생 수</th></tr></thead><tbody>
-        ${r.wrongTop.map(w => { const x = lookupWord(w.en, w.page); return `<tr><td class="en">${esc(w.en)}</td><td>${esc(x[1])}</td><td>${esc(recPage(w.page))}</td><td class="num">${w.count}</td><td class="num">${w.students}</td></tr>`; }).join('')}
+      tb.innerHTML = r.wrongTop.length ? `<div class="tablewrap"><table><thead><tr><th>단어</th><th>뜻</th><th class="num">틀린 횟수</th><th class="num">학생 수</th></tr></thead><tbody>
+        ${r.wrongTop.map(w => { const x = lookupWord(w.en, w.page); return `<tr><td class="en">${esc(w.en)}</td><td>${esc(x[1])}</td><td class="num">${w.count}</td><td class="num">${w.students}</td></tr>`; }).join('')}
         </tbody></table></div>` : '<div class="panel empty">아직 틀린 단어 기록이 없어요.</div>';
     }
   };
@@ -2468,7 +2472,9 @@ function viewBoard(raceId, cls){
     });
     const done = ppl.filter(p => p.best).sort((a, b) => acc ? (b.best.done - a.best.done || a.best.seconds - b.best.seconds) : a.best.seconds - b.best.seconds);
     const run = ppl.filter(p => p.last.status !== '완료').sort((a, b) => b.last.done - a.last.done);
-    const wait = teams.filter(t => !by[t.cls + '\n' + t.team]).map(t => label(t.cls, t.team));
+    const wait = teams.filter(t => !by[t.cls + '\n' + t.team])
+      .sort((a, b) => stu ? String(a.team).localeCompare(String(b.team), 'ko', {numeric: true}) : 0)   // students by 학번
+      .map(t => label(t.cls, t.team));
     const total = (data.rows[0] && data.rows[0].total) || raceItems(race).length || 1;
     const resetBtn = p => `<button class="link small" data-reset="${esc(p.key)}">${confirmKey === p.key ? '정말 지우기' : '기록 지우기'}</button>`;
     const stNow = allMode ? [...new Set(classes.map(c => raceStatusFor(race, c)))] : [raceStatusFor(race, sel)];
@@ -2710,7 +2716,7 @@ const stickyTop = r => isTeacher() ? `${header('')}<div class="stickybar"><div c
 function bindBack(){ document.getElementById('back').onclick = () => { stopTimers(); viewHome(); }; }
 const prog = (i, n) => `<div class="bar"><i style="width:${n ? i / n * 100 : 0}%"></i></div><div class="count">${i} / ${n}</div>`;
 let timers = [];
-function stopTimers(){ $app.classList.remove('wide', 'cardwide'); timers.forEach(t => { if (t && t.off) t.off(); else { clearTimeout(t); clearInterval(t); } }); timers = []; document.onkeydown = null; }
+function stopTimers(){ $app.classList.remove('wide', 'cardbig'); timers.forEach(t => { if (t && t.off) t.off(); else { clearTimeout(t); clearInterval(t); } }); timers = []; document.onkeydown = null; }
 
 /* ---------- list ---------- */
 function viewList(words){
@@ -2747,8 +2753,19 @@ function viewList(words){
 /* ---------- flashcards: tap to flip, swipe or arrows to move, star to keep ---------- */
 const STAR = on => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.6 5.5 6 .7-4.4 4.1 1.1 5.9L12 16.5l-5.3 2.9 1.1-5.9L3.4 9.4l6-.7z" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
 const cardOpts = store.get('wordroom-card-opts', {shuffle: false, koFirst: false});
+/* big card letters on a wide screen: a word too long for the card gets a smaller size instead of breaking in the middle */
+function fitCard(){
+  $app.querySelectorAll('.face .big, .face .big-ko').forEach(el => {
+    el.style.removeProperty('font-size');
+    const face = el.closest('.face'), cs = getComputedStyle(face);
+    const room = face.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 16;   // the card's inner width
+    let fs = parseFloat(getComputedStyle(el).fontSize);
+    while (Math.max(el.scrollWidth, el.getBoundingClientRect().width) > room && fs > 22) { fs -= 2; el.style.setProperty('font-size', fs + 'px', 'important'); }
+  });
+}
+addEventListener('resize', () => { if ($app.querySelector('.flip')) fitCard(); });
 function viewCards(words){
-  stopTimers(); $app.classList.add('cardwide');   // wide and big on a classroom TV
+  stopTimers(); $app.classList.toggle('cardbig', !!cardOpts.big);
   let order = cardOpts.shuffle ? shuffle(words) : words.slice(), i = 0, flipped = false, auto = false, logged = false;
   $app.innerHTML = `${header(back())}
   <div class="row" style="justify-content:space-between"><div class="count" id="cnum"></div><div class="count">${esc(SET.t)}</div></div>
@@ -2765,6 +2782,7 @@ function viewCards(words){
     <button class="toggle" id="t-shuf" aria-pressed="${cardOpts.shuffle}">섞기</button>
     <button class="toggle" id="t-ko" aria-pressed="${cardOpts.koFirst}">뜻 먼저 보기</button>
     <button class="toggle" id="t-auto" aria-pressed="false">자동 넘김</button>
+    <button class="toggle bigbtn" id="t-big" aria-pressed="${!!cardOpts.big}">크게 보기</button>
   </div>`;
   bindBack();
   const $ = id => document.getElementById(id);
@@ -2776,6 +2794,7 @@ function viewCards(words){
     $('no1').textContent = $('no2').textContent = 'No. ' + (words.indexOf(w) + 1);
     $('f1').innerHTML = side(w, cardOpts.koFirst);
     $('f2').innerHTML = side(w, !cardOpts.koFirst);
+    fitCard();
     $('flipin').classList.toggle('on', flipped);
     const st = confHas(w); $('star').innerHTML = STAR(st); $('star').classList.toggle('on', st); $('star').setAttribute('aria-pressed', st);
     $('prev').disabled = i === 0;
@@ -2801,6 +2820,7 @@ function viewCards(words){
   $('next').onclick = () => { stopAuto(); go(1); };
   $('say').onclick = () => speak(order[i][0]);
   $('t-shuf').onclick = e => { cardOpts.shuffle = !cardOpts.shuffle; store.set('wordroom-card-opts', cardOpts); e.target.setAttribute('aria-pressed', cardOpts.shuffle); const w = order[i]; order = cardOpts.shuffle ? shuffle(words) : words.slice(); i = order.indexOf(w); flipped = false; draw(); };
+  $('t-big').onclick = e => { cardOpts.big = !cardOpts.big; store.set('wordroom-card-opts', cardOpts); e.target.setAttribute('aria-pressed', cardOpts.big); $app.classList.toggle('cardbig', cardOpts.big); fitCard(); };
   $('t-ko').onclick = e => { cardOpts.koFirst = !cardOpts.koFirst; store.set('wordroom-card-opts', cardOpts); e.target.setAttribute('aria-pressed', cardOpts.koFirst); flipped = false; draw(); };
   /* auto: show the front, flip after 2.5s, move on 2.5s later */
   let autoT = null;
