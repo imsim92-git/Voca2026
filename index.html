@@ -406,6 +406,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .rkname{flex:1;min-width:0;font-weight:700}
 .rkcls{font-weight:500;color:var(--muted)}
 .rkv{font-weight:800;white-space:nowrap}
+.tsel{gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .tbar select{font:inherit;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .pwwarn{display:flex;flex-direction:column;gap:4px;background:var(--bad-bg);border:2px solid var(--bad);border-radius:12px;padding:12px 14px;color:var(--ink);font-size:14px;line-height:1.5}
 .pwwarn > b{color:var(--bad);font-size:15px}
@@ -692,6 +693,11 @@ const tvGet = () => { try { return sessionStorage.getItem(TV_KEY); } catch(e){ r
 const tvSet = v => { try { v === null ? sessionStorage.removeItem(TV_KEY) : sessionStorage.setItem(TV_KEY, v || '-'); } catch(e){} };
 const tvClass = () => { const v = tvGet(); return v && v !== '-' ? v : ''; };
 const TCLS_KEY = 'wordroom-teacher-classes';
+const TSTU_KEY = 'wordroom-teacher-students';        // [{name: class, students: [{sid, name}]}] for the student picker
+const TVS_KEY = 'wordroom-teacherview-sid';           // this tab is looking at one student's screen
+const tvsGet = () => { try { return sessionStorage.getItem(TVS_KEY) || ''; } catch(e){ return ''; } };
+const tvsSet = v => { try { v ? sessionStorage.setItem(TVS_KEY, v) : sessionStorage.removeItem(TVS_KEY); } catch(e){} };
+const viewing = () => !!(AUTH && AUTH.teacher && AUTH.view);
 const isTeacher = () => !!(AUTH && AUTH.teacher);
 const canLog = () => ACCOUNTS && AUTH && !AUTH.teacher;
 function enterTeacher(cls){
@@ -700,11 +706,32 @@ function enterTeacher(cls){
   cls = cls !== undefined ? cls : tvClass();
   AUTH = {sid: '#teacher', name: '선생님', token: ADMIN.token, teacher: true, cls}; TEAM = null; MY = null;
   tvSet(cls); setHash('');
+  const vs = tvsGet(); if (vs) return viewStudentAs(vs);   // after a refresh: back to the same student
   route(); syncMy();
 }
+/* 반별 화면: look at one student's own screen. Their races (done, best), last scores and confusing words come from the
+   server and stay in this tab only: practising, stars or races here are never saved to the student */
+async function viewStudentAs(sid){
+  stopTimers();
+  $app.innerHTML = `${header()}<div class="panel empty">${esc(sid)} 학생 화면을 불러오는 중…</div>`;
+  let r;
+  try { r = await api('adminViewAs', {token: AUTH.token, sid}); }
+  catch(e){ if (onAuthError(e)) return; toast(e.error || '학생 화면을 불러오지 못했어요'); return backToTeacher(); }
+  AUTH = Object.assign({}, AUTH, {sid: '#view:' + r.student.sid, view: r.student, cls: r.student.cls});
+  MY = Object.assign({items: {}, removed: {}, last: {}, best: {}}, r.my); MY_SID = AUTH.sid; myDirty = false;
+  tvsSet(r.student.sid); tvSet(r.student.cls);
+  route();
+}
+function backToTeacher(cls){
+  AUTH = Object.assign({}, AUTH, {sid: '#teacher', view: null}); if (cls !== undefined) AUTH.cls = cls;
+  MY = null; tvsSet(''); tvSet(AUTH.cls); route();
+}
 $app.addEventListener('change', e => {
-  if (e.target.id !== 'tcls' || !isTeacher()) return;
-  stopTimers(); AUTH.cls = e.target.value; tvSet(e.target.value); route();
+  if ((e.target.id !== 'tcls' && e.target.id !== 'tstu') || !isTeacher()) return;
+  stopTimers();
+  if (e.target.id === 'tstu') return e.target.value ? viewStudentAs(e.target.value) : backToTeacher();
+  if (viewing()) return backToTeacher(e.target.value);
+  AUTH.cls = e.target.value; tvSet(e.target.value); route();
 });
 $app.addEventListener('click', e => {
   if (!isTeacher()) return;
@@ -715,7 +742,7 @@ $app.addEventListener('click', e => {
   if (go) leaveTeacher(go);
 }, true);
 function leaveTeacher(next){
-  stopTimers(); tvSet(null);
+  stopTimers(); tvSet(null); tvsSet('');
   AUTH = store.get('wordroom-auth', null); TEAM = store.get('wordroom-team', null); MY = null;
   (next || viewAdmin)();
 }
@@ -770,8 +797,10 @@ function teacherBar(){
   {
     const list = store.get(TCLS_KEY, null) || [];
     const opts = `<option value="" ${AUTH.cls ? '' : 'selected'}>반 고르기</option>` + [...new Set([...(AUTH.cls ? [AUTH.cls] : []), ...list])].map(n => `<option value="${esc(n)}" ${n === AUTH.cls ? 'selected' : ''}>${esc(n)}</option>`).join('');
-    return `<div class="userbar tbar"><span><b>선생님</b> <span class="muted">반별 화면 · 학생 기록에는 남지 않아요</span></span>
-    <select id="tcls" aria-label="어느 반 학생 화면을 볼까요">${opts}</select></div>`;
+    const stu = ((store.get(TSTU_KEY, null) || []).find(c => c.name === AUTH.cls) || {}).students || [];
+    const v = AUTH.view, sopts = `<option value="">${AUTH.cls ? '학생 고르기' : '반을 먼저 골라요'}</option>` + [...(v && !stu.some(x => x.sid === v.sid) ? [v] : []), ...stu].map(x => `<option value="${esc(x.sid)}" ${v && v.sid === x.sid ? 'selected' : ''}>${esc(x.sid)} ${esc(x.name)}</option>`).join('');
+    return `<div class="userbar tbar"><span><b>선생님</b> <span class="muted">${v ? `${esc(v.sid)} ${esc(v.name)} 학생 화면 · 여기서 한 것은 저장되지 않아요` : '반별 화면 · 학생 기록에는 남지 않아요'}</span></span>
+    <span class="row tsel"><select id="tcls" aria-label="어느 반 학생 화면을 볼까요">${opts}</select><select id="tstu" aria-label="어느 학생 화면을 볼까요" ${AUTH.cls ? '' : 'disabled'}>${sopts}</select></span></div>`;
   }
 }
 function studentBar(){
@@ -1302,7 +1331,7 @@ function viewRoot(){
   const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
   $app.innerHTML = `${header()}${userBar()}${speechBanner()}${ACCOUNTS ? noticesHTML() : ''}
   <div class="setcard"><div class="eyebrow">영어 학습</div><h1>지문을 골라요</h1><div class="meta">연습할 지문을 누르면 단어 연습 메뉴가 열려요.</div></div>
-  ${ACCOUNTS && AUTH ? myRacesHTML() : ''}${ACCOUNTS && AUTH && (myRacesList().length || isTeacher()) ? '<div class="section-label">지문</div>' : ''}
+  ${ACCOUNTS && AUTH ? myRacesHTML() : ''}${ACCOUNTS && AUTH && myRacesList().length ? '<div class="section-label">지문</div>' : ''}
   <div class="pages">
     ${hasBook() ? `<button class="page" data-root="book"><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
     ${SETS.map((s, i) => `<button class="page" data-root="${esc(s.id)}"><b>${esc(s.t)}</b><span class="pc">${countLine(s)}</span>${last(s.id)}</button>`).join('')}
@@ -1658,7 +1687,7 @@ async function viewTeamHome(force){
 
 /* ---------- student: individual races on the first screen ---------- */
 const myRacesKey = () => 'wordroom-myraces-' + (AUTH ? AUTH.sid + (AUTH.teacher ? '-' + AUTH.cls : '') : '');
-const teacherRaceCtx = () => ({kind: 'trial', trial: true, label: `선생님 · ${AUTH.cls} · 기록되지 않아요`, home: () => route(), homeText: '처음 화면으로', backText: '← 처음 화면', authFail: () => route()});
+const teacherRaceCtx = () => ({kind: 'trial', trial: true, label: viewing() ? `선생님 · ${AUTH.view.sid} ${AUTH.view.name} 화면 · 기록되지 않아요` : `선생님 · ${AUTH.cls} · 기록되지 않아요`, home: () => route(), homeText: '처음 화면으로', backText: '← 처음 화면', authFail: () => route()});
 function myRacesStale(){ const c = store.get(myRacesKey(), null); if (c) { c.at = 0; store.set(myRacesKey(), c); } }
 let myRacesLoading = null;
 function loadMyRaces(){
@@ -1668,10 +1697,11 @@ function loadMyRaces(){
   if (myRacesLoading) return myRacesLoading;
   const sid = AUTH.sid;
   const key = myRacesKey();
-  myRacesLoading = api('races', Object.assign({token: AUTH.token, v: setsV()}, AUTH.teacher ? {cls: AUTH.cls} : {})).then(r => {
+  myRacesLoading = api('races', Object.assign({token: AUTH.token, v: setsV()}, AUTH.teacher ? {cls: AUTH.cls} : {}, viewing() ? {sid: AUTH.view.sid} : {})).then(r => {
     applySets(r.setsPack);
     if (!AUTH || AUTH.sid !== sid || myRacesKey() !== key) return null;
     if (r.classes) store.set(TCLS_KEY, r.classes);
+    if (r.students) store.set(TSTU_KEY, r.students);
     const v = {at: Date.now(), races: r.races}; store.set(key, v); return v;
   }).catch(e => { onAuthErrorQuiet(e); return c; }).finally(() => { myRacesLoading = null; });
   return myRacesLoading;
@@ -1680,13 +1710,12 @@ function myRacesList(){
   const c = AUTH && store.get(myRacesKey(), null);
   return c ? c.races.filter(x => x.status === '진행' || (x.mine && x.mine.status !== '완료')) : [];
 }
-const myRacesHTML = () => { const list = myRacesList();
-  if (isTeacher() && !list.length) return `<div class="section-label" id="myraces-h">레이스</div><div class="panel empty" id="myraces">${AUTH.cls ? `${esc(AUTH.cls)} 학생에게 보이는 레이스가 없어요. 레이스 탭에서 이 반에 연 개인 레이스만 여기에 나와요.` : '위에서 반을 고르면 그 반 학생에게 보이는 레이스가 여기에 나와요.'}</div>`;
+const myRacesHTML = () => { const list = myRacesList();   // no open race: no race section at all, the same as a student sees
   return list.length ? `<div class="section-label" id="myraces-h">레이스</div><div class="pages" id="myraces">${list.map(raceTile).join('')}</div>` : ''; };
 /* draw the student's race buttons from the saved copy, then check the server and redraw if something changed */
 function bindMyRaces(redraw){
   $app.querySelectorAll('#myraces [data-race]').forEach(b => b.onclick = () => viewRaceReady(myRacesList().find(x => x.id === b.dataset.race), isTeacher() ? teacherRaceCtx() : studentCtx()));
-  const snap = () => JSON.stringify([myRacesList(), isTeacher() ? store.get(TCLS_KEY, null) : 0]);   // the teacher's class list can arrive too
+  const snap = () => JSON.stringify([myRacesList(), isTeacher() ? [store.get(TCLS_KEY, null), store.get(TSTU_KEY, null)] : 0]);   // the teacher's class list can arrive too
   const before = snap(), mk = 'v-myr-' + (++VIEWSEQ);
   $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
   loadMyRaces().then(() => {
@@ -2529,7 +2558,7 @@ function myLoad(){
   ['items', 'removed', 'last', 'best'].forEach(k => { MY[k] = MY[k] || {}; });
   return MY;
 }
-function mySave(){ store.set(myKey(), MY); }
+function mySave(){ if (viewing()) return; store.set(myKey(), MY); }   // a student looked at from 반별 화면: kept in this tab only
 /* every change (a miss, a star, "외웠어요") is sent right away. If one is already on its way, the next
    goes the moment it comes back, with everything that changed meanwhile, so requests never pile up */
 const syncIfDirty = () => { if (myDirty) syncMy(); };
@@ -2555,7 +2584,7 @@ function mergeMy(a, b){
 const myCount = m => Object.keys(m.items).length + ':' + Object.keys(m.removed).length + ':' + JSON.stringify(m.last) + JSON.stringify(m.best);
 /* the changes waiting to be sent, taken once so they ride along with whichever request goes first */
 function takeMyForSend(){
-  if (!myDirty || !AUTH) return null;
+  if (!myDirty || !AUTH || viewing()) return null;
   const m = myLoad(); myDirty = false; clearTimeout(mySyncT);
   return {items: m.items, removed: m.removed, last: m.last, best: m.best, epoch: m.epoch};
 }
@@ -2574,7 +2603,7 @@ function applyMy(pack, sid){
   return changed;
 }
 function syncMy(){
-  if (!ACCOUNTS || !AUTH || !API) return Promise.resolve(false);
+  if (!ACCOUNTS || !AUTH || !API || viewing()) return Promise.resolve(false);
   if (mySyncing) { mySyncing.again = true; return mySyncing; }
   const sid = AUTH.sid, my = takeMyForSend();
   const run = (async () => {
@@ -2611,7 +2640,7 @@ function myRefresh(){
 function confAdd(words, star){
   if (!words.length) return;
   const c = confLoad(), now = Date.now();
-  words.forEach(w => { const k = wkey(w); if (isTeacher() && c.items[k]) { if (star) c.items[k].star = true; return; }   // the teacher's list keeps a word where it was first put
+  words.forEach(w => { const k = wkey(w); if (isTeacher() && !viewing() && c.items[k]) { if (star) c.items[k].star = true; return; }   // the teacher's list keeps a word where it was first put
     c.items[k] = Object.assign(c.items[k] || {}, {added: now}, star ? {star: true} : {}); delete c.removed[k]; });
   confSave(c);
 }
@@ -2632,7 +2661,7 @@ let RUN_T = 0;   // when the current quiz started: a word taken out during it is
 const confIn = words => { const c = confLoad(); return confOrder(words.filter(w => c.items[wkey(w)])); };
 /* in the teacher's 학생 화면 the confusing words come in the order they were put in (oldest first) */
 function confOrder(words){
-  if (!isTeacher()) return words;
+  if (!isTeacher() || viewing()) return words;
   const c = confLoad(), at = w => (c.items[wkey(w)] || {}).added || 0;
   return words.slice().sort((a, b) => at(a) - at(b));
 }
@@ -2965,7 +2994,7 @@ async function viewRanks(mode, back){
   draw('<div class="panel empty">순위를 불러오는 중…</div>');
   try {
     if (flushing) await flushing;   // the result just finished goes in first
-    data = await api('ranks', Object.assign({token: AUTH.token, page: set.id, pairs: matchPairs(set.w)}, AUTH.teacher ? {cls: AUTH.cls} : {}));
+    data = await api('ranks', Object.assign({token: AUTH.token, page: set.id, pairs: matchPairs(set.w)}, AUTH.teacher ? {cls: AUTH.cls} : {}, viewing() ? {sid: AUTH.view.sid} : {}));
   } catch(e){ if (onAuthError(e, () => viewRanks(mode, back))) return; const el = $app.querySelector('.empty'); if (el) el.textContent = e.error || '순위를 불러오지 못했어요.'; return; }
   if (!document.getElementById(mk)) return;
   show(); scrollTo(0, 0);
