@@ -1041,27 +1041,27 @@ async function viewAdmin(next){
 /* ---------- word text → words: shared by the teacher's editor and by sets saved on the server ---------- */
 /* "solely - 오로지, 단지 = only, exclusively" → ["solely", "오로지, 단지", "= only, exclusively"] */
 function normMarkers(m){
-  return String(m || '').replace(/\s*(=|↔)\s*/g, ' $1 ').replace(/(^|[\s,])(adv|[vna])\)\s*/g, '$1 $2) ').replace(/\s+/g, ' ').trim();
+  return String(m || '').replace(/(^|[\s,(])cf[.)]\s*/gi, '$1 cf) ').replace(/\s*(=|↔)\s*/g, ' $1 ').replace(/(^|[\s,])(adv|[vna])\)\s*/g, '$1 $2) ').replace(/\s+/g, ' ').trim();
 }
 function splitMeaning(raw){
   let m = normMarkers(raw), note = '';
   const lead = m.match(/^= ([A-Za-z][A-Za-z ,'’-]*?) (?=[가-힣~(\[])/);
   if (lead) { note = '= ' + lead[1]; m = m.slice(lead[0].length); }
   m = m.replace(/^a\) /, '');
-  const k = m.search(/ (=|↔|adv\)|[vna]\)) /);
+  const k = m.search(/ (=|↔|adv\)|cf\)|[vna]\)) /);
   if (k >= 0) { note = (note + ' ' + m.slice(k + 1)).trim(); m = m.slice(0, k); }
   return [m.replace(/^[\s,;]+|[\s,;]+$/g, ''), note];
 }
-const REL_TYPE = {'=': '유의어', '↔': '반의어', 'v)': '동사', 'a)': '형용사', 'n)': '명사', 'adv)': '부사'};
+const REL_TYPE = {'=': '유의어', '↔': '반의어', 'v)': '동사', 'a)': '형용사', 'n)': '명사', 'adv)': '부사', 'cf)': '참고'};
 /* note → related words, the same rules used to build words.js */
 function relFromNote(note){
   const out = [];
   if (!note) return out;
-  for (const part of normMarkers(note).split(/\s(?=(?:=|↔|adv\)|[vna]\))\s)/)) {
-    const m = part.match(/^(=|↔|adv\)|[vna]\))\s+(.*)$/); if (!m) continue;
+  for (const part of normMarkers(note).split(/\s(?=(?:=|↔|adv\)|cf\)|[vna]\))\s)/)) {
+    const m = part.match(/^(=|↔|adv\)|cf\)|[vna]\))\s+(.*)$/); if (!m) continue;
     const type = REL_TYPE[m[1]], rest = m[2].trim(); if (!rest) continue;
     if (type === '유의어') (/\(/.test(rest) ? [rest] : rest.split(/\s*,\s*/)).filter(Boolean).forEach(en => out.push([type, en]));
-    else { const k = rest.search(/[가-힣~(\[]/); const en = (k > 0 ? rest.slice(0, k) : rest).trim(), ko = k > 0 ? rest.slice(k).trim() : ''; if (en && ko) out.push([type, en, ko]); }
+    else { const k = rest.search(/[가-힣~(\[]/); const en = (k > 0 ? rest.slice(0, k) : rest).trim(), ko = k > 0 ? rest.slice(k).trim() : ''; if (en && (ko || type === '참고')) out.push(ko ? [type, en, ko] : [type, en]); }   // 참고 may be English only: shown, not practised
   }
   return out;
 }
@@ -1410,8 +1410,8 @@ function viewSetEdit(set){
     <div id="se-status" class="savestate"></div>
   </div>
   <div class="field"><label for="se-text">단어와 뜻 <span class="muted">· 한 줄에 하나씩 "영어 - 뜻", 또는 엑셀 표를 복사해 붙여넣기</span></label>
-    <textarea id="se-text" spellcheck="false" placeholder="solely - 오로지, 단지 = only, exclusively&#10;crucial - 중대한, 결정적인 ↔ trivial 사소한&#10;varied - 다양한 v) vary 다르다">${esc(startText)}</textarea>
-    <p class="help">엑셀·구글 시트에서 <b>단어 칸과 뜻 칸</b>을 함께 골라 복사(Ctrl+C)한 뒤 이 칸에 붙여넣으면(Ctrl+V) 한 줄씩 "영어 - 뜻"으로 바뀌어 들어가요. 번호 칸과 제목 줄은 알아서 빠져요. 사진에서 읽은 내용은 꼭 한 번 확인하고 고쳐 주세요. 뜻 뒤에 <b>= 유의어</b>, <b>↔ 반의어 뜻</b>, <b>v) 동사 뜻</b>처럼 적으면 관련어도 연습에 들어가요.</p>
+    <textarea id="se-text" spellcheck="false" placeholder="solely - 오로지, 단지 = only, exclusively&#10;crucial - 중대한, 결정적인 ↔ trivial 사소한&#10;varied - 다양한 v) vary 다르다&#10;affect - 영향을 미치다 cf) effect 영향, 효과">${esc(startText)}</textarea>
+    <p class="help">엑셀·구글 시트에서 <b>단어 칸과 뜻 칸</b>을 함께 골라 복사(Ctrl+C)한 뒤 이 칸에 붙여넣으면(Ctrl+V) 한 줄씩 "영어 - 뜻"으로 바뀌어 들어가요. 번호 칸과 제목 줄은 알아서 빠져요. 사진에서 읽은 내용은 꼭 한 번 확인하고 고쳐 주세요. 뜻 뒤에 <b>= 유의어</b>, <b>↔ 반의어 뜻</b>, <b>v) 동사 뜻</b>, <b>cf) 참고 단어 뜻</b>처럼 적으면 관련어도 연습에 들어가요. (cf) 뒤에 뜻 없이 영어만 쓰면 '참고'로 보이기만 해요.)</p>
     <div class="parsed" id="se-count"></div>
     <div id="se-bad"></div>
   </div>
@@ -2891,8 +2891,8 @@ async function viewRanks(mode, back){
   };
   let data = null;
   const val = x => mode === 'match' ? `${Number(x.t).toFixed(1)}초` : `${Math.round(x.s / x.n * 100)}% <span class="muted small">(${x.s}/${x.n})</span>`;
-  const list = (r, withCls) => r.top.length ? `<ol class="rklist">${r.top.map(x => `<li class="${x.me ? 'me' : ''}${x.rank <= 3 ? ' p' + x.rank : ''}"><span class="rk">${x.rank}</span><span class="rkname"><span class="rkcls">${esc(x.cls)}</span> ${esc(x.name)}${x.me ? ' <span class="chip ok">나</span>' : ''}</span><span class="rkv">${val(x)}</span></li>`).join('')}</ol>` : '<div class="panel empty">아직 기록이 없어요.</div>';
-  const mine = (r, label) => r && r.mine && !r.top.some(x => x.me) ? `<p class="help">${label} 내 순위: <b>${r.mine.rank}위</b> / ${r.count}명 · ${val(r.mine)}</p>` : '';
+  const list = (r, withCls) => r.hidden ? `<div class="panel empty">참가자가 ${r.need}명 이상이 되면 순위가 보여요. (지금 ${r.count}명)</div>` : r.top.length ? `<ol class="rklist">${r.top.map(x => `<li class="${x.me ? 'me' : ''}${x.rank <= 3 ? ' p' + x.rank : ''}"><span class="rk">${x.rank}</span><span class="rkname"><span class="rkcls">${esc(x.cls)}</span> ${esc(x.name)}${x.me ? ' <span class="chip ok">나</span>' : ''}</span><span class="rkv">${val(x)}</span></li>`).join('')}</ol>` : '<div class="panel empty">아직 기록이 없어요.</div>';
+  const mine = (r, label) => r && r.mine && (r.hidden || !r.top.some(x => x.me)) ? `<p class="help">${label} 내 순위: <b>${r.mine.rank}위</b> / ${r.count}명 · ${val(r.mine)}</p>` : '';
   function show(){
     if (!data) return;
     const R = data.ranks[mode];

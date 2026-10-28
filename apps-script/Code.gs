@@ -17,6 +17,8 @@
  */
 const ADMIN_PASSWORD_INIT = '';
 const RANK_EXCLUDE = ['21201'];   // 순위에서 뺄 학번 (선생님 시험용 계정)
+const RANK_MIN_CLASS = 10;        // 반별 1~3위는 그 반 참가자가 이만큼 이상일 때만 보여 줌 (몇 명 안 될 때 누구인지 드러나지 않게)
+const RANK_MIN_ALL = 30;          // 전체 1~10위는 전체 참가자가 이만큼 이상일 때만 보여 줌
 
 const SHEET_STUDENTS = '학생';
 const SHEET_LOG = '기록';
@@ -398,14 +400,15 @@ function maskName_(name) {
   if (c.length === 2) return c[0] + '○';
   return c[0] + '○'.repeat(c.length - 2) + c[c.length - 1];
 }
-function rankList_(rows, mode, key, limit, mySid, myCls) {
+function rankList_(rows, mode, key, limit, mySid, myCls, minCount) {
   const list = rows.filter(x => x.r[key]).map(x => ({sid: x.sid, name: x.name, cls: x.cls, v: x.r[key]}));
   list.sort((a, b) => rankBetter_(mode, a.v, b.v) ? -1 : rankBetter_(mode, b.v, a.v) ? 1 : 0);
   let rank = 0;
   list.forEach((x, i) => { if (i === 0 || !rankSame_(mode, x.v, list[i - 1].v)) rank = i + 1; x.rank = rank; });
   const me = list.find(x => x.sid === mySid);
   const show = x => ({rank: x.rank, name: x.cls === myCls ? x.name : maskName_(x.name), cls: x.cls, t: x.v.t, s: x.v.s, n: x.v.n, me: x.sid === mySid});
-  return {top: list.filter(x => x.rank <= limit).map(show), count: list.length, mine: me ? show(me) : null};
+  const enough = list.length >= minCount;   // 참가자가 적으면 순위표는 보내지 않고 내 순위만 보냄
+  return {top: enough ? list.filter(x => x.rank <= limit).map(show) : [], hidden: !enough, need: minCount, count: list.length, mine: me ? show(me) : null};
 }
 function ranks_(req) {
   const page = String(req.page || '').slice(0, 30);
@@ -417,7 +420,7 @@ function ranks_(req) {
   const pairs = Math.max(1, Math.min(8, Math.floor(Number(req.pairs) || 8)));
   RANK_MODES.forEach(m => {
     const key = m === 'match' ? 'match' + pairs : m;
-    out[m] = {all: rankList_(rows, m, key, 10, sid, cls), cls: cls ? rankList_(rows.filter(x => x.cls === cls), m, key, 3, sid, cls) : null};
+    out[m] = {all: rankList_(rows, m, key, 10, sid, cls, RANK_MIN_ALL), cls: cls ? rankList_(rows.filter(x => x.cls === cls), m, key, 3, sid, cls, RANK_MIN_CLASS) : null};
   });
   return {ok: true, page: page, cls: cls, ranks: out};
 }
