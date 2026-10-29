@@ -33,7 +33,7 @@ const RECENT_KEEP = 30;                  // 학생 줄에 남기는 최근 연�
 const WRONG_KEEP = 200;                  // 학생 줄에 남기는 틀린 단어 수
 const LOG_HEADERS = ['시각', '학번', '이름', '학습지', '연습', '점수', '문항 수', '정답률', '틀린 단어', '페이지 ID'];
 const SHEET_SETS = '지문';
-const SET_HEADERS = ['ID', '이름', '순서', '단어 수', '단어(JSON)', '만든 시각', '고친 시각'];
+const SET_HEADERS = ['ID', '이름', '순서', '단어 수', '단어(JSON)', '만든 시각', '고친 시각', '수업 카드 순서(JSON)'];   // H열: 선생님이 정한 수업용 카드 넘기기 단어 순서
 const SHEET_TEAMS = '모둠';
 const TEAM_HEADERS = ['반', '모둠', '순서'];
 const SHEET_RACES = '레이스';
@@ -59,7 +59,7 @@ function setup() {
   const st = ensureSheet_(ss, SHEET_STUDENTS, STUDENT_HEADERS);
   st.getRange(1, 1, 1, S_COLS).setValues([STUDENT_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
   st.getRange(1, RANK_COL).setValue(RANK_HEADER).setFontWeight('bold');
-  ensureSheet_(ss, SHEET_SETS, SET_HEADERS);
+  ensureSheet_(ss, SHEET_SETS, SET_HEADERS).getRange(1, 1, 1, SET_HEADERS.length).setValues([SET_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
   ensureSheet_(ss, SHEET_TEAMS, TEAM_HEADERS);
   ensureSheet_(ss, SHEET_RACES, RACE_HEADERS).getRange(1, 1, 1, RACE_HEADERS.length).setValues([RACE_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
   ensureSheet_(ss, SHEET_RACELOG, RACELOG_HEADERS);
@@ -131,6 +131,7 @@ const ACTIONS = {
   ranks: ranks_,
   adminNotices: adminNotices_,
   adminViewAs: adminViewAs_,
+  adminCardOrderSave: adminCardOrderSave_,
   adminNoticeSave: adminNoticeSave_,
   adminNoticeDelete: adminNoticeDelete_,
   raceStart: raceStart_,
@@ -622,13 +623,14 @@ function readSets_() {
   const sh = sheet_(SHEET_SETS), n = sh.getLastRow(); if (n < 2) return [];
   return sh.getRange(2, 1, n - 1, SET_HEADERS.length).getValues().map((r, i) => {
     let words = []; try { words = JSON.parse(String(r[4] || '[]')); } catch (e) {}
-    return {row: i + 2, id: String(r[0]).trim(), name: String(r[1]), order: Number(r[2]) || 0, words: words, updated: iso_(r[6])};
+    const cardOrder = parseJ_(r[7], []);
+    return {row: i + 2, id: String(r[0]).trim(), name: String(r[1]), order: Number(r[2]) || 0, words: words, updated: iso_(r[6]), cardOrder: Array.isArray(cardOrder) ? cardOrder : []};
   }).filter(x => x.id).sort((a, b) => a.order - b.order || a.row - b.row);
 }
 /* 지문 꾸러미: 지문과 학생에게 보이는 공지를 내용으로 만든 짧은 버전과 함께 보냄. 브라우저가 가진 버전과 같으면 내용은 보내지 않음 */
 function setsBundle_() {
   return cached_('c_sets3', () => {
-    const sets = readSets_().map(x => ({id: x.id, name: x.name, words: x.words, updated: x.updated}));
+    const sets = readSets_().map(x => Object.assign({id: x.id, name: x.name, words: x.words, updated: x.updated}, x.cardOrder.length ? {cardOrder: x.cardOrder} : {}));
     const notices = readNotices_().filter(x => x.show).map(x => ({id: x.id, title: x.title, body: x.body, created: x.created, updated: x.updated}));
     const v = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify([sets, notices]), Utilities.Charset.UTF_8)).slice(0, 12);
     return {v: v, sets: sets, notices: notices};
@@ -715,6 +717,19 @@ function adminSetSave_(req) {
     sh.appendRow([id, asText_(name), order, words.length, json, now, now]);
     forget_('c_sets3');
     return {ok: true, id: id, setsPack: setsFor_('')};
+  });
+}
+/* 수업용 카드 넘기기: 선생님이 정한 단어 순서(영어 단어 목록)를 '지문' 시트 H열에 저장. 학생 연습의 순서는 바뀌지 않음 */
+function adminCardOrderSave_(req) {
+  checkToken_(req.token, 'a');
+  const order = (Array.isArray(req.order) ? req.order : []).slice(0, 500).map(x => String(x).slice(0, 80)).filter(Boolean);
+  return withLock_(() => {
+    const sh = sheet_(SHEET_SETS), cur = readSets_().find(x => x.id === String(req.id || ''));
+    if (!cur) fail_('그 지문을 찾을 수 없어요. 새로고침해 주세요.');
+    if (sh.getRange(1, 8).getValue() !== SET_HEADERS[7]) sh.getRange(1, 8).setValue(SET_HEADERS[7]).setFontWeight('bold');
+    sh.getRange(cur.row, 8).setValue(order.length ? asText_(JSON.stringify(order)) : '');
+    forget_('c_sets3');
+    return {ok: true, setsPack: setsFor_('')};
   });
 }
 function adminSetDelete_(req) {
