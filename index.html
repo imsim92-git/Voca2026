@@ -208,10 +208,19 @@ tr.event td{color:var(--muted)}
 .face .hint{position:absolute;bottom:14px;left:0;right:0;font-size:12px;color:var(--muted)}
 .face .big{font-family:var(--f-word);font-size:clamp(34px,10vw,64px);line-height:1.15;overflow-wrap:anywhere}
 .face .big-ko{font-size:clamp(24px,7vw,42px)!important}
-/* 크게 보기 (PC, classroom TV or projector only): the card keeps its width, the word and meaning get big and clear.
-   On a phone the button is hidden and cards stay as they are */
-.bigbtn{display:none}
-@media (min-width:700px){.bigbtn{display:inline-flex}
+/* 크게 보기 on the classroom cards (지문 관리 → 카드 넘기기): big, clear letters; on a big screen the card gets wide too */
+.face .no.corner{font-size:30px;line-height:1.2;letter-spacing:0;max-width:80%;text-transform:none;opacity:.85;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;word-break:keep-all}
+.face .no.corner.en{font-family:var(--f-word);font-size:34px}
+.cardbig .face .no.corner{font-size:48px;top:18px;left:24px}.cardbig .face .no.corner.en{font-size:56px}
+.orderlist{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.orderlist li{display:flex;align-items:center;gap:10px;padding:8px 12px;border-top:1px solid var(--line);cursor:grab;background:var(--surface)}
+.orderlist li:first-child{border-top:0}
+.orderlist li.drag{opacity:.45}.orderlist li.over{box-shadow:inset 0 3px 0 var(--mark)}
+.ok-n{min-width:2em;color:var(--muted);font-variant-numeric:tabular-nums;font-size:13px}
+.ok-w{flex:1;min-width:0}.ok-w b{font-family:var(--f-word);font-weight:600}
+.ok-b{display:flex;gap:4px}
+@media (min-width:700px){
   .cardbig .flip-in{min-height:380px}.cardbig .face .big,.cardbig .face .big-ko{overflow-wrap:normal;word-break:keep-all}.cardbig .face .big{font-size:84px;line-height:1.1}.cardbig .face .big-ko{font-size:54px!important;line-height:1.3}.cardbig .face .rels{font-size:22px;gap:6px}.cardbig .face .rels .rel b{font-size:16px;padding:2px 7px}.cardbig .face .rel-en{font-size:26px}.cardbig .face .note{font-size:22px}}
 /* on a big screen (classroom TV): the card gets wide too, as the TV view used to be */
 @media (min-width:1000px){.wrap.cardbig{max-width:1100px}.cardbig .flip-in{min-height:440px}.cardbig .face .big{font-size:clamp(72px,6.5vw,104px)}.cardbig .face .big-ko{font-size:clamp(44px,4vw,64px)!important}.cardbig .face .rels{font-size:28px;gap:8px}.cardbig .face .rels .rel b{font-size:20px;padding:2px 8px}.cardbig .face .rel-en{font-size:30px}.cardbig .face .note{font-size:26px}}
@@ -1298,7 +1307,7 @@ let setsLoaded = false;
 let NOTICES = store.get('wordroom-notices', null) || [];   // the teacher's notices for the first screen (newest first)
 function toSet(s){
   const heads = (s.words || []).map(w => { const h = [String(w[0]), String(w[1]), String(w[2] || '')]; const rel = relFromNote(h[2]); if (rel.length) h[3] = rel; h.pid = s.id; return h; });
-  return {id: s.id, t: s.name, kind: 'passage', heads, w: heads.flatMap(h => [h, ...(h[3] || []).map(r => relWord(h, r, s.id)).filter(x => x[1])])};
+  return {id: s.id, t: s.name, kind: 'passage', cardOrder: s.cardOrder || [], heads, w: heads.flatMap(h => [h, ...(h[3] || []).map(r => relWord(h, r, s.id)).filter(x => x[1])])};
 }
 /* the server sends a short version with every passage bundle; words travel only when it changed */
 const setsV = () => (SETS.length || store.get('wordroom-sets', null)) ? store.get('wordroom-sets-v', '') : '';
@@ -1448,13 +1457,14 @@ async function viewSetsAdmin(){
     <div class="panel"><ul class="setlist" id="sl">
       ${hasBook() ? `<li><div class="sl-main"><b>${esc(BOOK)}</b><span class="muted">학습지 ${PAGES.length}개 구간 · ${countLine(ALL)} · 사이트 파일(words.js)</span></div><span class="muted small">GitHub에서 고쳐요</span></li>` : ''}
       ${SETS.map((s, i) => `<li data-sid="${esc(s.id)}"><div class="sl-main"><b>${esc(s.t)}</b><span class="muted">${countLine(s)}</span></div>
-        <div class="sl-act"><button class="iconbtn" data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="위로">↑</button><button class="iconbtn" data-down="${i}" ${i === SETS.length - 1 ? 'disabled' : ''} aria-label="아래로">↓</button><button class="btn ghost small" data-edit="${i}">편집</button><button class="btn ghost small" data-del="${i}">삭제</button></div></li>`).join('')}
+        <div class="sl-act"><button class="iconbtn" data-up="${i}" ${i === 0 ? 'disabled' : ''} aria-label="위로">↑</button><button class="iconbtn" data-down="${i}" ${i === SETS.length - 1 ? 'disabled' : ''} aria-label="아래로">↓</button><button class="btn ghost small" data-cards="${i}">카드 넘기기</button><button class="btn ghost small" data-edit="${i}">편집</button><button class="btn ghost small" data-del="${i}">삭제</button></div></li>`).join('')}
       ${!SETS.length ? '<li class="muted">아직 등록한 지문이 없어요. "+ 새 지문 만들기"를 눌러 시작하세요.</li>' : ''}
     </ul></div>`;
     document.getElementById('up').onclick = () => route();
     bindAdminNav();
     document.getElementById('new').onclick = () => viewSetEdit(null);
     $app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => viewSetEdit(SETS[+b.dataset.edit]));
+    $app.querySelectorAll('[data-cards]').forEach(b => b.onclick = () => viewClassCards(SETS[+b.dataset.cards].id));
     $app.querySelectorAll('[data-up],[data-down]').forEach(b => b.onclick = async () => {
       const i = +(b.dataset.up ?? b.dataset.down), j = b.dataset.up !== undefined ? i - 1 : i + 1;
       const ids = SETS.map(s => s.id); [ids[i], ids[j]] = [ids[j], ids[i]];
@@ -2647,8 +2657,7 @@ function myRefresh(){
 function confAdd(words, star){
   if (!words.length) return;
   const c = confLoad(), now = Date.now();
-  words.forEach(w => { const k = wkey(w); if (isTeacher() && !viewing() && c.items[k]) { if (star) c.items[k].star = true; return; }   // the teacher's list keeps a word where it was first put
-    c.items[k] = Object.assign(c.items[k] || {}, {added: now}, star ? {star: true} : {}); delete c.removed[k]; });
+  words.forEach(w => { const k = wkey(w);     c.items[k] = Object.assign(c.items[k] || {}, {added: now}, star ? {star: true} : {}); delete c.removed[k]; });
   confSave(c);
 }
 function confRemove(w){ const c = confLoad(), k = wkey(w); delete c.items[k]; c.removed[k] = Date.now(); confSave(c); }
@@ -2666,12 +2675,7 @@ const bindStar = w => { const b = $app.querySelector('.card [data-star]'); if (b
 const markStar = w => { confAdd([w]); const b = $app.querySelector('.card [data-star]'); if (b) { b.classList.add('on'); b.setAttribute('aria-pressed', true); b.innerHTML = STAR(true); } };
 let RUN_T = 0;   // when the current quiz started: a word taken out during it is not put back at the end
 const confIn = words => { const c = confLoad(); return confOrder(words.filter(w => c.items[wkey(w)])); };
-/* in the teacher's 학생 화면 the confusing words come in the order they were put in (oldest first) */
-function confOrder(words){
-  if (!isTeacher() || viewing()) return words;
-  const c = confLoad(), at = w => (c.items[wkey(w)] || {}).added || 0;
-  return words.slice().sort((a, b) => at(a) - at(b));
-}
+const confOrder = words => words;   // the same order everywhere: the order of the passage
 function onAuthErrorQuiet(e){ if (e && e.code === 'auth') { if (isTeacher()) onAuthError(e); else setAuth(null); } }
 
 /* ---------- set home ---------- */
@@ -2764,10 +2768,58 @@ function fitCard(){
   });
 }
 addEventListener('resize', () => { if ($app.querySelector('.flip')) fitCard(); });
-function viewCards(words){
-  stopTimers(); $app.classList.toggle('cardbig', !!cardOpts.big);
-  let order = cardOpts.shuffle ? shuffle(words) : words.slice(), i = 0, flipped = false, auto = false, logged = false;
-  $app.innerHTML = `${header(back())}
+/* the classroom card order: drag a row, or use ↑ ↓; saved on the server so every computer shows the same order */
+function viewCardOrder(id){
+  if (needAdmin(() => viewCardOrder(id))) return;
+  const set = SETS.find(s => s.id === id); if (!set) return viewSetsAdmin();
+  stopTimers();
+  let list = classDeck(set).slice(), dragK = null;
+  const draw = () => {
+    $app.innerHTML = `${header('<button class="link" id="back">← 카드 넘기기</button>')}
+    <div class="setcard"><div class="eyebrow">수업용 카드 넘기기</div><h1>단어 순서 바꾸기</h1><div class="meta">${esc(set.t)} · ${list.length}개 단어 · 학생 연습의 순서는 바뀌지 않아요</div></div>
+    <p class="help">줄을 끌어서 옮기거나 ↑ ↓를 눌러요. 다 바꾸면 <b>저장하기</b>를 눌러요.</p>
+    <ol class="orderlist" id="ol">${list.map((h, k) => `<li draggable="true" data-k="${k}"><span class="ok-n">${k + 1}</span><span class="ok-w"><b>${esc(h[0])}</b> <span class="muted">${esc(h[1])}</span></span>
+      <span class="ok-b"><button class="iconbtn" data-mv="${k}" data-d="-1" ${k === 0 ? 'disabled' : ''} aria-label="위로">↑</button><button class="iconbtn" data-mv="${k}" data-d="1" ${k === list.length - 1 ? 'disabled' : ''} aria-label="아래로">↓</button></span></li>`).join('')}</ol>
+    <div class="row"><button class="btn ghost" id="oreset">지문 순서로 되돌리기</button><button class="btn mark wide" id="osave">저장하기</button></div>`;
+    document.getElementById('back').onclick = () => viewClassCards(id);
+    $app.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const k = +b.dataset.mv, j = k + +b.dataset.d; [list[k], list[j]] = [list[j], list[k]]; const y = scrollY; draw(); scrollTo(0, y); });
+    $app.querySelectorAll('#ol li').forEach(li => {
+      li.addEventListener('dragstart', e => { dragK = +li.dataset.k; li.classList.add('drag'); e.dataTransfer.effectAllowed = 'move'; });
+      li.addEventListener('dragover', e => { e.preventDefault(); li.classList.add('over'); });
+      li.addEventListener('dragleave', () => li.classList.remove('over'));
+      li.addEventListener('drop', e => { e.preventDefault(); const to = +li.dataset.k; if (dragK === null || dragK === to) return; const [x] = list.splice(dragK, 1); list.splice(to, 0, x); dragK = null; const y = scrollY; draw(); scrollTo(0, y); });
+      li.addEventListener('dragend', () => { dragK = null; li.classList.remove('drag'); });
+    });
+    document.getElementById('oreset').onclick = () => { list = set.heads.slice(); draw(); toast('지문 순서로 되돌렸어요. 저장하기를 눌러야 반영돼요'); };
+    document.getElementById('osave').onclick = async e => {
+      e.target.disabled = true; e.target.textContent = '저장하는 중…';
+      const same = list.every((h, k) => h === set.heads[k]);
+      try { applySets((await api('adminCardOrderSave', {token: ADMIN.token, id, order: same ? [] : list.map(h => h[0])})).setsPack); toast('카드 순서를 저장했어요'); viewClassCards(id); }
+      catch(err){ if (!adminErr(err, () => viewCardOrder(id))) { toast(err.error || '저장하지 못했어요'); e.target.disabled = false; e.target.textContent = '저장하기'; } }
+    };
+  };
+  draw(); scrollTo(0, 0);
+}
+/* ---------- the teacher's classroom cards (지문 관리 → 카드 넘기기) ----------
+   the passage's words in the order the teacher set, 크게 보기 for the classroom TV,
+   and the other side's word in the top-left corner of the card. Nothing is recorded */
+const classOpts = store.get('wordroom-class-card-opts', null) || {koFirst: false, big: false};
+function classDeck(set){
+  const rank = new Map((set.cardOrder || []).map((en, k) => [en, k]));
+  const known = set.heads.filter(h => rank.has(h[0])).sort((a, b) => rank.get(a[0]) - rank.get(b[0]));
+  return [...known, ...set.heads.filter(h => !rank.has(h[0]))];   // words added later come at the end
+}
+function viewClassCards(id, at){
+  if (needAdmin(() => viewClassCards(id, at))) return;
+  const set = SETS.find(s => s.id === id); if (!set) return viewSetsAdmin();
+  SET = set; SCOPE = 'all';
+  viewCards(classDeck(set), {classroom: true, at});
+}
+function viewCards(words, opt){
+  opt = opt || {}; const cls = !!opt.classroom, O = cls ? classOpts : cardOpts, saveO = () => store.set(cls ? 'wordroom-class-card-opts' : 'wordroom-card-opts', O);
+  stopTimers(); if (cls) $app.classList.toggle('cardbig', !!O.big);
+  let order = !cls && O.shuffle ? shuffle(words) : words.slice(), i = Math.max(0, Math.min(words.length - 1, opt.at || 0)), flipped = false, auto = false, logged = false;
+  $app.innerHTML = `${cls ? header('<button class="link" id="back">← 지문 관리</button>') : header(back())}
   <div class="row" style="justify-content:space-between"><div class="count" id="cnum"></div><div class="count">${esc(SET.t)}</div></div>
   <div class="bar"><i id="cbar"></i></div>
   <div class="flip" id="flip" tabindex="0" role="button" aria-label="카드 뒤집기">
@@ -2775,16 +2827,16 @@ function viewCards(words){
       <div class="face front"><span class="no" id="no1"></span><div id="f1"></div><span class="hint">눌러서 뒤집기 · 옆으로 밀어 넘기기</span></div>
       <div class="face back"><span class="no" id="no2"></span><div id="f2"></div></div>
     </div>
-    <button class="star" id="star" aria-label="헷갈리는 단어로 표시"></button>
+    ${cls ? '' : '<button class="star" id="star" aria-label="헷갈리는 단어로 표시"></button>'}
   </div>
   <div class="row center"><button class="btn ghost" id="prev">‹ 이전</button><button class="btn ghost" id="say">발음</button><button class="btn mark" id="next">다음 ›</button></div>
   <div class="row center small">
-    <button class="toggle" id="t-shuf" aria-pressed="${cardOpts.shuffle}">섞기</button>
-    <button class="toggle" id="t-ko" aria-pressed="${cardOpts.koFirst}">뜻 먼저 보기</button>
+    ${cls ? '' : `<button class="toggle" id="t-shuf" aria-pressed="${O.shuffle}">섞기</button>`}
+    <button class="toggle" id="t-ko" aria-pressed="${O.koFirst}">뜻 먼저 보기</button>
     <button class="toggle" id="t-auto" aria-pressed="false">자동 넘김</button>
-    <button class="toggle bigbtn" id="t-big" aria-pressed="${!!cardOpts.big}">크게 보기</button>
+    ${cls ? `<button class="toggle" id="t-big" aria-pressed="${!!O.big}">크게 보기</button><button class="toggle" id="t-order">순서 바꾸기</button>` : ''}
   </div>`;
-  bindBack();
+  if (cls) document.getElementById('back').onclick = () => { stopTimers(); viewSetsAdmin(); }; else bindBack();
   const $ = id => document.getElementById(id);
   const side = (w, ko) => ko ? `<div class="ko big-ko">${esc(w[1])}</div>${relHTML(w) ? `<div class="rels">${relHTML(w)}</div>` : w[2] ? `<div class="note">${esc(w[2])}</div>` : ''}` : `<div class="big">${esc(w[0])}</div>${w.rel ? `<div class="tag">${esc(w.rel)}</div>` : ''}`;
   const draw = () => {
@@ -2792,17 +2844,18 @@ function viewCards(words){
     $('cnum').textContent = `${i + 1} / ${order.length}`;
     $('cbar').style.width = ((i + 1) / order.length * 100) + '%';
     $('no1').textContent = $('no2').textContent = 'No. ' + (words.indexOf(w) + 1);
-    $('f1').innerHTML = side(w, cardOpts.koFirst);
-    $('f2').innerHTML = side(w, !cardOpts.koFirst);
+    if (cls) { $('no2').textContent = O.koFirst ? w[1] : w[0]; $('no2').className = 'no corner' + (O.koFirst ? '' : ' en'); }   // classroom: the front's word stays in the corner
+    $('f1').innerHTML = side(w, O.koFirst);
+    $('f2').innerHTML = side(w, !O.koFirst);
     fitCard();
     $('flipin').classList.toggle('on', flipped);
-    const st = confHas(w); $('star').innerHTML = STAR(st); $('star').classList.toggle('on', st); $('star').setAttribute('aria-pressed', st);
+    if (!cls) { const st = confHas(w); $('star').innerHTML = STAR(st); $('star').classList.toggle('on', st); $('star').setAttribute('aria-pressed', st); }
     $('prev').disabled = i === 0;
     $('next').textContent = i === order.length - 1 ? '처음부터' : '다음 ›';
-    if (i === order.length - 1 && !logged && order.length > 1) { logged = true; if (canLog()) sendLog({page: SET.id, pageTitle: logTitle(), mode: '카드 넘기기', score: 0, total: 0, wrong: []}); }
+    if (!cls && i === order.length - 1 && !logged && order.length > 1) { logged = true; if (canLog()) sendLog({page: SET.id, pageTitle: logTitle(), mode: '카드 넘기기', score: 0, total: 0, wrong: []}); }
   };
   const go = d => {
-    if (d > 0 && i === order.length - 1) { i = 0; if (cardOpts.shuffle) order = shuffle(words); }
+    if (d > 0 && i === order.length - 1) { i = 0; if (!cls && O.shuffle) order = shuffle(words); }
     else i = Math.max(0, Math.min(order.length - 1, i + d));
     flipped = false; draw();
   };
@@ -2815,21 +2868,24 @@ function viewCards(words){
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { moved = true; stopAuto(); go(dx < 0 ? 1 : -1); }
   });
   card.addEventListener('click', e => { if (e.target.closest('.star') || moved) return; stopAuto(); flip(); });
-  $('star').onclick = e => { e.stopPropagation(); const w = order[i]; if (confHas(w)) { confRemove(w); toast('헷갈리는 단어에서 뺐어요'); } else { confAdd([w], true); toast('헷갈리는 단어에 넣었어요'); } draw(); };
+  if (!cls) $('star').onclick = e => { e.stopPropagation(); const w = order[i]; if (confHas(w)) { confRemove(w); toast('헷갈리는 단어에서 뺐어요'); } else { confAdd([w], true); toast('헷갈리는 단어에 넣었어요'); } draw(); };
   $('prev').onclick = () => { stopAuto(); go(-1); };
   $('next').onclick = () => { stopAuto(); go(1); };
   $('say').onclick = () => speak(order[i][0]);
-  $('t-shuf').onclick = e => { cardOpts.shuffle = !cardOpts.shuffle; store.set('wordroom-card-opts', cardOpts); e.target.setAttribute('aria-pressed', cardOpts.shuffle); const w = order[i]; order = cardOpts.shuffle ? shuffle(words) : words.slice(); i = order.indexOf(w); flipped = false; draw(); };
-  $('t-big').onclick = e => { cardOpts.big = !cardOpts.big; store.set('wordroom-card-opts', cardOpts); e.target.setAttribute('aria-pressed', cardOpts.big); $app.classList.toggle('cardbig', cardOpts.big); fitCard(); };
-  $('t-ko').onclick = e => { cardOpts.koFirst = !cardOpts.koFirst; store.set('wordroom-card-opts', cardOpts); e.target.setAttribute('aria-pressed', cardOpts.koFirst); flipped = false; draw(); };
+  if (!cls) $('t-shuf').onclick = e => { O.shuffle = !O.shuffle; saveO(); e.target.setAttribute('aria-pressed', O.shuffle); const w = order[i]; order = O.shuffle ? shuffle(words) : words.slice(); i = order.indexOf(w); flipped = false; draw(); };
+  if (cls) {
+    $('t-big').onclick = e => { O.big = !O.big; saveO(); e.target.setAttribute('aria-pressed', O.big); $app.classList.toggle('cardbig', O.big); fitCard(); };
+    $('t-order').onclick = () => { stopAuto(); viewCardOrder(SET.id); };
+  }
+  $('t-ko').onclick = e => { O.koFirst = !O.koFirst; saveO(); e.target.setAttribute('aria-pressed', O.koFirst); flipped = false; draw(); };
   /* auto: show the front, flip after 2.5s, move on 2.5s later */
   let autoT = null;
   const stopAuto = () => { if (!auto) return; auto = false; clearInterval(autoT); $('t-auto').setAttribute('aria-pressed', false); };
   $('t-auto').onclick = () => {
     if (auto) return stopAuto();
     auto = true; $('t-auto').setAttribute('aria-pressed', true);
-    if (!cardOpts.koFirst) speak(order[i][0]);
-    autoT = setInterval(() => { if (!flipped) { flip(); if (cardOpts.koFirst) speak(order[i][0]); } else { if (i === order.length - 1) return stopAuto(); go(1); if (!cardOpts.koFirst) speak(order[i][0]); } }, 2500);
+    if (!O.koFirst) speak(order[i][0]);
+    autoT = setInterval(() => { if (!flipped) { flip(); if (O.koFirst) speak(order[i][0]); } else { if (i === order.length - 1) return stopAuto(); go(1); if (!O.koFirst) speak(order[i][0]); } }, 2500);
     timers.push(autoT);
   };
   document.onkeydown = e => {
