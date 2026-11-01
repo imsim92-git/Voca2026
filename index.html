@@ -359,6 +359,7 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 .wrap.wide{max-width:1100px}
 /* 학생 기록 → 학생별: the list scrolls by itself, so the clicked student's record shows right below it */
 .recgrid{display:flex;flex-direction:column;gap:18px}
+.detail .dhead{align-items:center;flex-wrap:wrap;gap:10px}.detail .dhead #dx{margin-left:auto}.detail .dhead .reset{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:0;border:0}.detail .dhead .reset .help{margin:0}.detail .dhead .reset.confirm{flex-basis:100%;order:3;flex-direction:column;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .recgrid.split #tb .tablewrap{max-height:40vh;overflow:auto}
 .recgrid.split thead th{position:sticky;top:0;background:var(--surface);z-index:1}
 .recgrid.split tr.sel td{background:color-mix(in srgb, var(--mark) 35%, transparent)}
@@ -1135,7 +1136,7 @@ async function viewAdmin(next){
     try { s = await api('adminStudent', {token: ADMIN.token, sid}); }
     catch(e){ if (e.code === 'auth') { ADMIN = null; store.set('wordroom-admin', null); return viewAdmin(); } box.innerHTML = `<div class="panel empty">${esc(e.error || '불러오지 못했어요.')}</div>`; return; }
     box.innerHTML = `<div class="panel detail">
-      <div class="row" style="justify-content:space-between"><h2>${esc(s.student.name)} <span class="muted">${esc(s.student.sid)}</span></h2><button class="link" id="dx">닫기</button></div>
+      <div class="row dhead"><h2>${esc(s.student.name)} <span class="muted">${esc(s.student.sid)}</span></h2><div class="reset" id="rs"><button class="btn ghost small" id="rs1">비밀번호 초기화</button></div><button class="link" id="dx">닫기</button></div>
       <div class="stats">
         <div class="stat"><span>연습 횟수</span><b>${s.stats.sessions}</b></div>
         <div class="stat"><span>푼 문제</span><b>${s.stats.questions}</b></div>
@@ -1146,12 +1147,10 @@ async function viewAdmin(next){
       <div class="section-label">최근 연습</div>
       ${s.recent.length ? `<ul class="log">${s.recent.slice(0, 15).map(l => `<li><span>${esc(fmtTime(l.at))}</span><span>${esc(recPage(l.page, l.pageTitle, true))} · ${esc(l.mode)}</span><b>${l.score}/${l.total}</b></li>`).join('')}</ul>` : '<p class="help">연습 기록이 없어요.</p>'}
       ${actSection(s.acts || [])}
-      <div class="reset" id="rs">
-        <button class="btn ghost" id="rs1">비밀번호 초기화</button>
-      </div>
     </div>`;
     document.getElementById('dx').onclick = () => { SEL_SID = ''; $app.querySelectorAll('#tb tr.sel').forEach(tr => tr.classList.remove('sel')); box.innerHTML = ''; };
     document.getElementById('rs1').onclick = () => {
+      document.getElementById('rs').classList.add('confirm');
       document.getElementById('rs').innerHTML = `<p class="help">초기화하면 ${esc(s.student.name)} 학생은 "처음 등록"에서 같은 학번으로 새 비밀번호를 정해요. 연습 기록은 그대로 남아요.</p>
         <div class="row"><button class="btn ghost" id="rs-no">취소</button><button class="btn danger" id="rs-yes">초기화하기</button></div>`;
       document.getElementById('rs-no').onclick = () => showStudent(sid);
