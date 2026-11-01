@@ -357,18 +357,11 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 .rank.run li > .muted{grid-area:sec;justify-self:end}
 .waiting{font-size:14px}
 .wrap.wide{max-width:1100px}
-/* 학생 기록 → 학생별: the list scrolls by itself; on a wide screen the record sits beside it */
+/* 학생 기록 → 학생별: the list scrolls by itself, so the clicked student's record shows right below it */
 .recgrid{display:flex;flex-direction:column;gap:18px}
-.recgrid.split #tb .tablewrap{max-height:45vh;overflow:auto}
+.recgrid.split #tb .tablewrap{max-height:40vh;overflow:auto}
 .recgrid.split thead th{position:sticky;top:0;background:var(--surface);z-index:1}
 .recgrid.split tr.sel td{background:color-mix(in srgb, var(--mark) 35%, transparent)}
-.recgrid .detail-hint{display:none}
-@media (min-width:900px){
-  .recgrid.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
-  .recgrid.split #tb .tablewrap{max-height:calc(100vh - 60px)}
-  .recgrid.split #detail{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
-  .recgrid.split .detail-hint{display:block}
-}
 .board.big{font-size:18px}
 .board.big h2{font-size:34px}
 .board.big .rank li{padding:16px 20px}
@@ -1109,9 +1102,9 @@ async function viewAdmin(next){
     store.set('wordroom-admin-tab', tab);
     $app.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-selected', b.dataset.t === tab));
     flt.hidden = tab === 'words';
-    /* 학생별: the list scrolls on its own and the clicked student's record shows beside it (below it on a phone) */
-    const split = tab === 'students'; $app.classList.toggle('wide', split); document.getElementById('recgrid').classList.toggle('split', split);
-    const det = document.getElementById('detail'); if (!split) det.innerHTML = ''; else if (!det.innerHTML.trim()) det.innerHTML = '<div class="panel empty detail-hint">학생을 누르면 여기에 그 학생의 기록이 나와요.</div>';
+    /* 학생별: the list scrolls on its own and the clicked student's record shows right below it */
+    const split = tab === 'students'; document.getElementById('recgrid').classList.toggle('split', split);
+    if (!split) document.getElementById('detail').innerHTML = '';
     if (tab === 'students') {
       const rows = r.students.filter(s => match(s.sid, s.name));
       tb.innerHTML = rows.length ? `<div class="tablewrap"><table><thead><tr><th>학번</th><th>이름</th><th class="num">연습</th><th class="num">정답률</th><th>마지막 연습</th></tr></thead><tbody>
@@ -1137,8 +1130,7 @@ async function viewAdmin(next){
     const box = document.getElementById('detail');
     SEL_SID = sid; $app.querySelectorAll('#tb tr[data-sid]').forEach(tr => tr.classList.toggle('sel', tr.dataset.sid === sid));
     box.innerHTML = '<div class="panel empty">불러오는 중…</div>';
-    if (!matchMedia('(min-width: 900px)').matches) box.scrollIntoView({behavior: 'smooth', block: 'start'});   // side by side on a wide screen: no scrolling needed
-    else box.scrollTop = 0;
+    box.scrollIntoView({behavior: 'smooth', block: 'start'});
     let s;
     try { s = await api('adminStudent', {token: ADMIN.token, sid}); }
     catch(e){ if (e.code === 'auth') { ADMIN = null; store.set('wordroom-admin', null); return viewAdmin(); } box.innerHTML = `<div class="panel empty">${esc(e.error || '불러오지 못했어요.')}</div>`; return; }
@@ -1158,7 +1150,7 @@ async function viewAdmin(next){
         <button class="btn ghost" id="rs1">비밀번호 초기화</button>
       </div>
     </div>`;
-    document.getElementById('dx').onclick = () => { SEL_SID = ''; $app.querySelectorAll('#tb tr.sel').forEach(tr => tr.classList.remove('sel')); box.innerHTML = '<div class="panel empty detail-hint">학생을 누르면 여기에 그 학생의 기록이 나와요.</div>'; };
+    document.getElementById('dx').onclick = () => { SEL_SID = ''; $app.querySelectorAll('#tb tr.sel').forEach(tr => tr.classList.remove('sel')); box.innerHTML = ''; };
     document.getElementById('rs1').onclick = () => {
       document.getElementById('rs').innerHTML = `<p class="help">초기화하면 ${esc(s.student.name)} 학생은 "처음 등록"에서 같은 학번으로 새 비밀번호를 정해요. 연습 기록은 그대로 남아요.</p>
         <div class="row"><button class="btn ghost" id="rs-no">취소</button><button class="btn danger" id="rs-yes">초기화하기</button></div>`;
@@ -2278,13 +2270,13 @@ async function viewRaceAdmin(){
   <div class="row" style="justify-content:space-between"><h2>레이스</h2><button class="btn mark" id="new">+ 새 레이스</button></div>
   <div class="panel teamsum">
     <div><b>반·모둠</b><div class="muted small">${C.length ? C.map(c => `${esc(c.name)} ${c.teams.length}모둠`).join(' · ') : '모둠 레이스를 하려면 먼저 반과 모둠을 등록하세요.'}</div>
-      <div class="muted small">개인 레이스는 학번으로 반을 알아요 (21201 → 2학년 12반)${(RACE_ADMIN.studentClasses || []).length ? ` · 등록한 학생: ${RACE_ADMIN.studentClasses.map(c => `${esc(c.name)} ${c.n}명`).join(' · ')}` : ''}</div></div>
+      <div class="muted small">개인 레이스는 학번으로 반을 알아요 (21201 → 2학년 12반)${(RACE_ADMIN.studentClasses || []).length ? `<br>등록한 학생: ${RACE_ADMIN.studentClasses.map(c => `${esc(c.name)} ${c.n}명`).join(' · ')}` : ''}</div></div>
     <button class="btn ghost small" id="teams">반·모둠 등록</button>
   </div>
   ${allNames.length > 1 ? `<div class="chipsrow" role="group" aria-label="반별로 보기"><button class="fchip${fcls ? '' : ' on'}" data-fc="">전체 반</button>${allNames.map(c => `<button class="fchip${fcls === c ? ' on' : ''}" data-fc="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''}
   ${['team', 'student'].map(w => { const list = races.map((x, i) => [x, i]).filter(([x]) => x.settings.who === w);
     return `<div class="whohead ${w}"><span class="whodot"></span><b>${WHO_NAME[w]}</b><span class="muted small">${w === 'team' ? '모둠 입장으로 들어와 한 기기로 달려요' : '학생이 로그인한 첫 화면에 나와요'} · ${list.length}개</span></div>
-    <div class="panel whopanel ${w}"><ul class="setlist">${list.map(([x, i]) => item(x, i)).join('') || `<li class="muted">${fcls ? `${esc(fcls)}에 해당하는 ${WHO_NAME[w]}가 없어요.` : (gone.some(x => x.settings.who === w) ? `지금 남아 있는 ${WHO_NAME[w]}가 없어요. 지운 레이스는 아래 '삭제한 레이스'에서 볼 수 있어요.` : `아직 만든 ${WHO_NAME[w]}가 없어요.`)}</li>`}</ul></div>`; }).join('')}
+    <div class="panel whopanel ${w}"><ul class="setlist">${list.map(([x, i]) => item(x, i)).join('') || `<li class="muted">${fcls ? `${esc(fcls)}에 해당하는 ${WHO_NAME[w]}가 없어요.` : (gone.some(x => x.settings.who === w) ? `지금 남아 있는 ${WHO_NAME[w]}가 없어요.<br>지운 레이스는 아래 '삭제한 레이스'에서 볼 수 있어요.` : `아직 만든 ${WHO_NAME[w]}가 없어요.`)}</li>`}</ul></div>`; }).join('')}
   <p class="help">모둠 레이스는 로그인 화면의 <b>모둠 입장</b>에서, 개인 레이스는 학생이 로그인한 첫 화면에서 보여요. 그 반에 열린 레이스만 보여요.</p>
   ${gone.length ? `<details class="panel gonebox"><summary>삭제한 레이스 ${gone.length}개 <span class="muted small">학생·모둠 화면에는 보이지 않아요</span></summary><ul class="setlist">
     ${gone.map(x => `<li><div class="sl-main"><b>${esc(x.name)} <span class="chip who ${x.settings.who}">${WHO_NAME[x.settings.who]}</span></b><span class="muted small">${MODE_NAME[x.settings.mode]} · ${esc(raceClassLabel(x))} · 끝낸 ${x.settings.who === 'student' ? '학생' : '모둠'} ${x.done}</span></div>
@@ -2417,7 +2409,7 @@ function viewRaceEdit(race, draft){
   stopTimers();
   if (needAdmin(() => viewRaceEdit(race, draft))) return;
   const base = draft || race || {};
-  const s = Object.assign({mode: 'time', who: 'team', multi: false, shuffle: false, count: 20, penalty: 0, rel: false, live: true, showRank: true}, base.settings || {});
+  const s = Object.assign({mode: 'time', who: 'team', multi: false, shuffle: false, count: 20, penalty: 0, rel: false, live: true, showRank: true, scoring: 'acc'}, base.settings || {});   // a new Quiz is scored by 정확도 unless the teacher picks 빠르기
   let who = s.who, Q = JSON.parse(JSON.stringify(base.questions || []));
   let allCls = !base.classes || base.classes.includes('*');
   const src = new Set(base.sources || []), cls = new Set(base.classes && !allCls ? base.classes : []);
