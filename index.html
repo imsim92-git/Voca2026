@@ -178,7 +178,7 @@ tbody tr[data-sid]{cursor:pointer}
 tbody tr[data-sid]:hover,tbody tr[data-sid]:focus-visible{background:var(--paper)}
 tr.event td{color:var(--muted)}
 .chip{font-size:11px;font-weight:700;color:var(--bad);background:var(--bad-bg);border-radius:5px;padding:1px 6px}
-.bad-ans,.bad-ans b{color:var(--bad)}
+.bad-ans,.bad-ans b{color:var(--bad)}.good-ans,.good-ans b{color:var(--good)}
 .savestate{font-size:13px;font-weight:700;color:var(--muted)}
 .savestate.ok{color:var(--good)}
 .btn.danger{background:var(--bad);color:#fff}
@@ -1839,7 +1839,7 @@ function viewRaceReview(race, ctx){
     const pk = (q.img || '') + '\n' + (q.passage || ''), pass = pk !== '\n' && pk !== lastPass ? qPassHTML(q) : ''; if (pk !== '\n') lastPass = pk;
     const my = A && A[i], mine = my && my.a !== null && my.a !== undefined && my.a !== '' ? my.a : null;
     const opts = q.type === 'choice' ? `<ol class="revopts">${q.options.map((o, k) => o ? `<li class="${k === q.answer ? 'ans' : mine === k ? 'my' : ''}"><span>${CIRCLED[k] || k + 1}</span> ${esc(o)}${k === q.answer ? ' <span class="chip ok">정답</span>' : ''}${mine === k ? ' <span class="chip mine">내 답</span>' : ''}</li>` : '').join('')}</ol>` : '';
-    const bad = my && my.r !== 'ok' ? ' bad-ans' : '';   // wrong: 내 답 in the same red as the 틀림 chip
+    const bad = my ? (my.r === 'ok' ? ' good-ans' : ' bad-ans') : '';   // 내 답 in the same green / red as the 맞힘 / 틀림 chip
     const myLine = my ? `<div class="small${bad}">내 답: <b>${mine === null ? '–' : q.type === 'choice' ? esc(`${CIRCLED[mine] || mine + 1} ${q.options[mine] || ''}`) : esc(mine)}</b></div>` : '';
     return `<li>${pass}<div class="row" style="gap:8px"><b>${i + 1}번</b>${my ? RES[my.r] || '' : ''}</div><div class="qtext">${esc(q.q)}</div>${opts}
       ${myLine}<div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`;
@@ -2186,7 +2186,7 @@ function viewAccResult(race, r, R, localSec, ctx, items){
   <div class="section-label">정답과 해설</div><div class="panel"><ol class="qres">${items.map((q, i) => `<li>
       <div class="row" style="gap:8px"><b>${i + 1}번</b>${mark(i)}</div>
       <div class="qtext small">${esc(q.q)}</div>
-      <div class="small${R.qres[i] === 'ok' ? '' : ' bad-ans'}">내 답: ${esc(mineText(q, i))}</div>
+      <div class="small${R.qres[i] === 'ok' ? ' good-ans' : ' bad-ans'}">내 답: ${esc(mineText(q, i))}</div>
       <div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>
       ${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`).join('')}</ol></div>
   <div class="row">${multi && race.status === '진행' ? '<button class="btn ghost" id="again">다시 도전</button>' : ''}<button class="btn wide" id="home">${ctx.homeText}</button></div>`;
