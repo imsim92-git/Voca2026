@@ -178,7 +178,9 @@ tbody tr[data-sid]{cursor:pointer}
 tbody tr[data-sid]:hover,tbody tr[data-sid]:focus-visible{background:var(--paper)}
 tr.event td{color:var(--muted)}
 .chip{font-size:11px;font-weight:700;color:var(--bad);background:var(--bad-bg);border-radius:5px;padding:1px 6px}
-.bad-ans,.bad-ans b{color:var(--bad)}.good-ans,.good-ans b{color:var(--good)}
+.bad-ans,.bad-ans b{color:var(--bad)}
+.chip.dark{background:var(--navy);color:var(--navy-fg)}   /* 정답: a dark box */
+.mytag{font-size:11px;font-weight:700;color:var(--bad)}.mytag.ok{color:var(--good)}   /* 내 답: text only */.good-ans,.good-ans b{color:var(--good)}
 .savestate{font-size:13px;font-weight:700;color:var(--muted)}
 .savestate.ok{color:var(--good)}
 .btn.danger{background:var(--bad);color:#fff}
@@ -473,7 +475,6 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .racecell{display:flex;flex-direction:column;gap:6px}.racecell .racetile{flex:1}
 .revbtn{align-self:flex-start;font-weight:700;font-size:14px}
 .qres .revopts li.my{background:var(--bad-bg)}
-.chip.mine{background:var(--navy, #1b2550);color:#fff}
 .qexp{background:var(--good-bg);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;white-space:pre-wrap}
 .qed{display:flex;flex-direction:column;gap:8px;padding:12px}
 .qed textarea{min-height:0}
@@ -1854,7 +1855,7 @@ function viewRaceReview(race, ctx){
   const qHTML = (q, i) => {
     const pk = (q.img || '') + '\n' + (q.passage || ''), pass = pk !== '\n' && pk !== lastPass ? qPassHTML(q) : ''; if (pk !== '\n') lastPass = pk;
     const my = A && A[i], mine = my && my.a !== null && my.a !== undefined && my.a !== '' ? my.a : null;
-    const opts = q.type === 'choice' ? `<ol class="revopts">${q.options.map((o, k) => o ? `<li class="${k === q.answer ? 'ans' : mine === k ? 'my' : ''}"><span>${CIRCLED[k] || k + 1}</span> ${esc(o)}${k === q.answer ? ' <span class="chip ok">정답</span>' : ''}${mine === k ? ' <span class="chip mine">내 답</span>' : ''}</li>` : '').join('')}</ol>` : '';
+    const opts = q.type === 'choice' ? `<ol class="revopts">${q.options.map((o, k) => o ? `<li class="${k === q.answer ? 'ans' : mine === k ? 'my' : ''}"><span>${CIRCLED[k] || k + 1}</span> ${esc(o)}${k === q.answer ? ' <span class="chip dark">정답</span>' : ''}${mine === k ? ` <span class="mytag${k === q.answer ? ' ok' : ''}">내 답</span>` : ''}</li>` : '').join('')}</ol>` : '';
     const bad = my ? (my.r === 'ok' ? ' good-ans' : ' bad-ans') : '';   // 내 답 in the same green / red as the 맞힘 / 틀림 chip
     const myLine = my ? `<div class="small${bad}">내 답: <b>${mine === null ? '–' : q.type === 'choice' ? esc(`${CIRCLED[mine] || mine + 1} ${q.options[mine] || ''}`) : esc(mine)}</b></div>` : '';
     return `<li>${pass}<div class="row" style="gap:8px"><b>${i + 1}번</b>${my ? RES[my.r] || '' : ''}</div><div class="qtext">${esc(q.q)}</div>${opts}
