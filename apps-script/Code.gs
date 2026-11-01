@@ -16,7 +16,6 @@
  * 실행이 끝나면 비밀번호는 안전하게 저장되므로, 여기 적은 글자는 지워도 됩니다.
  */
 const ADMIN_PASSWORD_INIT = '';
-const RANK_EXCLUDE = ['21201'];   // 순위에서 뺄 학번 (선생님 시험용 계정)
 const RANK_MIN_CLASS = 10;        // 반별 1~3위는 그 반 참가자가 이만큼 이상일 때만 보여 줌 (몇 명 안 될 때 누구인지 드러나지 않게)
 const RANK_MIN_ALL = 30;          // 전체 1~10위는 전체 참가자가 이만큼 이상일 때만 보여 줌
 
@@ -133,6 +132,7 @@ const ACTIONS = {
   adminNotices: adminNotices_,
   adminViewAs: adminViewAs_,
   adminCardOrderSave: adminCardOrderSave_,
+  adminRegAllow: adminRegAllow_,
   qimg: qimg_,
   adminQImgSave: adminQImgSave_,
   adminNoticeSave: adminNoticeSave_,
@@ -153,6 +153,7 @@ const ACTIONS = {
 /* ---------------- 학생 ---------------- */
 function register_(req) {
   const sid = cleanSid_(req.sid), name = cleanName_(req.name), pw = cleanPin_(req.pw);
+  if (!regAllowed_(sid)) fail_('사용 권한이 없는 학번입니다.');
   return withLock_(() => {
     const sh = sheet_(SHEET_STUDENTS);
     const row = findStudentRow_(sh, sid);
@@ -213,6 +214,7 @@ function checkStudentPw_(sid, pw, needRow) {
 
 function login_(req) {
   const sid = cleanSid_(req.sid), pw = String(req.pw || '');
+  if (!regAllowed_(sid)) fail_('사용 권한이 없는 학번입니다.');
   const st = checkStudentPw_(sid, pw, false);
   if (!/^v2:/.test(st.salt)) {   // 예전 방식 비밀번호를 빠른 방식으로 바꿔 둠 (학생마다 한 번)
     withLock_(() => {
@@ -228,6 +230,7 @@ function login_(req) {
 /* 학생이 스스로 비밀번호 바꾸기: 지금 비밀번호를 확인하고 새 비밀번호(숫자 5자리)로 바꾼 뒤 로그인 */
 function changePw_(req) {
   const sid = cleanSid_(req.sid), pw = String(req.pw || ''), newPw = cleanPin_(req.newPw);
+  if (!regAllowed_(sid)) fail_('사용 권한이 없는 학번입니다.');
   return withLock_(() => {
     const st = checkStudentPw_(sid, pw, true);
     const s2 = newSalt_(), h2 = hashPw_(newPw, s2);
@@ -399,7 +402,7 @@ function rankRows_(page) {
     const sh = sheet_(SHEET_STUDENTS), n = sh.getLastRow(); if (n < 2) return [];
     const names = sh.getRange(2, 1, n - 1, 2).getValues(), cells = sh.getRange(2, RANK_COL, n - 1, 1).getValues(), out = [];
     names.forEach((r, i) => {
-      const sid = String(r[0]).trim(); if (!sid || RANK_EXCLUDE.indexOf(sid) >= 0 || !cells[i][0]) return;
+      const sid = String(r[0]).trim(); if (!sid || isTestSid_(sid) || !cells[i][0]) return;   // 시험용 학번은 순위에 넣지 않음
       const data = parseJ_(cells[i][0], {}), mine = {};
       Object.keys(data).forEach(k => { const j = k.indexOf('|'); if (k.slice(0, j) === page) mine[k.slice(j + 1)] = data[k]; });
       if (Object.keys(mine).length) out.push({sid: sid, name: String(r[1]), cls: sidClass_(sid), r: mine});
@@ -488,8 +491,46 @@ function admin_(req) {
     students: students.sort((a, b) => String(a.sid).localeCompare(String(b.sid))),
     recent: recent.slice(0, 300),
     wrongTop: Object.keys(wrongCount).map(k => wrongCount[k]).sort((a, b) => b.count - a.count).slice(0, 50),
-    archive: archiveInfo_()
+    archive: archiveInfo_(),
+    regAllow: PropertiesService.getScriptProperties().getProperty('REG_ALLOW') || '',
+    regTest: PropertiesService.getScriptProperties().getProperty('TEST_SIDS') || ''
   };
+}
+
+/* 사용할 수 있는 학번: 선생님 메뉴 → 학생 기록에서 정함 (예: 20101~20126, 20201~20226).
+   적어 두면 그 학번만 처음 등록·로그인·이용이 됨 (이미 로그인해 있던 다른 학번도 다음 요청에서 로그아웃). 비어 있으면 누구나 */
+function regRules_(text) {
+  return String(text || '').replace(/[～〜]/g, '~').replace(/\s*~\s*/g, '~').split(/[\s,]+/).filter(Boolean).map(x => {
+    const m = x.split('~');
+    if (m.length > 2 || m.some(v => !/^[0-9A-Za-z-]{2,20}$/.test(v))) fail_(`"${x.slice(0, 30)}"을(를) 알아볼 수 없어요. 20101~20126처럼 써 주세요.`);
+    return m.length === 2 ? [m[0], m[1]] : [m[0], m[0]];
+  });
+}
+/* 학번이 목록(예: '20101~20126, 21201')에 들어 있는지 */
+function sidInRules_(sid, text) {
+  let rules = []; try { rules = regRules_(text); } catch (e) { return false; }
+  return rules.some(r => sid === r[0] || sid === r[1] ||
+    (/^[0-9]+$/.test(r[0] + r[1] + sid) && sid.length === r[0].length && r[0].length === r[1].length && Number(sid) >= Math.min(+r[0], +r[1]) && Number(sid) <= Math.max(+r[0], +r[1])));
+}
+/* 시험용 학번: 선생님 메뉴에서 정함. 순위에 나오지 않고, 사용할 수 있는 학번 목록에 없어도 늘 쓸 수 있음 */
+function isTestSid_(sid) {
+  return sidInRules_(sid, PropertiesService.getScriptProperties().getProperty('TEST_SIDS') || '');
+}
+function regAllowed_(sid) {
+  const text = PropertiesService.getScriptProperties().getProperty('REG_ALLOW');
+  if (!text || isTestSid_(sid)) return true;
+  return sidInRules_(sid, text);
+}
+function adminRegAllow_(req) {
+  checkToken_(req.token, 'a');
+  const props = PropertiesService.getScriptProperties();
+  const norm = t => { const x = regRules_(t).map(r => r[0] === r[1] ? r[0] : r[0] + '~' + r[1]).join(', '); if (x.length > 4000) fail_('너무 길어요. 범위(~)로 묶어서 써 주세요.'); return x; };
+  const text = req.text !== undefined ? norm(req.text) : null, t = req.test !== undefined ? norm(req.test) : null;   // 둘 다 확인한 뒤 저장
+  if (text !== null) props.setProperty('REG_ALLOW', text);   // 빈 값: 누구나 등록
+  if (t !== null) {
+    if (t !== (props.getProperty('TEST_SIDS') || '')) { props.setProperty('TEST_SIDS', t); props.setProperty('CACHE_GEN', String(Date.now())); GEN_ = null; }   // 순위를 새로 계산하게 함
+  }
+  return {ok: true, text: props.getProperty('REG_ALLOW') || '', test: props.getProperty('TEST_SIDS') || ''};
 }
 
 function adminStudent_(req) {
@@ -1312,7 +1353,9 @@ function checkToken_(token, kind) {
   const body = p.slice(0, 3).join('.');
   if (sign_(body) !== p[3] || Number(p[2]) < Date.now()) fail_('로그인이 만료되었어요. 다시 로그인해 주세요.', 'auth');
   let id = p[1]; while (id.length % 4) id += '=';
-  return Utilities.newBlob(Utilities.base64DecodeWebSafe(id)).getDataAsString('UTF-8');
+  const who = Utilities.newBlob(Utilities.base64DecodeWebSafe(id)).getDataAsString('UTF-8');
+  if (kind === 's' && !regAllowed_(who)) fail_('사용 권한이 없는 학번입니다.', 'auth');   // 학번 목록에서 빠진 학생은 로그인해 있어도 쓸 수 없음
+  return who;
 }
 function cleanSid_(v) {
   const s = String(v == null ? '' : v).trim();
