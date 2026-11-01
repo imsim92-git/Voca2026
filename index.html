@@ -50,7 +50,7 @@ img{max-width:100%}
   --c6-bg:#0b7480; --c6-fg:#ffffff; --c6-line:#0b7480;
   color-scheme:dark}
 *{box-sizing:border-box}
-html,body{min-height:100%}
+html,body{min-height:100%;overscroll-behavior-x:none}   /* a sideways trackpad swipe (wide tables) does not go back a screen */
 body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
 .wrap{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
@@ -314,6 +314,7 @@ tr.event td{color:var(--muted)}
 .racetile:disabled{opacity:.6;cursor:default;transform:none}
 .racetile .chip{margin-top:2px}
 .countdown{display:grid;place-items:center;height:70vh;font-size:120px;font-weight:700;color:var(--navy);font-variant-numeric:tabular-nums}
+.rexit{display:block;margin:0 0 8px auto}
 .countdown.small{height:auto;padding:40px 0 10px;font-size:56px}
 .racehead{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
 .racehead b{font-size:17px}
@@ -356,6 +357,18 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 .rank.run li > .muted{grid-area:sec;justify-self:end}
 .waiting{font-size:14px}
 .wrap.wide{max-width:1100px}
+/* 학생 기록 → 학생별: the list scrolls by itself; on a wide screen the record sits beside it */
+.recgrid{display:flex;flex-direction:column;gap:18px}
+.recgrid.split #tb .tablewrap{max-height:45vh;overflow:auto}
+.recgrid.split thead th{position:sticky;top:0;background:var(--surface);z-index:1}
+.recgrid.split tr.sel td{background:color-mix(in srgb, var(--mark) 35%, transparent)}
+.recgrid .detail-hint{display:none}
+@media (min-width:900px){
+  .recgrid.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+  .recgrid.split #tb .tablewrap{max-height:calc(100vh - 60px)}
+  .recgrid.split #detail{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+  .recgrid.split .detail-hint{display:block}
+}
 .board.big{font-size:18px}
 .board.big h2{font-size:34px}
 .board.big .rank li{padding:16px 20px}
@@ -444,6 +457,11 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .seg.two{flex-direction:row;flex-wrap:wrap}
 .seg.two .segopt{flex:1 1 220px}
 .qcard{align-items:stretch;text-align:left;justify-content:flex-start;min-height:0;gap:12px}
+.qimg{display:flex;justify-content:center;margin:0 0 10px}.qimg img{max-width:100%;max-height:60vh;border-radius:8px;border:1px solid var(--line);background:#fff}
+.qimg.small{margin:0;justify-content:flex-start}.qimg.small img{max-height:120px}
+.qimgrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.qpicpick{cursor:pointer}
+.qpic{border:1px dashed var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}.qpic img{max-width:100%;max-height:260px;object-fit:contain;align-self:flex-start;border-radius:6px}
+.qpic-act{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .qpass{white-space:pre-wrap;font-size:15px;line-height:1.7;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;max-height:45vh;overflow:auto;font-family:var(--f-word)}
 .qtext{white-space:pre-wrap;font-weight:600;line-height:1.6}
 .qtext.small{font-size:14px;font-weight:500}
@@ -453,6 +471,13 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .qres{margin:0;padding:0;list-style:none}
 .qres li{display:flex;flex-direction:column;gap:6px;padding:14px 16px;border-top:1px solid var(--line)}
 .qres li:first-child{border-top:0}
+.revopts{margin:2px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:14px}
+.qres .revopts li{display:flex;flex-direction:row;gap:6px;align-items:baseline;padding:4px 8px;border-top:0;border-radius:8px}
+.revopts li.ans{background:var(--good-bg);font-weight:700}
+.racecell{display:flex;flex-direction:column;gap:6px}.racecell .racetile{flex:1}
+.revbtn{align-self:flex-start;font-weight:700;font-size:14px}
+.qres .revopts li.my{background:var(--bad-bg)}
+.chip.mine{background:var(--navy, #1b2550);color:#fff}
 .qexp{background:var(--good-bg);border-radius:10px;padding:10px 12px;font-size:14px;line-height:1.6;white-space:pre-wrap}
 .qed{display:flex;flex-direction:column;gap:8px;padding:12px}
 .qed textarea{min-height:0}
@@ -726,10 +751,12 @@ function enterTeacher(cls){
    server and stay in this tab only: practising, stars or races here are never saved to the student */
 async function viewStudentAs(sid){
   stopTimers();
-  $app.innerHTML = `${header()}<div class="panel empty">${esc(sid)} 학생 화면을 불러오는 중…</div>`;
+  const mk = 'v-as-' + (++VIEWSEQ);
+  $app.innerHTML = `${header()}<div class="panel empty">${esc(sid)} 학생 화면을 불러오는 중…</div><i hidden id="${mk}"></i>`;
   let r;
   try { r = await api('adminViewAs', {token: AUTH.token, sid}); }
-  catch(e){ if (onAuthError(e)) return; toast(e.error || '학생 화면을 불러오지 못했어요'); return backToTeacher(); }
+  catch(e){ if (!document.getElementById(mk)) return; if (onAuthError(e)) return; toast(e.error || '학생 화면을 불러오지 못했어요'); return backToTeacher(); }
+  if (!document.getElementById(mk)) return;   // the teacher opened something else meanwhile
   AUTH = Object.assign({}, AUTH, {sid: '#view:' + r.student.sid, view: r.student, cls: r.student.cls});
   MY = Object.assign({items: {}, removed: {}, last: {}, best: {}}, r.my); MY_SID = AUTH.sid; myDirty = false;
   tvsSet(r.student.sid); tvSet(r.student.cls);
@@ -999,6 +1026,16 @@ async function viewMe(){
   }
 }
 
+/* 학생 기록 → 한 학생: 단어 목록·카드 넘기기 (점수 없음, 성실하게 했는지 보는 용도) */
+const fmtDur = s => s >= 60 ? `${Math.floor(s / 60)}분${s % 60 ? ` ${s % 60}초` : ''}` : `${s}초`;
+function actSection(acts){
+  const n = m => acts.filter(a => a.mode === m).length, secs = acts.reduce((t, a) => t + (a.secs || 0), 0);
+  return `<div class="section-label">단어 목록·카드 넘기기</div>
+    ${acts.length ? `<p class="help" style="margin:0 0 6px">카드 넘기기 ${n('카드 넘기기')}번 · 단어 목록 ${n('단어 목록')}번 · 모두 ${fmtDur(secs)} <span class="muted">(점수 없는 활동이라 연습 횟수·정답률에는 들어가지 않아요)</span></p>
+    <ul class="log">${acts.slice(0, 20).map(a => `<li><span>${esc(fmtTime(a.at))}</span><span>${esc(recPage(a.page, a.pageTitle, true))} · ${esc(a.mode)}</span><b>${a.mode === '카드 넘기기' ? `${a.seen}/${a.total}장 · ` : ''}${fmtDur(a.secs || 0)}</b></li>`).join('')}</ul>`
+    : '<p class="help">아직 단어 목록·카드 넘기기 기록이 없어요. (이번 업데이트 뒤부터 기록돼요)</p>'}`;
+}
+let SEL_SID = '';   // 학생 기록: the student whose record is open
 /* ---------- teacher: practice records ---------- */
 /* the address shows where a refresh should land: #admin on every teacher screen, no #admin on student screens.
    replaceState changes it without firing hashchange, so the screen is not drawn twice */
@@ -1045,7 +1082,7 @@ async function viewAdmin(next){
   const MK = '<i hidden id="' + mk + '"></i>';
 
   const today = new Date().toDateString();
-  const practicedToday = new Set(r.recent.filter(l => l.total > 0 && new Date(l.at).toDateString() === today).map(l => l.sid)).size;
+  const practicedToday = new Set(r.recent.filter(l => l.total > 0 && !l.act && new Date(l.at).toDateString() === today).map(l => l.sid)).size;
   const sessions = r.students.reduce((a, s) => a + s.sessions, 0);
   let tab = store.get('wordroom-admin-tab', 'students'), filter = '';
   $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('records')}
@@ -1062,8 +1099,7 @@ async function viewAdmin(next){
     <button role="tab" class="tab" data-t="words">많이 틀린 단어</button>
   </div>
   <input type="text" id="flt" placeholder="학번이나 이름으로 찾기" aria-label="학생 찾기">
-  <div id="tb"></div>
-  <div id="detail"></div>`;
+  <div class="recgrid" id="recgrid"><div id="tb"></div><div id="detail"></div></div>`;
   document.getElementById('up').onclick = () => route(); bindAdminNav();
   document.getElementById('rf').onclick = viewAdmin;
   document.getElementById('ao').onclick = () => { ADMIN = null; ['wordroom-admin', 'wordroom-admin-cache', 'wordroom-raceadmin'].forEach(k => store.set(k, null)); route(); };
@@ -1073,17 +1109,20 @@ async function viewAdmin(next){
     store.set('wordroom-admin-tab', tab);
     $app.querySelectorAll('[data-t]').forEach(b => b.setAttribute('aria-selected', b.dataset.t === tab));
     flt.hidden = tab === 'words';
+    /* 학생별: the list scrolls on its own and the clicked student's record shows beside it (below it on a phone) */
+    const split = tab === 'students'; $app.classList.toggle('wide', split); document.getElementById('recgrid').classList.toggle('split', split);
+    const det = document.getElementById('detail'); if (!split) det.innerHTML = ''; else if (!det.innerHTML.trim()) det.innerHTML = '<div class="panel empty detail-hint">학생을 누르면 여기에 그 학생의 기록이 나와요.</div>';
     if (tab === 'students') {
       const rows = r.students.filter(s => match(s.sid, s.name));
       tb.innerHTML = rows.length ? `<div class="tablewrap"><table><thead><tr><th>학번</th><th>이름</th><th class="num">연습</th><th class="num">정답률</th><th>마지막 연습</th></tr></thead><tbody>
         ${rows.map(s => `<tr data-sid="${esc(s.sid)}" tabindex="0"><td>${esc(s.sid)}</td><td>${esc(s.name)}${s.hasPw === false ? ' <span class="chip">초기화됨</span>' : ''}</td><td class="num">${s.sessions}</td><td class="num">${pct(s.correct, s.questions)}</td><td>${s.lastPractice ? esc(fmtTime(s.lastPractice)) : '<span class="muted">없음</span>'}</td></tr>`).join('')}
         </tbody></table></div><p class="help">학생 줄을 누르면 그 학생의 오답과 기록, 비밀번호 초기화가 나와요.</p>` : '<div class="panel empty">해당하는 학생이 없어요.</div>';
-      tb.querySelectorAll('tr[data-sid]').forEach(tr => { tr.onclick = () => showStudent(tr.dataset.sid); tr.onkeydown = e => { if (e.key === 'Enter') showStudent(tr.dataset.sid); }; });
+      tb.querySelectorAll('tr[data-sid]').forEach(tr => { tr.classList.toggle('sel', tr.dataset.sid === SEL_SID); tr.onclick = () => showStudent(tr.dataset.sid); tr.onkeydown = e => { if (e.key === 'Enter') showStudent(tr.dataset.sid); }; });
     } else if (tab === 'recent') {
       const rows = r.recent.filter(l => match(l.sid, l.name));
       tb.innerHTML = rows.length ? `<div class="tablewrap"><table class="rectable"><thead><tr><th>시각</th><th>학번</th><th>이름</th><th>학습지</th><th>연습</th><th class="num">점수</th></tr></thead><tbody>
-        ${rows.map(l => `<tr class="${l.total ? '' : 'event'}"><td>${esc(fmtTime(l.at))}</td><td>${esc(l.sid)}</td><td>${esc(l.name)}</td><td class="wt">${cell2(recPage(l.page, l.pageTitle))}</td><td>${esc(l.mode)}</td><td class="num">${l.total ? `${l.score}/${l.total}` : ''}</td></tr>`).join('')}
-        </tbody></table></div><p class="help">최근 300건이에요. 전체 기록은 구글 시트의 '기록' 탭에 있어요.</p>` : '<div class="panel empty">아직 기록이 없어요.</div>';
+        ${rows.map(l => `<tr class="${l.total || l.act ? '' : 'event'}"><td>${esc(fmtTime(l.at))}</td><td>${esc(l.sid)}</td><td>${esc(l.name)}</td><td class="wt">${cell2(recPage(l.page, l.pageTitle))}</td><td>${esc(l.mode)}</td><td class="num">${l.act ? `<span class="muted">${l.mode === '카드 넘기기' ? `${l.seen}/${l.total}장 · ` : ''}${fmtDur(l.secs || 0)}</span>` : l.total ? `${l.score}/${l.total}` : ''}</td></tr>`).join('')}
+        </tbody></table></div><p class="help">최근 300건이에요. 단어 목록·카드 넘기기는 점수 대신 본 카드 수와 걸린 시간이 나와요.</p>` : '<div class="panel empty">아직 기록이 없어요.</div>';
     } else {
       tb.innerHTML = r.wrongTop.length ? `<div class="tablewrap"><table><thead><tr><th>단어</th><th>뜻</th><th class="num">틀린 횟수</th><th class="num">학생 수</th></tr></thead><tbody>
         ${r.wrongTop.map(w => { const x = lookupWord(w.en, w.page); return `<tr><td class="en">${esc(w.en)}</td><td>${esc(x[1])}</td><td class="num">${w.count}</td><td class="num">${w.students}</td></tr>`; }).join('')}
@@ -1096,7 +1135,10 @@ async function viewAdmin(next){
 
   async function showStudent(sid){
     const box = document.getElementById('detail');
-    box.innerHTML = '<div class="panel empty">불러오는 중…</div>'; box.scrollIntoView({behavior: 'smooth', block: 'start'});
+    SEL_SID = sid; $app.querySelectorAll('#tb tr[data-sid]').forEach(tr => tr.classList.toggle('sel', tr.dataset.sid === sid));
+    box.innerHTML = '<div class="panel empty">불러오는 중…</div>';
+    if (!matchMedia('(min-width: 900px)').matches) box.scrollIntoView({behavior: 'smooth', block: 'start'});   // side by side on a wide screen: no scrolling needed
+    else box.scrollTop = 0;
     let s;
     try { s = await api('adminStudent', {token: ADMIN.token, sid}); }
     catch(e){ if (e.code === 'auth') { ADMIN = null; store.set('wordroom-admin', null); return viewAdmin(); } box.innerHTML = `<div class="panel empty">${esc(e.error || '불러오지 못했어요.')}</div>`; return; }
@@ -1111,11 +1153,12 @@ async function viewAdmin(next){
       ${s.wrong.length ? `<ul class="wl">${s.wrong.slice(0, 15).map(w => { const x = lookupWord(w.en, w.page); return `<li><span class="en">${esc(w.en)}</span><span class="cnt">${w.count}번</span><span class="ko">${esc(x[1])}</span></li>`; }).join('')}</ul>` : '<p class="help">틀린 단어 기록이 없어요.</p>'}
       <div class="section-label">최근 연습</div>
       ${s.recent.length ? `<ul class="log">${s.recent.slice(0, 15).map(l => `<li><span>${esc(fmtTime(l.at))}</span><span>${esc(recPage(l.page, l.pageTitle, true))} · ${esc(l.mode)}</span><b>${l.score}/${l.total}</b></li>`).join('')}</ul>` : '<p class="help">연습 기록이 없어요.</p>'}
+      ${actSection(s.acts || [])}
       <div class="reset" id="rs">
         <button class="btn ghost" id="rs1">비밀번호 초기화</button>
       </div>
     </div>`;
-    document.getElementById('dx').onclick = () => box.innerHTML = '';
+    document.getElementById('dx').onclick = () => { SEL_SID = ''; $app.querySelectorAll('#tb tr.sel').forEach(tr => tr.classList.remove('sel')); box.innerHTML = '<div class="panel empty detail-hint">학생을 누르면 여기에 그 학생의 기록이 나와요.</div>'; };
     document.getElementById('rs1').onclick = () => {
       document.getElementById('rs').innerHTML = `<p class="help">초기화하면 ${esc(s.student.name)} 학생은 "처음 등록"에서 같은 학번으로 새 비밀번호를 정해요. 연습 기록은 그대로 남아요.</p>
         <div class="row"><button class="btn ghost" id="rs-no">취소</button><button class="btn danger" id="rs-yes">초기화하기</button></div>`;
@@ -1444,7 +1487,7 @@ async function viewNoticesAdmin(){
   }
   draw('불러오는 중…');
   try { list = (await api('adminNotices', {token: ADMIN.token})).notices; }
-  catch(e){ if (adminErr(e, viewNoticesAdmin)) return; return draw(e.error || '공지를 불러오지 못했어요.'); }
+  catch(e){ if (!document.getElementById('nnew')) return; if (adminErr(e, viewNoticesAdmin)) return; return draw(e.error || '공지를 불러오지 못했어요.'); }
   if (document.getElementById('nnew')) draw();
 }
 async function viewSetsAdmin(){
@@ -1486,6 +1529,34 @@ async function viewSetsAdmin(){
   await loadSets(); if (document.getElementById('sl')) draw();
 }
 
+/* Ctrl+V of a picture (a screen capture). Copied Excel cells also carry a picture, so anything with text is left to the text box */
+let PASTE_PIC = null;   // {el: an element id that shows the screen is still open, fn(files)}
+function onPicturePaste(el, fn){ PASTE_PIC = {el, fn}; }
+const clipPictures = e => { const d = e.clipboardData; if (!d || [...d.types].includes('text/plain')) return [];
+  return [...d.items].filter(x => x.kind === 'file' && /^image\//.test(x.type)).map(x => x.getAsFile()).filter(Boolean); };
+document.addEventListener('paste', e => {
+  if (e.defaultPrevented || !PASTE_PIC || !document.getElementById(PASTE_PIC.el)) return;
+  const files = clipPictures(e); if (!files.length) return;
+  e.preventDefault(); PASTE_PIC.fn(files);
+});
+/* a quiz picture: at most 1400px wide; PNG when it stays small (sharp lines for charts), otherwise JPEG */
+function shrinkPic(file){
+  return new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1400 / img.width), c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      let mime = 'image/png', u = c.toDataURL(mime);
+      for (const qy of [0.9, 0.8, 0.65, 0.5]) { if (u.length < 600000) break; mime = 'image/jpeg'; u = c.toDataURL(mime, qy); }
+      if (u.length > 880000) return rej(new Error('그림이 너무 커요. 필요한 부분만 잘라서 넣어 주세요.'));
+      res({url: u, mime, data: u.split(',')[1]});
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('그림을 열 수 없어요. PNG나 JPG로 넣어 주세요.')); };
+    img.src = url;
+  });
+}
 /* photo → smaller JPEG (long side 2000px) so it uploads quickly from a phone */
 function shrinkImage(file){
   return new Promise((res, rej) => {
@@ -1512,7 +1583,7 @@ function viewSetEdit(set){
   <h2>${set ? '지문 편집' : '새 지문 만들기'}</h2>
   <div class="field"><label for="se-name">지문 이름</label><input type="text" id="se-name" placeholder="예: 교과서 3과, 모의고사 1번" value="${esc(draft ? draft.name : set ? set.t : '')}" maxlength="40"></div>
   <div class="field"><label for="se-file">단어표 사진</label>
-    <label class="upload" for="se-file"><input type="file" id="se-file" accept="image/*" multiple><span class="up-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg></span><span><b>단어표 사진 고르기</b><br><span class="muted">카메라로 찍거나 저장된 사진을 골라요 · 여러 장도 돼요</span></span></label>
+    <label class="upload" for="se-file"><input type="file" id="se-file" accept="image/*" multiple><span class="up-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg></span><span><b>단어표 사진 고르기</b><br><span class="muted">캡처한 그림은 이 화면에서 <b>Ctrl+V</b>로 바로 붙여 넣어도 돼요 · 휴대폰은 카메라로 찍어도 돼요</span></span></label>
     <p class="help">사진 속 영어 단어와 뜻을 읽어서 아래 칸에 넣어요. 표가 반듯하고 글자가 선명할수록 정확해요.</p>
     <div id="se-status" class="savestate"></div>
   </div>
@@ -1544,8 +1615,7 @@ function viewSetEdit(set){
   });
   $('up').onclick = () => viewSetsAdmin();
   bindAdminNav();
-  $('se-file').onchange = async e => {
-    const files = [...e.target.files]; e.target.value = '';
+  const readPhotos = async files => {
     for (let k = 0; k < files.length; k++) {
       status.className = 'savestate'; status.textContent = `사진 ${k + 1}/${files.length}에서 글자를 읽는 중… (10~30초)`;
       try {
@@ -1567,6 +1637,8 @@ function viewSetEdit(set){
       }
     }
   };
+  $('se-file').onchange = e => { const files = [...e.target.files]; e.target.value = ''; readPhotos(files); };
+  onPicturePaste('se-file', files => { $('se-file').closest('.field').scrollIntoView({block: 'nearest'}); readPhotos(files); });   // a screenshot pasted anywhere on this screen (Ctrl+V)
   $('se-try').onclick = () => {
     const r = current(); if (!r.words.length) return toast('단어를 먼저 넣어 주세요');
     SET = toSet({id: set ? set.id : 'preview', name: nameEl.value.trim() || '미리 보기', words: r.words}); origin = 'setedit'; SET.back = () => viewSetEdit(set); SCOPE = 'all'; viewHome();
@@ -1643,6 +1715,8 @@ function matchRounds(words){
   }
   return rounds;
 }
+/* 정확도 Quiz: speed does not matter, so whole seconds (remaining time rounds up so it never shows 0초 too early) */
+const fmtSecW = (s, up) => { s = Math.max(0, up ? Math.ceil(s) : Math.floor(s)); const m = Math.floor(s / 60), r = s % 60; return m ? `${m}분 ${String(r).padStart(2, '0')}초` : `${r}초`; };
 const fmtSec = s => { s = Math.max(0, s); const m = Math.floor(s / 60), r = s - m * 60; return m ? `${m}분 ${r.toFixed(1).padStart(4, '0')}초` : `${r.toFixed(1)}초`; };
 /* Quiz scored by accuracy: answer each question once within the time limit, ranked by how many are right */
 const isAcc = race => race.settings.mode === 'quiz' && race.settings.scoring === 'acc';
@@ -1666,8 +1740,10 @@ function raceTile(x){
   const state = running ? '<span class="chip run">달리는 중 · 이어 하기</span>'
     : m && m.best != null ? `<span class="chip ok">${isAcc(x) ? (multi ? `최고 ${m.bestDone}/${m.bestTotal} · ${m.finished}번 도전` : `완료 · ${m.bestDone}/${m.bestTotal} (${pctOf(m.bestDone, m.bestTotal)})`) : multi ? `최고 ${fmtSec(m.best)} · ${m.finished}번 도전` : `완료 · ${fmtSec(m.best)}`}</span>`
     : x.status === '마감' ? '<span class="chip">마감</span>' : '<span class="chip go">출발 가능</span>';
+  const done = x.settings.mode === 'quiz' && !running && m && m.best != null && x.status === '진행';   // Quiz finished at least once and still open: 다시 보기 until the teacher closes it
   const can = running || (x.status === '진행' && (!m || multi));
-  return `<button class="page racetile" data-race="${esc(x.id)}" ${can ? '' : 'disabled'}><b>${esc(x.name)}</b><span class="pc">${MODE_NAME[x.settings.mode]} · ${n}문제${raceRule(x)}${multi ? ' · 여러 번 도전' : ''}</span>${state}</button>`;
+  const tile = `<button class="page racetile" data-race="${esc(x.id)}" ${can ? '' : 'disabled'}><b>${esc(x.name)}</b><span class="pc">${MODE_NAME[x.settings.mode]} · ${n}문제${raceRule(x)}${multi ? ' · 여러 번 도전' : ''}</span>${state}</button>`;
+  return done ? `<div class="racecell">${tile}<button class="link revbtn" data-review="${esc(x.id)}">눌러서 문제·정답·해설 다시 보기</button></div>` : tile;
 }
 
 /* ---------- team: the open races ---------- */
@@ -1695,6 +1771,7 @@ async function viewTeamHome(force){
     document.getElementById('tleave').onclick = teamLeave;
     document.getElementById('trefresh').onclick = () => viewTeamHome(true);
     $app.querySelectorAll('[data-race]').forEach(b => b.onclick = () => viewRaceReady(r.races.find(x => x.id === b.dataset.race), teamCtx()));
+    $app.querySelectorAll('[data-review]').forEach(b => b.onclick = () => viewRaceReview(r.races.find(x => x.id === b.dataset.review), teamCtx()));
     scrollTo(0, 0);
     $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
   }
@@ -1730,6 +1807,7 @@ const myRacesHTML = () => { const list = myRacesList();   // no open race: no ra
 /* draw the student's race buttons from the saved copy, then check the server and redraw if something changed */
 function bindMyRaces(redraw){
   $app.querySelectorAll('#myraces [data-race]').forEach(b => b.onclick = () => viewRaceReady(myRacesList().find(x => x.id === b.dataset.race), isTeacher() ? teacherRaceCtx() : studentCtx()));
+  $app.querySelectorAll('#myraces [data-review]').forEach(b => b.onclick = () => viewRaceReview(myRacesList().find(x => x.id === b.dataset.review), isTeacher() ? teacherRaceCtx() : studentCtx()));
   const snap = () => JSON.stringify([myRacesList(), isTeacher() ? [store.get(TCLS_KEY, null), store.get(TSTU_KEY, null)] : 0]);   // the teacher's class list can arrive too
   const before = snap(), mk = 'v-myr-' + (++VIEWSEQ);
   $app.insertAdjacentHTML('beforeend', '<i hidden id="' + mk + '"></i>');
@@ -1739,16 +1817,61 @@ function bindMyRaces(redraw){
   });
 }
 
+/* a finished race, looked at again while it is still open: every question with its passage, choices, answer and
+   explanation (a word race: its words and meanings). Nothing is sent; once the teacher closes the race it is gone */
+/* ---------- quiz pictures (a chart or table in the passage): kept in the hidden '퀴즈 이미지' sheet, fetched by ID ---------- */
+const QIMG = {};   // id → Promise of a data: address
+function qimgLoad(id){
+  if (!QIMG[id]) QIMG[id] = api('qimg', {id}).then(r => `data:${r.mime};base64,${r.data}`).catch(e => { delete QIMG[id]; throw e; });
+  return QIMG[id];
+}
+const qPassHTML = q => `${q.img ? `<div class="qimg" data-qimg="${esc(q.img)}"><span class="muted small">그림을 불러오는 중…</span></div>` : ''}${q.passage ? `<div class="qpass">${esc(q.passage)}</div>` : ''}`;
+function fillQImgs(){
+  $app.querySelectorAll('[data-qimg]:not([data-on])').forEach(el => {
+    el.dataset.on = '1';
+    qimgLoad(el.dataset.qimg).then(src => { el.innerHTML = `<img src="${src}" alt="지문 그림">`; })
+      .catch(() => { el.innerHTML = '<span class="muted small">그림을 불러오지 못했어요.</span>'; });
+  });
+}
+new MutationObserver(() => { if ($app.querySelector('[data-qimg]:not([data-on])')) fillQImgs(); }).observe($app, {childList: true, subtree: true});
+function viewRaceReview(race, ctx){
+  stopTimers();
+  if (!race) return ctx.home();
+  const m = race.mine, quiz = race.settings.mode === 'quiz', items = raceItems(race), A = m && Array.isArray(m.answers) ? m.answers : null;
+  const RES = {ok: '<span class="chip ok">맞힘</span>', wrong: '<span class="chip">틀림</span>', skip: '<span class="chip">건너뜀</span>', blank: '<span class="chip">답 안 함</span>'};
+  const rec = m && m.best != null ? (isAcc(race) ? `${m.bestDone}/${m.bestTotal} (${pctOf(m.bestDone, m.bestTotal)})` : fmtSec(m.best)) : '';
+  let lastPass = '';
+  const qHTML = (q, i) => {
+    const pk = (q.img || '') + '\n' + (q.passage || ''), pass = pk !== '\n' && pk !== lastPass ? qPassHTML(q) : ''; if (pk !== '\n') lastPass = pk;
+    const my = A && A[i], mine = my && my.a !== null && my.a !== undefined && my.a !== '' ? my.a : null;
+    const opts = q.type === 'choice' ? `<ol class="revopts">${q.options.map((o, k) => o ? `<li class="${k === q.answer ? 'ans' : mine === k ? 'my' : ''}"><span>${CIRCLED[k] || k + 1}</span> ${esc(o)}${k === q.answer ? ' <span class="chip ok">정답</span>' : ''}${mine === k ? ' <span class="chip mine">내 답</span>' : ''}</li>` : '').join('')}</ol>` : '';
+    const myLine = my ? `<div class="small">내 답: <b>${mine === null ? '–' : q.type === 'choice' ? esc(`${CIRCLED[mine] || mine + 1} ${q.options[mine] || ''}`) : esc(mine)}</b></div>` : '';
+    return `<li>${pass}<div class="row" style="gap:8px"><b>${i + 1}번</b>${my ? RES[my.r] || '' : ''}</div><div class="qtext">${esc(q.q)}</div>${opts}
+      ${myLine}<div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`;
+  };
+  $app.innerHTML = `${header(`<button class="link" id="back">${ctx.backText}</button>`)}
+  <div class="setcard"><div class="eyebrow">${esc(ctx.label)}</div><h1>${esc(race.name)}</h1><div class="meta">다시 보기 · 선생님이 마감하기 전까지 볼 수 있어요${rec ? ` · 내 기록 ${rec}` : ''}</div></div>
+  ${quiz ? `<div class="section-label">문제 ${items.length}개 · 정답과 해설${A ? ` · 내 답은 ${race.settings.multi ? '마지막으로 끝낸 도전' : '내가 처음 고른 답'} 기준` : ''}</div>
+      ${A ? '' : '<p class="help">내 답은 이번 업데이트 뒤에 끝낸 레이스부터 보여요.</p>'}<div class="panel"><ol class="qres">${items.map(qHTML).join('')}</ol></div>`
+    : (() => { const miss = new Set((m && m.wrongWords) || []), bad = items.filter(w => miss.has(w[0])), good = items.filter(w => !miss.has(w[0]));
+        return `${bad.length ? `<div class="section-label">틀렸던 단어 ${bad.length}개</div><div class="panel"><ul class="wl">${bad.map(wordRow).join('')}</ul></div>` : ''}
+          <div class="section-label">${bad.length ? `맞힌 단어 ${good.length}개` : `이 레이스의 단어 ${items.length}개`}</div><div class="panel"><ul class="wl">${good.map(wordRow).join('')}</ul></div>`; })()}
+  <div class="row"><button class="btn wide" id="home">${ctx.homeText}</button></div>`;
+  document.getElementById('back').onclick = document.getElementById('home').onclick = () => ctx.home();
+  scrollTo(0, 0);
+}
 function viewRaceReady(race, ctx){
   stopTimers();
   if (!race) return ctx.home();
+  if (race.settings.mode === 'quiz' && race.mine && race.mine.status === '완료' && race.mine.best != null && !race.settings.multi) return viewRaceReview(race, ctx);
   const items = raceItems(race), m = race.mine, resume = !ctx.trial && m && m.status !== '완료';
+  if (race.settings.mode === 'quiz') items.forEach(q => { if (q.img) qimgLoad(q.img).catch(() => {}); });   // pictures come in while the student reads the rules
   const rule = ctx.trial ? '풀어보기는 기록되지 않아요.' : race.settings.multi ? '여러 번 도전할 수 있어요. 순위는 가장 좋은 기록으로 매겨요.' : (ctx.kind === 'team' ? '모둠당 한 번만 할 수 있어요.' : '한 번만 할 수 있어요.');
   $app.innerHTML = `${header(`<button class="link" id="back">${ctx.backText}</button>`)}
   <div class="setcard"><div class="eyebrow">${esc(ctx.label)}</div><h1>${esc(race.name)}</h1><div class="meta">${MODE_NAME[race.settings.mode]} · ${items.length}문제${raceRule(race)}</div></div>
   <div class="panel" style="padding:18px;display:flex;flex-direction:column;gap:8px">
     <p style="margin:0">${isAcc(race) ? `문제마다 한 번씩 답을 골라요. 다 풀기 전에는 이전 문제로 돌아가 고칠 수 있어요.<br>${race.settings.limit ? `<b>제한 시간 ${race.settings.limit}분</b>이 지나면 그때까지 쓴 답으로 저절로 제출돼요. ` : ''}맞힌 개수로 순위를 매기고, 같으면 빨리 낸 쪽이 앞서요. 정답과 해설은 제출한 뒤에 보여요.` : MODE_HELP[race.settings.mode]}</p>
-    <p class="help" style="margin:0">${resume ? '하던 레이스를 이어서 해요. 시간은 처음 출발한 때부터 계속 흘러요.' : '출발을 누르면 3초 뒤 시작해요. ' + rule}</p>
+    <p class="help" style="margin:0">${resume ? '하던 레이스를 이어서 해요. 시간은 처음 출발한 때부터 계속 흘러요.' : (isAcc(race) ? '출발을 누르면 바로 시작해요. ' : '출발을 누르면 3초 뒤 시작해요. ') + rule}</p>
     ${race.settings.mode === 'quiz' ? '' : `<p class="help" style="margin:0">출처: ${race.sources.map(sourceName).map(esc).join(' + ')}</p>`}
     ${m && m.best != null && !resume ? `<p class="help" style="margin:0">지금까지 최고 기록 <b>${isAcc(race) ? `${m.bestDone}/${m.bestTotal} (${pctOf(m.bestDone, m.bestTotal)})` : fmtSec(m.best)}</b> · ${m.finished}번 도전</p>` : ''}
   </div>
@@ -1761,6 +1884,8 @@ function viewRaceReady(race, ctx){
     catch(err){ if (err.code === 'auth') return ctx.authFail(); toast(err.error || '출발하지 못했어요'); return ctx.home(); }
     if (ctx.kind === 'student') myRacesStale();   // the first screen should show "이어 하기" if the student comes back mid-race
     if (st.resumed) return runRace(race, items, st, ctx);
+    if (!document.getElementById('go')) return;   // left this screen while getting ready
+    if (isAcc(race)) return runRace(race, items, {elapsed: 0, done: 0, wrong: 0, penalty: 0}, ctx);   // 정확도: starts at once, no 3·2·1
     let n = 3;
     $app.innerHTML = `<div class="countdown" id="cd">${n}</div>`;
     const t = setInterval(() => { n--; if (n > 0) document.getElementById('cd').textContent = n; else { clearInterval(t); runRace(race, items, {elapsed: 0, done: 0, wrong: 0, penalty: 0}, ctx); } }, 800);
@@ -1774,7 +1899,7 @@ function runRace(race, words, st, ctx){
   stopTimers();
   const S = race.settings, P = S.penalty || 0, total = words.length;
   const t0 = performance.now() - (st.elapsed || 0) * 1000;
-  const R = {done: st.done || 0, wrong: st.wrong || 0, penalty: st.penalty || 0, wrongWords: [], qres: {}, resumedAt: st.done || 0};
+  const R = {done: st.done || 0, wrong: st.wrong || 0, penalty: st.penalty || 0, wrongWords: [], qres: {}, pick: {}, resumedAt: st.done || 0};
   // the wait for "출발" counted on the server too, so a resumed race keeps the same clock
   const elapsed = () => (performance.now() - t0) / 1000 + R.penalty;
   // progress goes to the server at most every 2 seconds, and always once more after the last answer
@@ -1792,11 +1917,17 @@ function runRace(race, words, st, ctx){
     if (force || wait <= 0) { if (pending) { clearTimeout(pending); pending = null; } push(); }
     else if (!pending) { pending = setTimeout(() => { pending = null; push(); }, wait); timers.push(pending); }
   };
+  const exitBtn = ctx.trial ? `<button class="link rexit" id="rexit">${ctx.backText || "← 나가기"}</button>` : '';   // 풀어보기: leave any time
+  if (ctx.trial) {
+    const onExit = e => { if (!e.target.closest('#rexit')) return; finished = true; stopTimers(); ctx.home(); };
+    document.addEventListener('click', onExit);
+    timers.push({off: () => document.removeEventListener('click', onExit)});
+  }
   const onHide = () => { if (document.visibilityState === 'hidden') send(true); };
   document.addEventListener('visibilitychange', onHide);
   timers.push({off: () => document.removeEventListener('visibilitychange', onHide)});
   const miss = w => { R.wrong++; R.penalty += P; if (w && !R.wrongWords.includes(w[0])) R.wrongWords.push(w[0]); const tm = document.getElementById('rtime'); if (tm && P) { tm.classList.add('pen'); setTimeout(() => tm.classList.remove('pen'), 450); } send(); };
-  const top = () => `<div class="racehead"><div><div class="count">${esc(ctx.label)}</div><b>${esc(race.name)}</b></div><div class="rtime" id="rtime">${fmtSec(elapsed())}</div></div>
+  const top = () => `${exitBtn}<div class="racehead"><div><div class="count">${esc(ctx.label)}</div><b>${esc(race.name)}</b></div><div class="rtime" id="rtime">${fmtSec(elapsed())}</div></div>
     <div class="bar"><i id="rbar" style="width:${total ? R.done / total * 100 : 0}%"></i></div><div class="count" id="rcount">${R.done} / ${total}${R.wrong ? ` · 틀림 ${R.wrong}` : ''}</div>`;
   const tick = setInterval(() => { const tm = document.getElementById('rtime'); if (tm) tm.textContent = fmtSec(elapsed()); }, 100); timers.push(tick);
   const prog = () => { const b = document.getElementById('rbar'), c = document.getElementById('rcount'); if (b) b.style.width = (R.done / total * 100) + '%'; if (c) c.textContent = `${R.done} / ${total}${R.wrong ? ` · 틀림 ${R.wrong}` : ''}`; };
@@ -1804,7 +1935,8 @@ function runRace(race, words, st, ctx){
     finished = true; stopTimers();
     $app.innerHTML = `<div class="countdown small">도착!</div><div class="panel empty" style="text-align:center">${ctx.trial ? '' : '기록을 저장하는 중…'}</div>`;
     let r = null;
-    for (let k = 0; k < 3 && !r; k++) { try { r = await raceApi(ctx, 'raceFinish', {race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords}); } catch(e){ if (e.code === 'auth') break; await new Promise(z => setTimeout(z, 1500)); } }
+    const answers = S.mode === 'quiz' ? words.map((q, i) => R.qres[i] ? {a: R.mine && i in R.mine ? (R.mine[i] === undefined ? null : R.mine[i]) : (R.pick[i] === undefined ? null : R.pick[i]), r: R.qres[i]} : null) : undefined;
+    for (let k = 0; k < 3 && !r; k++) { try { r = await raceApi(ctx, 'raceFinish', Object.assign({race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords}, answers ? {answers} : {})); } catch(e){ if (e.code === 'auth') break; await new Promise(z => setTimeout(z, 1500)); } }
     if (ctx.kind === 'student') myRacesStale();
     viewRaceResult(race, r, R, elapsed(), ctx, words);
   };
@@ -1906,13 +2038,14 @@ function runRace(race, words, st, ctx){
       if (R.done >= total) return finish();
       const i = R.done, q = words[i], label = [q.no + '번'];
       const mark = v => { if (!R.qres[i]) R.qres[i] = v; };
-      const passage = q.passage ? `<div class="qpass">${esc(q.passage)}</div>` : '';
+      const passage = qPassHTML(q);
       const head = `<div class="qtext"><span class="qno">${i + 1}.</span> ${esc(q.q)}</div>`;
       const next = () => { R.done++; prog(); send(); timers.push(setTimeout(draw, 350)); };
       if (q.type === 'choice') {
         $app.innerHTML = `${top()}<div class="card qcard">${passage}${head}</div>
         <div class="choices">${q.options.map((o, k) => `<button class="choice qopt" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${esc(o)}</span></button>`).join('')}</div>`;
         $app.querySelectorAll('.qopt').forEach(b => b.onclick = () => {
+          if (R.pick[i] === undefined) R.pick[i] = +b.dataset.k;   // the first answer is the one shown later in 다시 보기
           if (+b.dataset.k === q.answer) { mark('ok'); b.classList.add('ok'); $app.querySelectorAll('.qopt').forEach(c => c.disabled = true); next(); }
           else { mark('wrong'); b.classList.add('no'); b.disabled = true; miss(label); prog(); }
         });
@@ -1927,6 +2060,7 @@ function runRace(race, words, st, ctx){
         timers.push(setTimeout(() => ans.focus(), 30));
         document.getElementById('fm').onsubmit = e => {
           e.preventDefault(); if (!ans.value.trim()) return;
+          if (R.pick[i] === undefined) R.pick[i] = ans.value.trim();
           if (q.answer.some(a => normQ(a) === normQ(ans.value))) { mark('ok'); fb.className = 'feedback ok'; fb.textContent = '정답!'; ans.readOnly = true; next(); return; }
           mark('wrong'); miss(label); prog();
           fb.className = 'feedback no'; fb.textContent = '다시 생각해 보세요.';
@@ -1951,8 +2085,8 @@ function runRace(race, words, st, ctx){
     const answered = () => Object.keys(ans).filter(k => String(ans[k]).trim() !== '').length;
     let cur = 0, submitted = false;
     const left = () => LIM ? Math.max(0, LIM - (performance.now() - t0) / 1000) : null;
-    const clock = () => LIM ? `<span class="rtlabel">남은 시간</span>${fmtSec(left())}` : fmtSec((performance.now() - t0) / 1000);
-    const head = () => `<div class="racehead"><div><div class="count">${esc(ctx.label)}</div><b>${esc(race.name)}</b></div><div class="rtime" id="rtime">${clock()}</div></div>
+    const clock = () => LIM ? `<span class="rtlabel">남은 시간</span>${fmtSecW(left(), true)}` : fmtSecW((performance.now() - t0) / 1000);
+    const head = () => `${exitBtn}<div class="racehead"><div><div class="count">${esc(ctx.label)}</div><b>${esc(race.name)}</b></div><div class="rtime" id="rtime">${clock()}</div></div>
       <div class="bar"><i id="rbar" style="width:${total ? answered() / total * 100 : 0}%"></i></div>
       <div class="qdots">${words.map((q, i) => `<button class="qdot${i === cur ? ' on' : ''}${String(ans[i] ?? '').trim() !== '' ? ' done' : ''}" data-go="${i}" aria-label="${i + 1}번">${i + 1}</button>`).join('')}</div>`;
     clearInterval(tick);
@@ -1963,7 +2097,7 @@ function runRace(race, words, st, ctx){
     }, 250));
     const draw = () => {
       const q = words[cur];
-      const passage = q.passage ? `<div class="qpass">${esc(q.passage)}</div>` : '';
+      const passage = qPassHTML(q);
       const body = q.type === 'choice'
         ? `<div class="choices">${q.options.map((o, k) => `<button class="choice qopt${ans[cur] === k ? ' sel' : ''}" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${esc(o)}</span></button>`).join('')}</div>`
         : `<input class="answer" id="ans" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="답을 쓰세요" aria-label="답" value="${esc(ans[cur] || '')}">`;
@@ -2006,6 +2140,7 @@ function runRace(race, words, st, ctx){
       finish();
     };
     if (st.resumed && st.elapsed && LIM && st.elapsed >= LIM) return submit(true);
+    if (LIM) timers.push(setTimeout(() => { if (!submitted) submit(true); }, Math.max(0, left() * 1000)));   // ends exactly when the time limit is up
     draw();
   }
 }
@@ -2049,7 +2184,7 @@ function viewAccResult(race, r, R, localSec, ctx, items){
   <div class="setcard"><div class="eyebrow">${esc(ctx.label)}</div><h1>${R.timeUp ? '시간이 다 됐어요' : '제출했어요'}</h1><div class="meta">${esc(race.name)}</div></div>
   <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
     <div class="count">${multi ? '이번 점수' : '점수'}</div><div class="score">${right}<small> / ${total}</small> <small>· 정답률 ${pctOf(right, total)}</small></div>
-    <div class="help">걸린 시간 ${fmtSec(sec)}${multi && r && r.bestDone != null && (r.bestDone > right) ? ` · 최고 점수 <b>${r.bestDone}/${total}</b>` : ''}${r && !ctx.trial && race.settings.showRank && r.rank ? ` · <b>${esc(where)} ${r.rank}위</b> (지금까지 ${r.of}${unit})` : ''}</div>
+    <div class="help">걸린 시간 ${fmtSecW(sec)}${multi && r && r.bestDone != null && (r.bestDone > right) ? ` · 최고 점수 <b>${r.bestDone}/${total}</b>` : ''}${r && !ctx.trial && race.settings.showRank && r.rank ? ` · <b>${esc(where)} ${r.rank}위</b> (지금까지 ${r.of}${unit})` : ''}</div>
     ${r || ctx.trial ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
   </div>
   <div class="section-label">정답과 해설</div><div class="panel"><ol class="qres">${items.map((q, i) => `<li>
@@ -2132,7 +2267,7 @@ async function viewRaceAdmin(){
   const live = RACE_ADMIN.races.filter(x => !x.state.del), gone = RACE_ADMIN.races.filter(x => x.state.del);
   const races = live.filter(x => !fcls || raceClassNames(x).includes(fcls));
   const item = (x, i) => `<li class="who-${x.settings.who}"><div class="sl-main"><b>${esc(x.name)} <span class="chip who ${x.settings.who}">${WHO_NAME[x.settings.who]}</span> ${raceStateChip(x)}</b>
-        <span class="muted small">${MODE_NAME[x.settings.mode]} · ${raceItems(x).length}문제 · ${isAcc(x) ? `정확도${x.settings.limit ? ` · 제한 ${x.settings.limit}분` : ''}` : x.settings.penalty ? `벌점 ${x.settings.penalty}초` : '벌점 없음'} · ${x.settings.multi ? '여러 번 도전' : '한 번만'} · ${esc(raceClassLabel(x))} · 끝낸 ${x.settings.who === 'student' ? '학생' : '모둠'} ${x.done}${x.running ? ` · 달리는 중 ${x.running}` : ''}</span></div>
+        <span class="muted small">${MODE_NAME[x.settings.mode]} · ${raceItems(x).length}문제 · ${isAcc(x) ? `정확도${x.settings.limit ? ` · 제한 ${x.settings.limit}분` : ''}` : x.settings.penalty ? `벌점 ${x.settings.penalty}초` : '벌점 없음'} · ${x.settings.multi ? '여러 번 도전' : '한 번만'} · ${esc(raceClassLabel(x))} · 끝낸 ${x.settings.who === 'student' ? '학생' : '모둠'} ${x.done}${x.running ? ` · 달리는 중 ${x.running}` : ''}${x.stopped ? ` · 마감 전에 못 끝냄 ${x.stopped}` : ''}</span></div>
       <div class="sl-act">
         <button class="btn small mark" data-oc="${i}">열기·마감</button>
         <button class="btn ghost small" data-board="${i}">순위판</button>
@@ -2149,7 +2284,7 @@ async function viewRaceAdmin(){
   ${allNames.length > 1 ? `<div class="chipsrow" role="group" aria-label="반별로 보기"><button class="fchip${fcls ? '' : ' on'}" data-fc="">전체 반</button>${allNames.map(c => `<button class="fchip${fcls === c ? ' on' : ''}" data-fc="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''}
   ${['team', 'student'].map(w => { const list = races.map((x, i) => [x, i]).filter(([x]) => x.settings.who === w);
     return `<div class="whohead ${w}"><span class="whodot"></span><b>${WHO_NAME[w]}</b><span class="muted small">${w === 'team' ? '모둠 입장으로 들어와 한 기기로 달려요' : '학생이 로그인한 첫 화면에 나와요'} · ${list.length}개</span></div>
-    <div class="panel whopanel ${w}"><ul class="setlist">${list.map(([x, i]) => item(x, i)).join('') || `<li class="muted">${fcls ? `${esc(fcls)}에 해당하는 ${WHO_NAME[w]}가 없어요.` : `아직 만든 ${WHO_NAME[w]}가 없어요.`}</li>`}</ul></div>`; }).join('')}
+    <div class="panel whopanel ${w}"><ul class="setlist">${list.map(([x, i]) => item(x, i)).join('') || `<li class="muted">${fcls ? `${esc(fcls)}에 해당하는 ${WHO_NAME[w]}가 없어요.` : (gone.some(x => x.settings.who === w) ? `지금 남아 있는 ${WHO_NAME[w]}가 없어요. 지운 레이스는 아래 '삭제한 레이스'에서 볼 수 있어요.` : `아직 만든 ${WHO_NAME[w]}가 없어요.`)}</li>`}</ul></div>`; }).join('')}
   <p class="help">모둠 레이스는 로그인 화면의 <b>모둠 입장</b>에서, 개인 레이스는 학생이 로그인한 첫 화면에서 보여요. 그 반에 열린 레이스만 보여요.</p>
   ${gone.length ? `<details class="panel gonebox"><summary>삭제한 레이스 ${gone.length}개 <span class="muted small">학생·모둠 화면에는 보이지 않아요</span></summary><ul class="setlist">
     ${gone.map(x => `<li><div class="sl-main"><b>${esc(x.name)} <span class="chip who ${x.settings.who}">${WHO_NAME[x.settings.who]}</span></b><span class="muted small">${MODE_NAME[x.settings.mode]} · ${esc(raceClassLabel(x))} · 끝낸 ${x.settings.who === 'student' ? '학생' : '모둠'} ${x.done}</span></div>
@@ -2317,7 +2452,7 @@ function viewRaceEdit(race, draft){
       <p class="help">시간이 다 되면 그때까지 쓴 답으로 저절로 제출돼요.</p></div>
     <label class="check"><input type="checkbox" id="re-shuffle" ${s.shuffle ? 'checked' : ''}><span>문제 순서 섞기 <span class="muted small">(모두에게 같은 순서로 섞어요)</span></span></label></div>
   <div class="parsed" id="re-n"></div>
-  <div class="field"><span class="flabel">문제 수</span>
+  <div class="field" id="re-cntbox"><span class="flabel">문제 수</span>
     <div class="chipsrow" role="radiogroup" aria-label="문제 수">${[10, 20, 30, 0].map(n => `<button type="button" class="fchip${s.count === n ? ' on' : ''}" data-cnt="${n}">${n ? n + '문제' : '전부'}</button>`).join('')}
       <label class="fchip custom${[10, 20, 30, 0].includes(s.count) ? '' : ' on'}">직접 <input type="number" id="re-count" min="1" max="300" value="${[10, 20, 30, 0].includes(s.count) ? '' : s.count}" placeholder="수" class="inline-num" aria-label="문제 수 직접 입력"></label></div>
     <p class="help" id="re-cnt-help"></p></div>
@@ -2343,6 +2478,7 @@ function viewRaceEdit(race, draft){
   /* the question editor: one box per question */
   const readQ = () => { Q = [...$app.querySelectorAll('.qed')].map(el => {
     const type = el.dataset.type, q = {type, passage: el.querySelector('[data-qpass]').value, q: el.querySelector('[data-qq]').value, exp: el.querySelector('[data-qexp]').value};
+    const old = Q[+el.dataset.qi]; if (old && old.img) q.img = old.img;
     if (type === 'choice') { const opts = [...el.querySelectorAll('[data-qopt]')].map(x => x.value); const pick = el.querySelector('[data-qa]:checked'); q.options = opts; q.answer = pick ? +pick.value : -1; }
     else q.answer = el.querySelector('[data-qans]').value.split(/\s*\/\s*/).map(x => x.trim()).filter(Boolean);
     return q; }); };
@@ -2354,7 +2490,9 @@ function viewRaceEdit(race, draft){
       return `<div class="panel qed" data-type="${q.type}" data-qi="${i}">
         <div class="row qedhead"><b>${i + 1}번</b><span class="chip who">${q.type === 'choice' ? '선다형' : '단답형'}</span>${prob ? `<span class="chip">${esc(prob)}</span>` : ''}
           <span class="sl-act"><button type="button" class="link small" data-qup="${i}" ${i ? '' : 'disabled'}>위로</button><button type="button" class="link small" data-qdown="${i}" ${i < Q.length - 1 ? '' : 'disabled'}>아래로</button><button type="button" class="link small" data-qtype="${i}">${q.type === 'choice' ? '단답형으로' : '선다형으로'}</button><button type="button" class="link small" data-qdel="${i}">지우기</button></span></div>
-        <textarea data-qpass rows="2" placeholder="지문 (없으면 비워 두세요)">${esc(q.passage || '')}</textarea>
+        <textarea data-qpass rows="2" placeholder="지문 (없으면 비워 두세요) · 그림을 복사해 여기에 붙여 넣으면(Ctrl+V) 그림이나 글자로 넣을 수 있어요">${esc(q.passage || '')}</textarea>
+        ${PIC && PIC.i === i ? `<div class="qpic"><img src="${PIC.url}" alt="붙여 넣은 그림"><div class="qpic-act">${PIC.busy ? `<span class="muted small">${esc(PIC.busy)}</span>` : `<button type="button" class="btn small mark" data-picimg="${i}">그림으로 넣기</button><button type="button" class="btn small ghost" data-pictext="${i}">글자로 바꾸기</button><button type="button" class="link small" data-picno="${i}">취소</button>`}</div><p class="help">도표·표는 <b>그림으로 넣기</b>, 글로 된 지문은 <b>글자로 바꾸기</b>를 누르면 지문 칸에 글자가 들어가요. 바꾼 글자는 꼭 확인해 주세요.</p></div>` : ''}
+        <div class="qimgrow">${q.img ? `<div class="qimg small" data-qimg="${esc(q.img)}"></div><button type="button" class="link small" data-qimgdel="${i}">그림 빼기</button>` : ''}<label class="link small qpicpick">${q.img ? '그림 바꾸기' : '그림 넣기'}<input type="file" accept="image/png,image/jpeg,image/*" data-qpicfile="${i}" hidden></label></div>
         <textarea data-qq rows="2" placeholder="문제 (예: 다음 글의 주제로 가장 적절한 것은?)">${esc(q.q || '')}</textarea>
         ${q.type === 'choice' ? `<div class="qopts">${opts.map((o, k) => `<label class="qoptrow"><input type="radio" name="qa-${i}" data-qa value="${k}" ${q.answer === k ? 'checked' : ''} aria-label="${k + 1}번 보기가 정답"><span class="qnum">${CIRCLED[k] || k + 1}</span><input type="text" data-qopt value="${esc(o)}" placeholder="보기 ${k + 1}${k > 1 ? ' (없으면 비워 두세요)' : ''}"></label>`).join('')}</div><p class="help">정답 보기의 동그라미를 눌러 고르세요.</p>`
           : `<input type="text" data-qans value="${esc((q.answer || []).join(' / '))}" placeholder="정답 (여러 개면 / 로 나눠요. 예: spend / spending)">`}
@@ -2365,10 +2503,39 @@ function viewRaceEdit(race, draft){
     const act = (sel, fn) => $('qedit').querySelectorAll(sel).forEach(b => b.onclick = () => { readQ(); fn(+Object.values(b.dataset)[0]); drawQ(); upd(); });
     act('[data-qup]', i => { [Q[i - 1], Q[i]] = [Q[i], Q[i - 1]]; });
     act('[data-qdown]', i => { [Q[i + 1], Q[i]] = [Q[i], Q[i + 1]]; });
-    act('[data-qdel]', i => { Q.splice(i, 1); });
+    act('[data-qdel]', i => { Q.splice(i, 1); if (PIC && PIC.i === i) PIC = null; });
+    act('[data-qimgdel]', i => { delete Q[i].img; });
+    act('[data-picno]', () => { PIC = null; });
+    $('qedit').querySelectorAll('[data-qpicfile]').forEach(el => el.onchange = () => { const f = el.files && el.files[0]; if (f) pickPic(+el.dataset.qpicfile, f); });
+    $('qedit').querySelectorAll('[data-qpass]').forEach((el, i) => el.addEventListener('paste', e => {
+      const f = clipPictures(e)[0];
+      if (f) { e.preventDefault(); pickPic(i, f); }
+    }));
+    $('qedit').querySelectorAll('[data-picimg]').forEach(b => b.onclick = () => savePic(+b.dataset.picimg, 'img'));
+    $('qedit').querySelectorAll('[data-pictext]').forEach(b => b.onclick = () => savePic(+b.dataset.pictext, 'text'));
     act('[data-qtype]', i => { const q = Q[i]; if (q.type === 'choice') { q.type = 'text'; q.answer = q.answer >= 0 && q.options[q.answer] ? [q.options[q.answer]] : []; } else { q.type = 'choice'; q.options = (q.answer || []).slice(0, 1); q.answer = q.options.length ? 0 : -1; } });
   };
-  const addQ = type => { readQ(); Q.push(type === 'choice' ? {type, passage: Q.length ? Q[Q.length - 1].passage : '', q: '', options: [], answer: -1, exp: ''} : {type, passage: Q.length ? Q[Q.length - 1].passage : '', q: '', answer: [], exp: ''}); drawQ(); upd(); const last = $app.querySelectorAll('.qed [data-qq]'); if (last.length) last[last.length - 1].focus(); };
+  /* a picture pasted into (or picked for) a passage: keep it as a picture, or turn its words into text */
+  let PIC = null;   // {i, url, data, mime, busy}
+  const pickPic = async (i, file) => {
+    readQ();
+    try { const r = await shrinkPic(file); PIC = Object.assign({i}, r); }
+    catch(err){ toast(err.message || '그림을 열 수 없어요'); return; }
+    drawQ(); upd();
+  };
+  const savePic = async (i, how) => {
+    if (!PIC || PIC.i !== i || PIC.busy) return;
+    readQ(); PIC.busy = how === 'img' ? '그림을 저장하는 중…' : '글자를 읽는 중… (10~30초)'; drawQ();
+    try {
+      if (how === 'img') { const r = await api('adminQImgSave', {token: ADMIN.token, data: PIC.data, mime: PIC.mime}); readQ(); Q[i].img = r.id; toast('그림을 넣었어요. 저장하기를 눌러야 레이스에 반영돼요'); }
+      else { const r = await api('adminOcr', {token: ADMIN.token, data: PIC.data, mime: PIC.mime}); const t = String(r.text || '').replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').trim();
+        if (!t) throw {error: '그림에서 글자를 읽지 못했어요.'}; readQ(); Q[i].passage = Q[i].passage ? Q[i].passage.replace(/\s+$/, '') + '\n' + t : t; toast('글자를 지문 칸에 넣었어요. 틀린 곳이 없는지 확인해 주세요'); }
+      PIC = null;
+    } catch(err){ if (PIC) PIC.busy = ''; if (!adminErr(err, () => viewRaceAdmin())) toast(err.error || '하지 못했어요'); }
+    drawQ(); upd();
+  };
+  /* a new question keeps the same passage and picture */
+  const addQ = type => { readQ(); const prev = Q[Q.length - 1]; Q.push(Object.assign(type === 'choice' ? {type, passage: prev ? prev.passage : '', q: '', options: [], answer: -1, exp: ''} : {type, passage: prev ? prev.passage : '', q: '', answer: [], exp: ''}, prev && prev.img ? {img: prev.img} : {})); drawQ(); upd(); const last = $app.querySelectorAll('.qed [data-qq]'); if (last.length) last[last.length - 1].focus(); };
   $('q-add-c').onclick = () => addQ('choice');
   $('q-add-t').onclick = () => addQ('text');
   $('qparse').onclick = () => {
@@ -2408,7 +2575,7 @@ function viewRaceEdit(race, draft){
       questions: cleanQ(),
       settings: {mode: mode(), who, multi: ($app.querySelector('[name=re-multi]:checked') || {}).value === '1', shuffle: $('re-shuffle').checked,
         scoring: mode() === 'quiz' ? scoring() : 'speed', limit: mode() === 'quiz' && scoring() === 'acc' ? (limPick === 'custom' ? Math.max(1, Math.min(180, +$('re-limit').value || 1)) : limPick) : 0,
-        count: cntPick === 'custom' ? Math.max(1, +$('re-count').value || 1) : cntPick,
+        count: mode() === 'quiz' ? 0 : cntPick === 'custom' ? Math.max(1, +$('re-count').value || 1) : cntPick,   // Quiz: every question the teacher wrote
         penalty: ($app.querySelector('[name=re-penon]:checked') || {}).value === '1' ? Math.max(1, +$('re-pen').value || 3) : 0, rel: $('re-rel').checked, live: $('re-live').checked, showRank: $('re-rank').checked}
     };
   };
@@ -2417,12 +2584,12 @@ function viewRaceEdit(race, draft){
     const c = current(), quiz = c.settings.mode === 'quiz';
     $('re-words').hidden = quiz; $('re-quiz').hidden = !quiz;
     const acc = quiz && c.settings.scoring === 'acc';
-    $('re-limitbox').hidden = !acc; $('re-penbox').hidden = acc;
+    $('re-limitbox').hidden = !acc; $('re-penbox').hidden = acc; $('re-cntbox').hidden = quiz;
     const items = raceItems(asRace(c)), all = raceItems(asRace(Object.assign({}, c, {settings: Object.assign({}, c.settings, {count: 0})}))).length;
-    $('re-n').innerHTML = quiz ? (c.questions.length ? `Quiz <b>${all}문제</b> 중 <b>${items.length}문제</b>를 내요.` : '') : c.sources.length ? `단어 <b>${all}개</b> 중 <b>${items.length}문제</b>를 모든 ${who === 'student' ? '학생' : '모둠'}에게 같은 순서로 내요.` : '레이스에 쓸 지문을 골라 주세요.';
+    $('re-n').innerHTML = quiz ? (c.questions.length ? `Quiz <b>${all}문제</b>를 모두 내요.` : '') : c.sources.length ? `단어 <b>${all}개</b> 중 <b>${items.length}문제</b>를 모든 ${who === 'student' ? '학생' : '모둠'}에게 같은 순서로 내요.` : '레이스에 쓸 지문을 골라 주세요.';
     $('re-cnt-help').textContent = (quiz ? c.questions.length : c.sources.length) ? (c.settings.count && c.settings.count > all ? `${quiz ? '문제' : '단어'}가 ${all}개뿐이라 ${all}문제로 해요.` : quiz ? (c.settings.shuffle ? `${all}문제 중에서 섞어 뽑아요.` : `앞에서부터 차례로 내요.`) : `고른 지문의 단어 ${all}개 중에서 무작위로 뽑아요.`) : '';
     $('re-prev-n').textContent = `${items.length}문제 · 학생에게 나오는 순서`;
-    $('re-prev').innerHTML = items.map(x => quiz ? `<li><div class="qtext small">${x.passage ? '<span class="muted">[지문] </span>' : ''}${esc(x.q)}</div><div class="small">정답: <b>${esc(quizAnswerText(x))}</b>${x.exp ? ` · <span class="muted">해설 있음</span>` : ''}</div></li>` : `<li><b class="en">${esc(x[0])}</b> <span class="muted">${esc(x[1])}</span></li>`).join('') || '<li class="muted">아직 문제가 없어요.</li>';
+    $('re-prev').innerHTML = items.map(x => quiz ? `<li><div class="qtext small">${x.img ? '<span class="muted">[그림] </span>' : ''}${x.passage ? '<span class="muted">[지문] </span>' : ''}${esc(x.q)}</div><div class="small">정답: <b>${esc(quizAnswerText(x))}</b>${x.exp ? ` · <span class="muted">해설 있음</span>` : ''}</div></li>` : `<li><b class="en">${esc(x[0])}</b> <span class="muted">${esc(x[1])}</span></li>`).join('') || '<li class="muted">아직 문제가 없어요.</li>';
   };
   $app.querySelectorAll('[data-cnt]').forEach(b => b.onclick = () => { cntPick = +b.dataset.cnt; $app.querySelectorAll('[data-cnt],.fchip.custom:not(.lim)').forEach(x => x.classList.toggle('on', x === b)); upd(); });
   $('re-count').addEventListener('focus', () => { cntPick = 'custom'; $app.querySelectorAll('[data-cnt]').forEach(x => x.classList.remove('on')); $app.querySelector('.fchip.custom:not(.lim)').classList.add('on'); upd(); });
@@ -2463,12 +2630,17 @@ function viewBoard(raceId, cls){
   stopTimers();
   if (needAdmin(() => viewBoard(raceId, cls))) return;
   let big = store.get('wordroom-board-big', false), data = null, confirmKey = '';
-  const draw = () => {
+  const mk = 'v-board-' + (++VIEWSEQ), MK = '<i hidden id="' + mk + '"></i>';   // a slow answer redraws only while the board is showing
+  const draw = () => { draw0(); if (data && !document.getElementById(mk)) $app.insertAdjacentHTML('beforeend', MK); };
+  const draw0 = () => {
     if (!data) return;
     const race = data.race, classes = raceClassNames(race, data.teams);
     const ALLK = '__all', stu = race.settings.who === 'student', acc = isAcc(race);
     const sel = cls && (cls === ALLK || classes.includes(cls)) ? cls : (classes.length > 1 ? ALLK : classes[0] || '');
     const allMode = sel === ALLK;
+    /* 정확도: whole seconds, but when the same score and the same whole second sit side by side, the tenths show why one is ahead */
+    const same = (x, y) => x && y && x.best.done === y.best.done && Math.floor(x.best.seconds) === Math.floor(y.best.seconds);
+    const accTime = (p, i) => (same(p, done[i - 1]) || same(p, done[i + 1]) ? fmtSec : fmtSecW)(p.best.seconds);
     const inSel = c => allMode ? classes.includes(c) : c === sel;
     const label = (c, t) => allMode && !stu ? c + ' ' + t : t;
     const teams = data.teams.filter(c => inSel(c.name)).flatMap(c => c.teams.map(t => ({cls: c.name, team: t})));
@@ -2481,7 +2653,8 @@ function viewBoard(raceId, cls){
       return {key: k, cls: last.cls, team: last.team, label: label(last.cls, last.team), best, tries: list.length, last};
     });
     const done = ppl.filter(p => p.best).sort((a, b) => acc ? (b.best.done - a.best.done || a.best.seconds - b.best.seconds) : a.best.seconds - b.best.seconds);
-    const run = ppl.filter(p => p.last.status !== '완료').sort((a, b) => b.last.done - a.last.done);
+    const runAll = ppl.filter(p => p.last.status !== '완료').sort((a, b) => b.last.done - a.last.done);
+    const run = runAll.filter(p => raceStatusFor(race, p.cls) === '진행'), stopped = runAll.filter(p => raceStatusFor(race, p.cls) !== '진행');   // 마감된 반: 못 끝낸 채로 남은 사람
     const wait = teams.filter(t => !by[t.cls + '\n' + t.team])
       .sort((a, b) => stu ? String(a.team).localeCompare(String(b.team), 'ko', {numeric: true}) : 0)   // students by 학번
       .map(t => label(t.cls, t.team));
@@ -2499,9 +2672,10 @@ function viewBoard(raceId, cls){
           <button class="btn small ghost" data-bst="마감" ${stNow.includes('진행') ? '' : 'disabled'}>${allMode ? '모든 반 마감' : '이 반 마감'}</button>`}</div>
       </div>
       ${classes.length > 1 ? `<div class="tabs scroll" role="tablist"><button class="tab" data-bcls="${ALLK}" aria-selected="${allMode}">전체 반</button>${classes.map(c => `<button class="tab" data-bcls="${esc(c)}" aria-selected="${c === sel}">${esc(c)}</button>`).join('')}</div>` : `<div class="count">${esc(sel)}</div>`}
-      <ol class="rank">${done.map((p, i) => `<li class="r-done"><span class="rk">${i + 1}</span><span class="tm">${esc(p.label)}</span><span class="sec">${acc ? `${p.best.done}/${p.best.total || total} · ${pctOf(p.best.done, p.best.total || total)}` : fmtSec(p.best.seconds)}</span><span class="muted small">${acc ? fmtSec(p.best.seconds) : `틀림 ${p.best.wrong}${p.best.penalty ? ` · +${p.best.penalty}초` : ''}`}${p.tries > 1 ? ` · ${p.tries}번 도전` : ''}</span>${big ? '' : resetBtn(p)}</li>`).join('')}</ol>
-      ${run.length ? `<div class="section-label">달리는 중</div><ul class="rank run">${run.map(p => `<li><span class="rk">·</span><span class="tm">${esc(p.label)}</span>${race.settings.live ? `<span class="pbar"><i style="width:${Math.min(100, p.last.done / (p.last.total || total) * 100)}%"></i></span><span class="muted small">${p.last.done}/${p.last.total || total}${acc ? ' 답함' : ''} · ${fmtSec(p.last.elapsed || 0)}</span>` : '<span class="muted small">진행 중</span>'}${big || p.best ? '' : resetBtn(p)}</li>`).join('')}</ul>` : ''}
-      ${wait.length ? `<div class="section-label">아직 출발 전 ${wait.length}${stu ? '명' : '모둠'}</div><div class="muted waiting">${wait.map(esc).join(' · ')}</div>` : ''}
+      <ol class="rank">${done.map((p, i) => `<li class="r-done"><span class="rk">${i + 1}</span><span class="tm">${esc(p.label)}</span><span class="sec">${acc ? `${p.best.done}/${p.best.total || total} · ${pctOf(p.best.done, p.best.total || total)}` : fmtSec(p.best.seconds)}</span><span class="muted small">${acc ? accTime(p, i) : `틀림 ${p.best.wrong}${p.best.penalty ? ` · +${p.best.penalty}초` : ''}`}${p.tries > 1 ? ` · ${p.tries}번 도전` : ''}</span>${big ? '' : resetBtn(p)}</li>`).join('')}</ol>
+      ${run.length ? `<div class="section-label">달리는 중</div><ul class="rank run">${run.map(p => `<li><span class="rk">·</span><span class="tm">${esc(p.label)}</span>${race.settings.live ? `<span class="pbar"><i style="width:${Math.min(100, p.last.done / (p.last.total || total) * 100)}%"></i></span><span class="muted small">${p.last.done}/${p.last.total || total}${acc ? ' 답함' : ''} · ${(acc ? fmtSecW : fmtSec)(p.last.elapsed || 0)}</span>` : '<span class="muted small">진행 중</span>'}${big || p.best ? '' : resetBtn(p)}</li>`).join('')}</ul>` : ''}
+      ${stopped.length ? `<div class="section-label">마감 전에 못 끝냄 ${stopped.length}${stu ? '명' : '모둠'}</div><div class="muted waiting">${stopped.map(p => `${esc(p.label)} (${p.last.done}/${p.last.total || total})`).join(' · ')}</div>` : ''}
+      ${wait.length ? `<div class="section-label">${stNow.includes('진행') ? '아직 출발 전' : '참여하지 않음'} ${wait.length}${stu ? '명' : '모둠'}</div><div class="muted waiting">${wait.map(esc).join(' · ')}</div>` : ''}
       ${!ppl.length && !wait.length ? `<div class="panel empty">${stu ? '이 반에 등록한 학생이 없어요.' : '이 반에 등록된 모둠이 없어요.'}</div>` : ''}
       <div class="muted small">5초마다 새로 고쳐요${race.settings.live ? ' · 실시간 진행 중계 켜짐' : ''}${acc ? ' · 맞힌 개수로 순위 (같으면 빨리 낸 순)' : ''}${race.settings.multi ? ' · 여러 번 도전: 가장 좋은 기록으로 순위' : ''}</div>
     </div>`;
@@ -2518,11 +2692,14 @@ function viewBoard(raceId, cls){
     });
   };
   const load = async () => {
-    try { data = await api('adminBoard', {token: ADMIN.token, race: raceId}); }
-    catch(e){ if (adminErr(e, () => viewBoard(raceId, cls))) return; if (!data) { $app.innerHTML = `${header()}<div class="panel empty">${esc(e.error || '불러오지 못했어요')}</div>`; } return; }
+    let got;
+    try { got = await api('adminBoard', {token: ADMIN.token, race: raceId}); }
+    catch(e){ if (!document.getElementById(mk)) return; if (adminErr(e, () => viewBoard(raceId, cls))) return; if (!data) { $app.innerHTML = `${header()}<div class="panel empty">${esc(e.error || '불러오지 못했어요')}</div>`; } return; }
+    if (!document.getElementById(mk)) return;
+    data = got;
     try { draw(); } catch(err){ console.error(err); }
   };
-  $app.innerHTML = `${header()}${adminNav('race')}<div class="panel empty">순위판을 불러오는 중…</div>`; bindAdminNavStop();
+  $app.innerHTML = `${header()}${adminNav('race')}<div class="panel empty">순위판을 불러오는 중…</div>${MK}`; bindAdminNavStop();
   load();
   timers.push(setInterval(() => { if (document.hidden) return; load(); }, 5000));
   scrollTo(0, 0);
@@ -2724,8 +2901,10 @@ function stopTimers(){ $app.classList.remove('wide', 'cardbig'); timers.forEach(
 
 /* ---------- list ---------- */
 function viewList(words){
+  stopTimers();
   let hide = false; const conf = SCOPE === 'conf';
   if (!conf && SET.heads) words = SET.heads;
+  trackActivity('단어 목록', words.length);
   $app.innerHTML = `${stickyTop(back())}
     <div class="row tools"><button class="btn ghost small" id="hk">뜻 가리기</button><button class="btn ghost small" id="sh">순서 섞기</button><button class="btn ghost small" id="od">원래 순서</button><span class="count" id="wn"></span></div></div>
   <h2>${SET.id === 'allconf' ? esc(SET.t) : `${esc(SET.t)} · ${conf ? '헷갈리는 단어' : '단어 목록'}`}</h2>
@@ -2818,6 +2997,7 @@ function viewClassCards(id, at){
 function viewCards(words, opt){
   opt = opt || {}; const cls = !!opt.classroom, O = cls ? classOpts : cardOpts, saveO = () => store.set(cls ? 'wordroom-class-card-opts' : 'wordroom-card-opts', O);
   stopTimers(); if (cls) $app.classList.toggle('cardbig', !!O.big);
+  const act = cls ? null : trackActivity('카드 넘기기', words.length);
   let order = !cls && O.shuffle ? shuffle(words) : words.slice(), i = Math.max(0, Math.min(words.length - 1, opt.at || 0)), flipped = false, auto = false, logged = false;
   $app.innerHTML = `${cls ? header('<button class="link" id="back">← 지문 관리</button>') : header(back())}
   <div class="row" style="justify-content:space-between"><div class="count" id="cnum"></div><div class="count">${esc(SET.t)}</div></div>
@@ -2852,7 +3032,7 @@ function viewCards(words, opt){
     if (!cls) { const st = confHas(w); $('star').innerHTML = STAR(st); $('star').classList.toggle('on', st); $('star').setAttribute('aria-pressed', st); }
     $('prev').disabled = i === 0;
     $('next').textContent = i === order.length - 1 ? '처음부터' : '다음 ›';
-    if (!cls && i === order.length - 1 && !logged && order.length > 1) { logged = true; if (canLog()) sendLog({page: SET.id, pageTitle: logTitle(), mode: '카드 넘기기', score: 0, total: 0, wrong: []}); }
+    if (act) act.see(w);
   };
   const go = d => {
     if (d > 0 && i === order.length - 1) { i = 0; if (!cls && O.shuffle) order = shuffle(words); }
@@ -2894,6 +3074,24 @@ function viewCards(words, opt){
   };
   draw();
   scrollTo(0, 0);
+}
+/* 단어 목록·카드 넘기기: no score, but the teacher can see the student did them — how many cards and how long.
+   Time counts only while the screen is showing; it is sent once when the student leaves (or closes the page) */
+function trackActivity(mode, total){
+  if (!canLog() || !SET || !SET.id || !total) return null;
+  const seen = new Set(), page = SET.id, title = logTitle();
+  let ms = 0, from = document.hidden ? 0 : Date.now(), sent = false;
+  const pause = () => { if (from) { ms += Date.now() - from; from = 0; } };
+  const send = () => {
+    if (sent) return; pause(); sent = true;
+    const secs = Math.round(ms / 1000);
+    if (secs < 5 && seen.size < 2) return;   // just opened and left
+    sendLog({page, pageTitle: title, mode, act: 1, seen: mode === '카드 넘기기' ? seen.size : total, total, secs});
+  };
+  const vis = () => { if (document.hidden) pause(); else if (!sent && !from) from = Date.now(); };
+  document.addEventListener('visibilitychange', vis); addEventListener('pagehide', send);
+  timers.push({off: () => { document.removeEventListener('visibilitychange', vis); removeEventListener('pagehide', send); send(); }});
+  return {see: w => seen.add(w[0] + '|' + (w.rel || ''))};
 }
 
 /* ---------- multiple choice (both directions); distractors come from the same set and never share the answer's meaning ---------- */
