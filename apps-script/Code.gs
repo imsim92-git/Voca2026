@@ -120,6 +120,7 @@ const ACTIONS = {
   admin: admin_,
   adminStudent: adminStudent_,
   adminReset: adminReset_,
+  adminClearLog: adminClearLog_,
   sets: sets_,
   adminSetSave: adminSetSave_,
   adminSetDelete: adminSetDelete_,
@@ -548,6 +549,25 @@ function adminReset_(req) {
     sh.getRange(row, 5, 1, 2).setValues([['', '']]);
     CacheService.getScriptCache().remove('fail_' + sid);
     stuCacheDrop_(sid);
+    return {ok: true};
+  });
+}
+
+/* 한 학생의 연습 기록 지우기: 연습 횟수·정답률·최근 연습·자주 틀리는 단어(G~N열), 순위 기록(P열), 활동 기록(Q열).
+   학번·이름·비밀번호, 헷갈리는 단어(O열), 레이스 기록은 그대로 둠 */
+function adminClearLog_(req) {
+  checkToken_(req.token, 'a');
+  const sid = cleanSid_(req.sid);
+  return withLock_(() => {
+    const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
+    if (!row) fail_('그 학번의 학생이 없어요.');
+    sh.getRange(row, 7, 1, 8).setValues([statsCells_({sessions: 0, questions: 0, correct: 0, last: '', recent: [], wrong: []})]);   // G~N열
+    const ranks = parseJ_(sh.getRange(row, RANK_COL).getValue(), {}), pages = {};
+    Object.keys(ranks || {}).forEach(k => { pages[k.split('|')[0]] = 1; });
+    sh.getRange(row, RANK_COL).setValue('');
+    try { sh.getRange(row, ACT_COL).setValue(''); } catch (e) {}
+    Object.keys(pages).forEach(pg => forget_('c_rank_' + pg));   // 그 학생이 있던 순위표를 새로 계산
+    try { CacheService.getScriptCache().remove(gk_('me_' + sid)); } catch (e) {}   // 학생 화면 '내 기록'도 새로
     return {ok: true};
   });
 }

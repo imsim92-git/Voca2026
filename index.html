@@ -1154,7 +1154,7 @@ async function viewAdmin(next){
     try { s = await api('adminStudent', {token: ADMIN.token, sid}); }
     catch(e){ if (e.code === 'auth') { ADMIN = null; store.set('wordroom-admin', null); return viewAdmin(); } box.innerHTML = `<div class="panel empty">${esc(e.error || '불러오지 못했어요.')}</div>`; return; }
     box.innerHTML = `<div class="panel detail">
-      <div class="row dhead"><h2>${esc(s.student.name)} <span class="muted">${esc(s.student.sid)}</span></h2><div class="reset" id="rs"><button class="btn ghost small" id="rs1">비밀번호 초기화</button></div><button class="link" id="dx">닫기</button></div>
+      <div class="row dhead"><h2>${esc(s.student.name)} <span class="muted">${esc(s.student.sid)}</span></h2><div class="reset" id="rs"><button class="btn ghost small" id="rs1">비밀번호 초기화</button><button class="btn ghost small" id="rs2">로그 기록 삭제</button></div><button class="link" id="dx">닫기</button></div>
       <div class="stats">
         <div class="stat"><span>연습 횟수</span><b>${s.stats.sessions}</b></div>
         <div class="stat"><span>푼 문제</span><b>${s.stats.questions}</b></div>
@@ -1175,6 +1175,20 @@ async function viewAdmin(next){
       document.getElementById('rs-yes').onclick = async () => {
         try { await api('adminReset', {token: ADMIN.token, sid}); toast('비밀번호를 초기화했어요'); const st = r.students.find(x => x.sid === sid); if (st) st.hasPw = false; draw(); showStudent(sid); }
         catch(e){ toast(e.error || '초기화하지 못했어요'); }
+      };
+    };
+    /* 로그 기록 삭제: this student's practice records only (the account, 헷갈리는 단어 and race records stay) */
+    document.getElementById('rs2').onclick = () => {
+      document.getElementById('rs').classList.add('confirm');
+      document.getElementById('rs').innerHTML = `<p class="help"><b>${esc(s.student.name)}</b> 학생의 <b>연습 횟수·정답률·최근 연습·자주 틀리는 단어</b>, <b>단어 목록·카드 넘기기 활동</b>, <b>순위 기록</b>을 모두 지워요. 지운 기록은 되살릴 수 없어요.<br>학번·이름·비밀번호, 헷갈리는 단어, 레이스 기록은 그대로 남아요.</p>
+        <div class="row"><button class="btn ghost" id="rs-no">취소</button><button class="btn danger" id="rs-yes">로그 기록 삭제하기</button></div>`;
+      document.getElementById('rs-no').onclick = () => showStudent(sid);
+      document.getElementById('rs-yes').onclick = async e => {
+        e.target.disabled = true;
+        try { await api('adminClearLog', {token: ADMIN.token, sid}); toast('로그 기록을 지웠어요');
+          const st = r.students.find(x => x.sid === sid); if (st) Object.assign(st, {sessions: 0, questions: 0, correct: 0, lastPractice: ''});
+          r.recent = r.recent.filter(l => l.sid !== sid); store.set('wordroom-admin-cache', r); draw(); showStudent(sid); }
+        catch(err){ e.target.disabled = false; if (!adminErr(err, viewAdmin)) toast(err.error || '지우지 못했어요'); }
       };
     };
   }
@@ -1738,7 +1752,7 @@ const raceStatusFor = (race, cls) => (race.state && (race.state.open[cls] || rac
 /* who is racing: a team, a logged-in student, or the teacher trying a race out (nothing is recorded) */
 const teamCtx = () => ({kind: 'team', token: TEAM.token, label: `${TEAM.cls} · ${TEAM.team}`, home: () => viewTeamHome(true), homeText: '레이스 목록으로', backText: '← 레이스 목록', authFail: teamLeave});
 const studentCtx = () => ({kind: 'student', token: AUTH.token, label: `${AUTH.sid} ${AUTH.name}`, home: () => { myRacesStale(); route(); }, homeText: '처음 화면으로', backText: '← 처음 화면', authFail: () => onAuthError({code: 'auth'})});
-const trialCtx = back => ({kind: 'trial', trial: true, label: '풀어보기 · 기록되지 않아요', home: back, homeText: '레이스 편집으로', backText: '← 레이스 편집', authFail: back});
+const trialCtx = (back, fromList) => ({kind: 'trial', trial: true, label: '풀어보기 · 기록되지 않아요', home: back, homeText: fromList ? '레이스 목록으로' : '레이스 편집으로', backText: fromList ? '← 레이스 목록' : '← 레이스 편집', authFail: back});
 function raceApi(ctx, action, data){
   if (ctx.trial) return Promise.resolve(action === 'raceStart' ? {ok: true, resumed: false, elapsed: 0, done: 0, wrong: 0, penalty: 0} : {ok: true, trial: true});
   return api(action, Object.assign({token: ctx.token}, data));
@@ -2284,7 +2298,8 @@ async function viewRaceAdmin(){
       <div class="sl-act">
         <button class="btn small mark" data-oc="${i}">열기·마감</button>
         <button class="btn ghost small" data-board="${i}">순위판</button>
-        <button class="btn ghost small" data-edit="${i}">편집·풀어보기</button>
+        <button class="btn ghost small" data-edit="${i}">편집하기</button>
+        <button class="btn ghost small" data-try="${i}">풀어보기</button>
         <button class="btn ghost small" data-del="${i}">삭제</button></div>
       <div class="ocpanel" id="oc-${i}" hidden></div></li>`;
   $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('race')}
@@ -2310,6 +2325,7 @@ async function viewRaceAdmin(){
   $app.querySelectorAll('[data-fc]').forEach(b => b.onclick = () => { store.set('wordroom-race-filter', b.dataset.fc); viewRaceAdmin(); });
   document.getElementById('new').onclick = () => viewRaceEdit(null);
   $app.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => viewRaceEdit(races[+b.dataset.edit]));
+  $app.querySelectorAll('[data-try]').forEach(b => b.onclick = () => viewRaceReady(Object.assign({}, races[+b.dataset.try], {mine: null, status: '진행'}), trialCtx(() => viewRaceAdmin(), true)));   // 풀어보기 right from the list (nothing is recorded)
   $app.querySelectorAll('[data-board]').forEach(b => b.onclick = () => viewBoard(races[+b.dataset.board].id, fcls || undefined));
   $app.querySelectorAll('[data-gboard]').forEach(b => b.onclick = () => viewBoard(b.dataset.gboard));
   /* 열기·마감: all classes at once, or one class at a time */
