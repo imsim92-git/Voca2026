@@ -363,7 +363,7 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 /* 학생 기록 → 학생별: the list scrolls by itself, so the clicked student's record shows right below it */
 .recgrid{display:flex;flex-direction:column;gap:18px}
 .regbox{padding:12px 16px}.regbox summary{cursor:pointer}.regbox #regsum,.regbox #regtestsum{display:block;margin:4px 0 0 18px}.regbox #regtestsum[hidden]{display:none}   /* the saved numbers start on their own line */.regbox[open]{display:flex;flex-direction:column;gap:10px}.regbox textarea{font:inherit}
-.detail .dhead{align-items:center;flex-wrap:wrap;gap:10px}.detail .dhead #dx{margin-left:auto}.detail .dhead .reset{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:0;border:0}.detail .dhead .reset .help{margin:0}.detail .dhead .reset.confirm{flex-basis:100%;order:3;flex-direction:column;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.detail .dhead{align-items:center;flex-wrap:wrap;gap:10px}.detail .dhead #dx{margin-left:auto}.detail .dhead .reset{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:0;border:0}.detail .dhead .reset .btn{white-space:nowrap}   /* the two buttons on one line */.detail .dhead .reset .help{margin:0}.detail .dhead .reset.confirm{flex-basis:100%;order:3;flex-direction:column;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .recgrid.split #tb .tablewrap{max-height:40vh;overflow:auto}
 .recgrid.split thead th{position:sticky;top:0;background:var(--surface);z-index:1}
 .recgrid.split tr.sel td{background:color-mix(in srgb, var(--mark) 35%, transparent)}
