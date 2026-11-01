@@ -26,6 +26,7 @@ const STUDENT_HEADERS = ['학번', '이름', '가입 시각', '최근 접속', '
   '연습 횟수', '푼 문제', '맞힌 문제', '정답률', '마지막 연습', '자주 틀린 단어', '최근 연습(데이터)', '틀린 단어(데이터)', '내 학습 데이터'];
 const S_COLS = STUDENT_HEADERS.length;   // 15
 const MY_COL = 15;                       // 헷갈리는 단어·페이지별 최근 점수·매칭 최고 기록 (어느 브라우저에서나 같게 보이도록)
+const ACT_COL = 17, ACT_HEADER = '활동 기록(데이터)', ACT_KEEP = 150;   // Q열: 단어 목록·카드 넘기기를 언제, 몇 장, 몇 분 했는지 (점수 없음)
 const RANK_COL = 16;                     // P열 '순위 기록(데이터)': 지문·연습별 가장 좋은 기록 (매칭은 가장 빠른 시간, 나머지는 가장 높은 정답률)
 const RANK_HEADER = '순위 기록(데이터)';
 const RANK_MODES = ['match', 'choice', 'pick', 'spell'];
@@ -43,7 +44,7 @@ const SHEET_NOTICES = '공지';
 const NOTICE_HEADERS = ['ID', '제목', '내용', '보이기', '만든 시각', '고친 시각'];
 const SHEET_TEACHER = '선생님 학습 데이터';
 const TEACHER_HEADERS = ['선생님 학습 데이터 (관리자 화면의 \'학생 화면\'에서 쓰는 헷갈리는 단어·최근 점수. 사이트가 쓰는 칸이니 고치지 마세요)'];
-const RACELOG_HEADERS = ['시작 시각', '레이스 ID', '레이스', '반', '모둠', '상태', '맞힌 수', '문항 수', '기록(초)', '벌점(초)', '틀린 수', '틀린 단어', '마지막 갱신'];
+const RACELOG_HEADERS = ['시작 시각', '레이스 ID', '레이스', '반', '모둠', '상태', '맞힌 수', '문항 수', '기록(초)', '벌점(초)', '틀린 수', '틀린 단어', '마지막 갱신', '답(JSON)'];   // N열: Quiz 문제마다 고른 답과 맞았는지
 const TOKEN_DAYS = 180;          // 학생 로그인 유지 기간
 const ADMIN_TOKEN_HOURS = 12;    // 관리자 로그인 유지 시간
 const MAX_FAILS = 8;             // 비밀번호를 이만큼 틀리면
@@ -62,7 +63,7 @@ function setup() {
   ensureSheet_(ss, SHEET_SETS, SET_HEADERS).getRange(1, 1, 1, SET_HEADERS.length).setValues([SET_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
   ensureSheet_(ss, SHEET_TEAMS, TEAM_HEADERS);
   ensureSheet_(ss, SHEET_RACES, RACE_HEADERS).getRange(1, 1, 1, RACE_HEADERS.length).setValues([RACE_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
-  ensureSheet_(ss, SHEET_RACELOG, RACELOG_HEADERS);
+  ensureSheet_(ss, SHEET_RACELOG, RACELOG_HEADERS).getRange(1, 1, 1, RACELOG_HEADERS.length).setValues([RACELOG_HEADERS]).setFontWeight('bold');   // 새 칸 머리글
   ensureSheet_(ss, SHEET_NOTICES, NOTICE_HEADERS);
   const props = PropertiesService.getScriptProperties();
   if (!props.getProperty('SECRET')) props.setProperty('SECRET', Utilities.getUuid() + Utilities.getUuid());
@@ -132,6 +133,8 @@ const ACTIONS = {
   adminNotices: adminNotices_,
   adminViewAs: adminViewAs_,
   adminCardOrderSave: adminCardOrderSave_,
+  qimg: qimg_,
+  adminQImgSave: adminQImgSave_,
   adminNoticeSave: adminNoticeSave_,
   adminNoticeDelete: adminNoticeDelete_,
   raceStart: raceStart_,
@@ -240,7 +243,17 @@ function log_(req) {
   const total = Math.max(0, Math.floor(Number(req.total) || 0));
   const wrong = (Array.isArray(req.wrong) ? req.wrong : []).slice(0, 200).map(w => String(w).slice(0, 80)).filter(Boolean);
   const when = req.at ? new Date(req.at) : new Date();
-  // 카드 넘기기처럼 점수가 없는 연습은 기록하지 않음. 함께 온 내 학습 데이터는 저장함
+  if (req.act) {   // 단어 목록·카드 넘기기: 점수·정답률에는 넣지 않고 '활동 기록'에만 남김
+    const n = Math.max(0, Math.min(1000, total));
+    const act = {at: (isNaN(when) ? new Date() : when).toISOString(), page: String(req.page || '').slice(0, 30), pageTitle: String(req.pageTitle || '').slice(0, 60),
+      mode: req.mode === '카드 넘기기' ? '카드 넘기기' : '단어 목록', seen: Math.max(0, Math.min(n, Math.floor(Number(req.seen) || 0))), total: n,
+      secs: Math.max(0, Math.min(3 * 3600, Math.floor(Number(req.secs) || 0)))};
+    addActivity_(sid, act);
+    if (!req.my) return {ok: true};
+    const o = addPractice_(sid, null, req.my);
+    return Object.assign({ok: true}, o.myPack ? {myPack: o.myPack} : {});
+  }
+  // 점수가 없는 연습은 학생 기록(정답률)에 넣지 않음. 함께 온 내 학습 데이터는 저장함
   const entry = total ? {at: (isNaN(when) ? new Date() : when).toISOString(), pageTitle: String(req.pageTitle || '').slice(0, 60), mode: String(req.mode || '').slice(0, 20),
     score: Math.min(score, total), total: total, page: String(req.page || '').slice(0, 30), wrong: wrong} : null;
   if (!entry && !req.my) return {ok: true};
@@ -458,12 +471,14 @@ function adminLogin_(req) {
 function admin_(req) {
   checkToken_(req.token, 'a');
   const sh = sheet_(SHEET_STUDENTS), n = sh.getLastRow();
-  const rows = n < 2 ? [] : sh.getRange(2, 1, n - 1, S_COLS).getValues().filter(r => String(r[0]).trim());
+  const rows = n < 2 ? [] : sh.getRange(2, 1, n - 1, ACT_COL).getValues().filter(r => String(r[0]).trim());   // Q열 활동 기록까지
   const students = [], recent = [], wrongCount = {};
   rows.forEach(r => {
     const sid = String(r[0]).trim(), name = String(r[1]), st = rowStats_(r);
     students.push({sid: sid, name: name, joined: iso_(r[2]), lastSeen: iso_(r[3]), hasPw: !!r[5], sessions: st.sessions, questions: st.questions, correct: st.correct, lastPractice: st.last});
     st.recent.forEach(e => recent.push(Object.assign({sid: sid, name: name}, e)));
+    const acts = parseJ_(r[ACT_COL - 1], []);   // 단어 목록·카드 넘기기 (점수 없음)
+    if (Array.isArray(acts)) acts.slice(-30).forEach(a => recent.push(Object.assign({sid: sid, name: name, act: 1, score: 0}, a)));
     st.wrong.forEach(w => { const k = w.page + '|' + w.en; const o = wrongCount[k] || (wrongCount[k] = {en: w.en, page: w.page, count: 0, students: 0}); o.count += w.count; o.students++; });
   });
   recent.sort((a, b) => a.at < b.at ? 1 : -1);
@@ -505,7 +520,8 @@ function statsFor_(sid) {
     student: {sid: sid, name: String(r[1])},
     stats: {sessions: st.sessions, questions: st.questions, correct: st.correct},
     recent: st.recent.slice().reverse().map(e => Object.assign({sid: sid}, e)),
-    wrong: st.wrong.slice(0, 60)
+    wrong: st.wrong.slice(0, 60),
+    acts: (() => { let a = []; try { a = parseJ_(sh.getRange(row, ACT_COL).getValue(), []); } catch (e) {} return (Array.isArray(a) ? a : []).slice().reverse(); })()
   };
 }
 function isPractice_(l) { return l.total > 0; }
@@ -584,6 +600,17 @@ function addPractice_(sid, entry, cliMy) {
     }
     if (cliMy) out.myPack = myPack_(sid, mm.my);
     return out;
+  });
+}
+function addActivity_(sid, act) {
+  withLock_(() => {
+    const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
+    if (!row) fail_('학생 정보를 찾을 수 없어요. 다시 로그인해 주세요.', 'auth');
+    const list = parseJ_(sh.getRange(row, ACT_COL).getValue(), []);
+    const all = (Array.isArray(list) ? list : []).concat([act]).sort((a, b) => a.at < b.at ? -1 : 1).slice(-ACT_KEEP);
+    if (sh.getRange(1, ACT_COL).getValue() !== ACT_HEADER) sh.getRange(1, ACT_COL).setValue(ACT_HEADER).setFontWeight('bold');
+    sh.getRange(row, ACT_COL).setValue(JSON.stringify(all));
+    sh.getRange(row, 4).setValue(new Date());   // 최근 접속
   });
 }
 /* 예전 '기록' 탭(연습 한 번에 한 줄)을 학생 줄에 합치고 탭 이름을 '지난 기록'으로 바꿈 */
@@ -873,6 +900,7 @@ function cleanQuestion_(q) {
   const str = (v, n) => String(v == null ? '' : v).replace(/\r/g, '').trim().slice(0, n);
   const out = {type: q && q.type === 'text' ? 'text' : 'choice', passage: str(q && q.passage, 6000), q: str(q && q.q, 2000), exp: str(q && q.exp, 2000)};
   if (!out.q) return null;
+  if (q && /^q[0-9a-f]{8}$/.test(String(q.img || ''))) out.img = String(q.img);   // 지문 그림 ('퀴즈 이미지' 시트의 ID)
   if (out.type === 'choice') {
     out.options = (Array.isArray(q.options) ? q.options : []).map(o => str(o, 400)).filter(Boolean).slice(0, 6);
     if (out.options.length < 2) return null;
@@ -931,6 +959,7 @@ function adminRaceSave_(req) {
     if (cur) {
       sh.getRange(cur.row, 2, 1, 4).setValues([vals]);
       sh.getRange(cur.row, 8, 1, 2).setValues([[now, JSON.stringify(r.questions)]]);
+      try { qimgPrune_(); } catch (e) {}
       return {ok: true, id: cur.id};
     }
     const id = 'r' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
@@ -963,10 +992,63 @@ function adminRaceDelete_(req) {
   return withLock_(() => {
     const cur = readRaces_().find(x => x.id === String(req.id || ''));
     if (!cur) fail_('그 레이스를 찾을 수 없어요.');
-    if (how === 'hard') { sheet_(SHEET_RACES).deleteRow(cur.row); forget_('c_races'); }
+    if (how === 'hard') { sheet_(SHEET_RACES).deleteRow(cur.row); forget_('c_races'); qimgPrune_(); }
     else { cur.state.del = how === 'soft'; writeState_(cur); }
     return {ok: true};
   });
+}
+/* 퀴즈 지문 그림: 숨긴 '퀴즈 이미지' 시트에 한 줄에 그림 하나 (사진 파일을 글자로 바꾼 값을 여러 칸에 나눠 저장).
+   구글 드라이브는 쓰지 않음. 레이스 문제에는 그림 ID만 들어가고, 학생 화면은 그 ID로 그림을 받아 감 */
+const SHEET_QIMG = '퀴즈 이미지';
+const QIMG_HEADERS = ['ID', '만든 시각', '종류', '조각 수', '그림 데이터 (사이트가 쓰는 칸이니 고치지 마세요)'];
+const QIMG_CHUNK = 45000, QIMG_MAX = 900000;
+function qimgSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEET_QIMG);
+  if (!sh) { sh = ensureSheet_(ss, SHEET_QIMG, QIMG_HEADERS); try { sh.hideSheet(); } catch (e) {} }
+  return sh;
+}
+function adminQImgSave_(req) {
+  checkToken_(req.token, 'a');
+  const mime = /^image\/(png|jpeg)$/.test(String(req.mime)) ? String(req.mime) : '';
+  if (!mime) fail_('PNG나 JPG 그림만 넣을 수 있어요.');
+  const data = String(req.data || '');
+  if (!data || !/^[A-Za-z0-9+/]+=*$/.test(data)) fail_('그림 형식이 올바르지 않아요.');
+  if (data.length > QIMG_MAX) fail_('그림이 너무 커요. 더 작게 잘라서 넣어 주세요.');
+  const parts = []; for (let i = 0; i < data.length; i += QIMG_CHUNK) parts.push('~' + data.slice(i, i + QIMG_CHUNK));   // '~': 시트가 '+', '=' 로 시작하는 값을 수식으로 읽지 않게
+  const id = 'q' + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
+  return withLock_(() => {
+    const sh = qimgSheet_();
+    sh.appendRow([id, new Date(), mime, parts.length].concat(parts));
+    return {ok: true, id: id};
+  });
+}
+function qimg_(req) {
+  const id = String(req.id || '');
+  if (!/^q[0-9a-f]{8}$/.test(id)) fail_('그림을 찾을 수 없어요.');
+  const v = cached_('c_qimg_' + id, () => {
+    const sh = qimgSheet_(), n = sh.getLastRow(); if (n < 2) return null;
+    const ids = sh.getRange(2, 1, n - 1, 1).getValues();
+    for (let i = 0; i < ids.length; i++) if (String(ids[i][0]).trim() === id) {
+      const head = sh.getRange(i + 2, 1, 1, 4).getValues()[0], k = Number(head[3]) || 0;
+      const data = k ? sh.getRange(i + 2, 5, 1, k).getValues()[0].map(x => String(x).replace(/^~/, '')).join('') : '';
+      return {mime: String(head[2]), data: data};
+    }
+    return null;
+  });
+  if (!v || !v.data) fail_('그림을 찾을 수 없어요.');
+  return {ok: true, mime: v.mime, data: v.data};
+}
+/* 어느 레이스에도 쓰이지 않는 그림은 지움 (방금 넣고 아직 저장 전인 그림은 하루 동안 남겨 둠) */
+function qimgPrune_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(SHEET_QIMG); if (!sh) return;
+  const n = sh.getLastRow(); if (n < 2) return;
+  const used = {}; readRaces_().forEach(x => (x.questions || []).forEach(q => { if (q && q.img) used[q.img] = 1; }));
+  const rows = sh.getRange(2, 1, n - 1, 2).getValues(), old = Date.now() - 24 * 3600 * 1000;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const at = rows[i][1] instanceof Date ? rows[i][1].getTime() : Date.parse(rows[i][1]) || 0;
+    if (!used[String(rows[i][0]).trim()] && at < old) sh.deleteRow(i + 2);
+  }
 }
 function raceSummary_(x) {
   return {id: x.id, name: x.name, classes: x.classes, sources: x.sources, settings: x.settings, state: x.state, questions: x.questions};
@@ -974,9 +1056,10 @@ function raceSummary_(x) {
 function adminRaces_(req) {
   checkToken_(req.token, 'a');
   const logs = readRaceLogs_();
-  const people = (id, st) => { const s = {}; logs.forEach(l => { if (l.race === id && l.status === st) s[l.cls + '\n' + l.team] = 1; }); return Object.keys(s).length; };
+  const people = (x, st, ok) => { const s = {}; logs.forEach(l => { if (l.race === x.id && l.status === st && (!ok || ok(l))) s[l.cls + '\n' + l.team] = 1; }); return Object.keys(s).length; };
+  const open = x => l => raceStatusFor_(x, l.cls) === '진행';   // 달리는 중: 그 반이 아직 열려 있을 때만. 마감된 반은 '마감 전에 못 끝냄'
   return {ok: true, setsPack: setsFor_(req.v), archive: archiveInfo_(), classes: readTeams_(), studentClasses: studentClasses_().map(c => ({name: c.name, n: c.students.length})),
-    races: readRaces_().map(x => Object.assign(raceSummary_(x), {done: people(x.id, '완료'), running: people(x.id, '진행 중')}))};
+    races: readRaces_().map(x => Object.assign(raceSummary_(x), {done: people(x, '완료'), running: people(x, '진행 중', open(x)), stopped: people(x, '진행 중', l => !open(x)(l))}))};
 }
 
 /* ---------------- 레이스 기록 ---------------- */
@@ -985,7 +1068,7 @@ function readRaceLogs_() {
   return sh.getRange(2, 1, n - 1, RACELOG_HEADERS.length).getValues().map((r, i) => ({
     row: i + 2, started: r[0] instanceof Date ? r[0].getTime() : Date.parse(r[0]) || 0, race: String(r[1]).trim(), raceName: String(r[2]), cls: String(r[3]).trim(), team: String(r[4]).trim(),
     status: String(r[5]), done: Number(r[6]) || 0, total: Number(r[7]) || 0, seconds: r[8] === '' ? null : Number(r[8]), penalty: Number(r[9]) || 0, wrong: Number(r[10]) || 0,
-    wrongWords: String(r[11] || ''), updated: iso_(r[12])
+    wrongWords: String(r[11] || ''), updated: iso_(r[12]), answers: String(r[13] || '')
   })).filter(l => l.race);
 }
 const raceHasClass_ = (race, cls) => race.classes.indexOf('*') >= 0 || race.classes.indexOf(cls) >= 0;
@@ -1016,8 +1099,10 @@ function mineOf_(logs, race, who) {
   if (!rows.length) return null;
   const last = rows[rows.length - 1], done = rows.filter(l => l.status === '완료' && l.seconds !== null);
   const best = done.length ? done.reduce((a, b) => (better_(race, b, a) ? b : a)) : null;
+  const lastDone = done[done.length - 1];   // 다시 보기: 마지막으로 끝낸 도전의 답과 틀린 단어
   return {status: last.status, seconds: last.seconds, done: last.done, total: last.total, wrong: last.wrong, tries: rows.length,
-    best: best ? best.seconds : null, bestDone: best ? best.done : null, bestTotal: best ? best.total : null, finished: done.length};
+    best: best ? best.seconds : null, bestDone: best ? best.done : null, bestTotal: best ? best.total : null, finished: done.length,
+    answers: lastDone ? parseJ_(lastDone.answers, null) : null, wrongWords: lastDone && lastDone.wrongWords ? lastDone.wrongWords.split(' ; ') : []};
 }
 function raceListFor_(who) {
   const logs = readRaceLogs_().filter(l => l.cls === who.cls && l.team === who.team);
@@ -1079,6 +1164,11 @@ function raceUpdate_(req, finish) {
       sh.getRange(mine.row, 6).setValue('완료');
       sh.getRange(mine.row, 9).setValue(seconds);
       sh.getRange(mine.row, 12).setValue(asText_(words));
+      if (Array.isArray(req.answers)) {   // Quiz: 문제마다 {a: 고른 보기 번호 또는 쓴 답, r: ok|wrong|skip|blank}
+        const ans = req.answers.slice(0, 200).map(x => x && typeof x === 'object' ? {a: typeof x.a === 'number' ? x.a : x.a == null ? null : String(x.a).slice(0, 100), r: String(x.r || '').slice(0, 6)} : null);
+        if (sh.getRange(1, 14).getValue() !== RACELOG_HEADERS[13]) sh.getRange(1, 14).setValue(RACELOG_HEADERS[13]).setFontWeight('bold');
+        sh.getRange(mine.row, 14).setValue(JSON.stringify(ans));
+      }
       // 반 순위: 사람(모둠)마다 가장 좋은 기록으로
       const best = {}, me = {done: done, seconds: seconds};
       logs.forEach(l => { if (l.race === mine.race && l.cls === who.cls && l.status === '완료' && l.seconds !== null && l.row !== mine.row) { const k = l.team; if (!(k in best) || better_(race, l, best[k])) best[k] = l; } });
