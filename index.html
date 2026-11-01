@@ -1093,7 +1093,7 @@ async function viewAdmin(next){
     <p class="help">여기에 적은 학번만 <b>처음 등록과 로그인</b>을 할 수 있어요. 다른 학번은 "사용 권한이 없는 학번입니다"가 나오고, 이미 등록한 학생이라도 목록에 없으면 쓸 수 없어요. 범위는 <b>~</b>로 잇고, 쉼표나 줄 바꿈으로 나눠요. <b>비워 두면 누구나</b> 등록하고 로그인할 수 있어요.</p>
     <textarea id="regtxt" rows="4" placeholder="예:&#10;20101~20126&#10;20201~20226">${esc(String(r.regAllow || '').split(', ').join('\n'))}</textarea>
     <label for="regtest"><b>시험용 학번</b><br><span class="muted small">선생님이 시험할 때 쓰는 학번 · 순위에 나오지 않고, 위 목록에 없어도 쓸 수 있어요</span></label>
-    <p class="help" style="margin:0">여러 개면 <b>쉼표</b>로 나눠 적어요. 예: <code>21201, 21299</code> · 이어진 번호는 <b>~</b>로 묶어도 돼요. 예: <code>21201~21203</code></p>
+    <p class="help" style="margin:0">여러 개면 <b>쉼표</b>로 나눠 적어요. 예: 21201, 21299<br>이어진 번호는 <b>~</b>로 묶어도 돼요. 예: 21201~21203</p>
     <input type="text" id="regtest" placeholder="예: 21201, 21299" value="${esc(r.regTest || '')}">
     <div class="row"><button class="btn mark small" id="regsave">저장하기</button><span class="small" id="regmsg"></span></div>
   </details>
