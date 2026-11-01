@@ -360,7 +360,7 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 .wrap.wide{max-width:1100px}
 /* 학생 기록 → 학생별: the list scrolls by itself, so the clicked student's record shows right below it */
 .recgrid{display:flex;flex-direction:column;gap:18px}
-.regbox{padding:12px 16px}.regbox summary{cursor:pointer}.regbox[open]{display:flex;flex-direction:column;gap:10px}.regbox textarea{font:inherit}
+.regbox{padding:12px 16px}.regbox summary{cursor:pointer}.regbox #regsum,.regbox #regtestsum{display:block;margin:4px 0 0 18px}.regbox #regtestsum[hidden]{display:none}   /* the saved numbers start on their own line */.regbox[open]{display:flex;flex-direction:column;gap:10px}.regbox textarea{font:inherit}
 .detail .dhead{align-items:center;flex-wrap:wrap;gap:10px}.detail .dhead #dx{margin-left:auto}.detail .dhead .reset{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:0;border:0}.detail .dhead .reset .help{margin:0}.detail .dhead .reset.confirm{flex-basis:100%;order:3;flex-direction:column;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .recgrid.split #tb .tablewrap{max-height:40vh;overflow:auto}
 .recgrid.split thead th{position:sticky;top:0;background:var(--surface);z-index:1}
@@ -1031,7 +1031,6 @@ function actSection(acts){
     <ul class="log">${acts.slice(0, 20).map(a => `<li><span>${esc(fmtTime(a.at))}</span><span>${esc(recPage(a.page, a.pageTitle, true))} · ${esc(a.mode)}</span><b>${a.mode === '카드 넘기기' ? `${a.seen}/${a.total}장 · ` : ''}${fmtDur(a.secs || 0)}</b></li>`).join('')}</ul>`
     : '<p class="help">아직 단어 목록·카드 넘기기 기록이 없어요. (이번 업데이트 뒤부터 기록돼요)</p>'}`;
 }
-const regSummary = r => `${r.regAllow || '제한 없음 (누구나)'}${r.regTest ? ` · 시험용 ${r.regTest}` : ''}`;
 let SEL_SID = '';   // 학생 기록: the student whose record is open
 /* ---------- teacher: practice records ---------- */
 /* the address shows where a refresh should land: #admin on every teacher screen, no #admin on student screens.
@@ -1090,11 +1089,12 @@ async function viewAdmin(next){
     <div class="stat"><span>오늘 연습한 학생</span><b>${practicedToday}</b></div>
     <div class="stat"><span>전체 연습 횟수</span><b>${sessions}</b></div>
   </div>
-  <details class="panel regbox"><summary><b>사용할 수 있는 학번</b> <span class="muted small" id="regsum">${esc(regSummary(r))}</span></summary>
+  <details class="panel regbox"><summary><b>사용할 수 있는 학번</b> <span class="muted small" id="regsum">${esc(r.regAllow || '제한 없음 (누구나)')}</span><span class="muted small" id="regtestsum"${r.regTest ? '' : ' hidden'}>시험용 ${esc(r.regTest || '')}</span></summary>
     <p class="help">여기에 적은 학번만 <b>처음 등록과 로그인</b>을 할 수 있어요. 다른 학번은 "사용 권한이 없는 학번입니다"가 나오고, 이미 등록한 학생이라도 목록에 없으면 쓸 수 없어요. 범위는 <b>~</b>로 잇고, 쉼표나 줄 바꿈으로 나눠요. <b>비워 두면 누구나</b> 등록하고 로그인할 수 있어요.</p>
     <textarea id="regtxt" rows="4" placeholder="예:&#10;20101~20126&#10;20201~20226">${esc(String(r.regAllow || '').split(', ').join('\n'))}</textarea>
-    <label for="regtest"><b>시험용 학번</b> <span class="muted small">선생님이 시험할 때 쓰는 학번 · 순위에 나오지 않고, 위 목록에 없어도 쓸 수 있어요</span></label>
-    <input type="text" id="regtest" placeholder="예: 21201" value="${esc(r.regTest || '')}">
+    <label for="regtest"><b>시험용 학번</b><br><span class="muted small">선생님이 시험할 때 쓰는 학번 · 순위에 나오지 않고, 위 목록에 없어도 쓸 수 있어요</span></label>
+    <p class="help" style="margin:0">여러 개면 <b>쉼표</b>로 나눠 적어요. 예: <code>21201, 21299</code> · 이어진 번호는 <b>~</b>로 묶어도 돼요. 예: <code>21201~21203</code></p>
+    <input type="text" id="regtest" placeholder="예: 21201, 21299" value="${esc(r.regTest || '')}">
     <div class="row"><button class="btn mark small" id="regsave">저장하기</button><span class="small" id="regmsg"></span></div>
   </details>
   <div class="tabs" role="tablist">
@@ -1109,7 +1109,7 @@ async function viewAdmin(next){
   document.getElementById('regsave').onclick = async e => {
     const b = e.target, msg = document.getElementById('regmsg'); b.disabled = true; msg.textContent = '저장하는 중…';
     try { const x = await api('adminRegAllow', {token: ADMIN.token, text: document.getElementById('regtxt').value, test: document.getElementById('regtest').value}); r.regAllow = x.text; r.regTest = x.test; store.set('wordroom-admin-cache', r);
-      document.getElementById('regsum').textContent = regSummary(r); document.getElementById('regtxt').value = x.text.split(', ').filter(Boolean).join('\n'); document.getElementById('regtest').value = x.test; msg.textContent = '저장했어요'; toast('사용할 수 있는 학번을 저장했어요'); }
+      document.getElementById('regsum').textContent = x.text || '제한 없음 (누구나)'; const ts = document.getElementById('regtestsum'); ts.textContent = '시험용 ' + x.test; ts.hidden = !x.test; document.getElementById('regtxt').value = x.text.split(', ').filter(Boolean).join('\n'); document.getElementById('regtest').value = x.test; msg.textContent = '저장했어요'; toast('사용할 수 있는 학번을 저장했어요'); }
     catch(err){ if (!adminErr(err, viewAdmin)) msg.textContent = err.error || '저장하지 못했어요'; }
     b.disabled = false;
   };
