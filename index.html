@@ -564,7 +564,9 @@ function wrongChoices(w, pool, n, text){
   return pick.map(text);
 }
 function relWord(h, r, pid){
-  const w = [r[1], r[0] === '유의어' ? (r[2] || h[1]) : (r[2] || ''), `${r[0]} · ${h[0]}`];
+  // the small label under the word: "evolve의 명사형", "solely의 유의어", "affect의 참고 표현" (not "명사 · evolve", which read as if evolve were the noun)
+  const tag = /^(동사|형용사|명사|부사)$/.test(r[0]) ? `${h[0]}의 ${r[0]}형` : r[0] === '참고' ? `${h[0]}의 참고 표현` : `${h[0]}의 ${r[0]}`;
+  const w = [r[1], r[0] === '유의어' ? (r[2] || h[1]) : (r[2] || ''), tag];
   w.pid = pid; w.rel = r[0]; w.head = h; return w;
 }
 PAGES.forEach(p => {
