@@ -178,6 +178,7 @@ tbody tr[data-sid]{cursor:pointer}
 tbody tr[data-sid]:hover,tbody tr[data-sid]:focus-visible{background:var(--paper)}
 tr.event td{color:var(--muted)}
 .chip{font-size:11px;font-weight:700;color:var(--bad);background:var(--bad-bg);border-radius:5px;padding:1px 6px}
+.bad-ans,.bad-ans b{color:var(--bad)}
 .savestate{font-size:13px;font-weight:700;color:var(--muted)}
 .savestate.ok{color:var(--good)}
 .btn.danger{background:var(--bad);color:#fff}
@@ -1520,6 +1521,8 @@ async function viewSetsAdmin(){
   await loadSets(); if (document.getElementById('sl')) draw();
 }
 
+/* answer boxes: a new name each time, so the browser never offers answers typed before (it keeps them by box name) */
+const ansName = () => 'a' + Math.random().toString(36).slice(2, 9);
 /* Ctrl+V of a picture (a screen capture). Copied Excel cells also carry a picture, so anything with text is left to the text box */
 let PASTE_PIC = null;   // {el: an element id that shows the screen is still open, fn(files)}
 function onPicturePaste(el, fn){ PASTE_PIC = {el, fn}; }
@@ -1836,7 +1839,8 @@ function viewRaceReview(race, ctx){
     const pk = (q.img || '') + '\n' + (q.passage || ''), pass = pk !== '\n' && pk !== lastPass ? qPassHTML(q) : ''; if (pk !== '\n') lastPass = pk;
     const my = A && A[i], mine = my && my.a !== null && my.a !== undefined && my.a !== '' ? my.a : null;
     const opts = q.type === 'choice' ? `<ol class="revopts">${q.options.map((o, k) => o ? `<li class="${k === q.answer ? 'ans' : mine === k ? 'my' : ''}"><span>${CIRCLED[k] || k + 1}</span> ${esc(o)}${k === q.answer ? ' <span class="chip ok">정답</span>' : ''}${mine === k ? ' <span class="chip mine">내 답</span>' : ''}</li>` : '').join('')}</ol>` : '';
-    const myLine = my ? `<div class="small">내 답: <b>${mine === null ? '–' : q.type === 'choice' ? esc(`${CIRCLED[mine] || mine + 1} ${q.options[mine] || ''}`) : esc(mine)}</b></div>` : '';
+    const bad = my && my.r !== 'ok' ? ' bad-ans' : '';   // wrong: 내 답 in the same red as the 틀림 chip
+    const myLine = my ? `<div class="small${bad}">내 답: <b>${mine === null ? '–' : q.type === 'choice' ? esc(`${CIRCLED[mine] || mine + 1} ${q.options[mine] || ''}`) : esc(mine)}</b></div>` : '';
     return `<li>${pass}<div class="row" style="gap:8px"><b>${i + 1}번</b>${my ? RES[my.r] || '' : ''}</div><div class="qtext">${esc(q.q)}</div>${opts}
       ${myLine}<div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`;
   };
@@ -1966,7 +1970,7 @@ function runRace(race, words, st, ctx){
       $app.innerHTML = `${top()}
       <div class="card" style="min-height:150px"><div class="ko big-ko">${esc(w[1])}</div><div class="mask" id="hn">${esc(mask())}</div></div>
       <form id="fm" class="row" style="flex-direction:column;align-items:stretch" autocomplete="off">
-        <input class="answer" id="ans" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="영어로 쓰세요" aria-label="영어 답">
+        <input class="answer" id="ans" type="text" autocomplete="off" name="${ansName()}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="영어로 쓰세요" aria-label="영어 답">
         <div class="feedback" id="fb"></div>
         <div class="row"><button type="button" class="btn ghost" id="skip">건너뛰기${P ? ` (+${P * 3}초)` : ''}</button><button type="submit" class="btn mark wide">확인</button></div>
       </form>`;
@@ -2043,7 +2047,7 @@ function runRace(race, words, st, ctx){
       } else {
         $app.innerHTML = `${top()}<div class="card qcard">${passage}${head}</div>
         <form id="fm" class="row" style="flex-direction:column;align-items:stretch" autocomplete="off">
-          <input class="answer" id="ans" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="답을 쓰세요" aria-label="답">
+          <input class="answer" id="ans" type="text" autocomplete="off" name="${ansName()}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="답을 쓰세요" aria-label="답">
           <div class="feedback" id="fb"></div>
           <div class="row"><button type="button" class="btn ghost" id="skip">건너뛰기${P ? ` (+${P * 3}초)` : ''}</button><button type="submit" class="btn mark wide">확인</button></div>
         </form>`;
@@ -2091,7 +2095,7 @@ function runRace(race, words, st, ctx){
       const passage = qPassHTML(q);
       const body = q.type === 'choice'
         ? `<div class="choices">${q.options.map((o, k) => `<button class="choice qopt${ans[cur] === k ? ' sel' : ''}" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${esc(o)}</span></button>`).join('')}</div>`
-        : `<input class="answer" id="ans" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="답을 쓰세요" aria-label="답" value="${esc(ans[cur] || '')}">`;
+        : `<input class="answer" id="ans" type="text" autocomplete="off" name="${ansName()}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="답을 쓰세요" aria-label="답" value="${esc(ans[cur] || '')}">`;
       $app.innerHTML = `${head()}<div class="card qcard">${passage}<div class="qtext"><span class="qno">${cur + 1}.</span> ${esc(q.q)}</div></div>${body}
         <div class="row"><button class="btn ghost" id="qprev" ${cur ? '' : 'disabled'}>‹ 이전</button>${cur < total - 1 ? '<button class="btn mark wide" id="qnext">다음 ›</button>' : '<button class="btn mark wide" id="qsubmit">제출하기</button>'}</div>
         <div class="count" id="qleft">${answered()} / ${total}문제 답함</div>`;
@@ -2155,6 +2159,7 @@ function viewRaceResult(race, r, R, localSec, ctx, items){
   ${quiz ? `<div class="section-label">정답과 해설</div><div class="panel"><ol class="qres">${items.map((q, i) => `<li>
       <div class="row" style="gap:8px"><b>${i + 1}번</b>${qmark(i)}</div>
       <div class="qtext small">${esc(q.q)}</div>
+      ${R.qres[i] && R.qres[i] !== 'ok' && R.pick[i] !== undefined ? `<div class="small bad-ans">내 답: <b>${esc(q.type === 'choice' ? `${CIRCLED[R.pick[i]] || ''} ${q.options[R.pick[i]] || ''}` : R.pick[i])}</b></div>` : ''}
       <div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>
       ${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`).join('')}</ol></div>`
     : R.wrongWords.length ? `<div class="section-label">헷갈린 단어 ${R.wrongWords.length}개</div><div class="panel"><ul class="wl">${R.wrongWords.map(en => wordRow(raceWords(race).find(w => w[0] === en) || [en, ''])).join('')}</ul></div>` : ''}
@@ -2181,7 +2186,7 @@ function viewAccResult(race, r, R, localSec, ctx, items){
   <div class="section-label">정답과 해설</div><div class="panel"><ol class="qres">${items.map((q, i) => `<li>
       <div class="row" style="gap:8px"><b>${i + 1}번</b>${mark(i)}</div>
       <div class="qtext small">${esc(q.q)}</div>
-      <div class="small">내 답: ${esc(mineText(q, i))}</div>
+      <div class="small${R.qres[i] === 'ok' ? '' : ' bad-ans'}">내 답: ${esc(mineText(q, i))}</div>
       <div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>
       ${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`).join('')}</ol></div>
   <div class="row">${multi && race.status === '진행' ? '<button class="btn ghost" id="again">다시 도전</button>' : ''}<button class="btn wide" id="home">${ctx.homeText}</button></div>`;
@@ -3126,7 +3131,7 @@ function viewSpell(words){
     $app.innerHTML = `${header(back())}${prog(i, deck.length)}
     <div class="card has-star" style="min-height:160px">${starBtn(deck[i])}<div class="ko big-ko">${esc(ko)}</div>${deck[i].rel ? `<div class="tag">${esc(deck[i][2])}</div>` : ''}<div class="mask" id="hn" aria-label="힌트">${esc(mask())}</div></div>
     <form id="fm" class="row" style="flex-direction:column;align-items:stretch" autocomplete="off">
-      <input class="answer" id="ans" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="영어로 쓰세요" aria-label="영어 답">
+      <input class="answer" id="ans" type="text" autocomplete="off" name="${ansName()}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="영어로 쓰세요" aria-label="영어 답">
       <div class="feedback" id="fb"></div>
       <div class="row"><button type="button" class="btn ghost" id="hint">한 글자 더</button><button type="button" class="btn ghost" id="skip">모르겠어요</button><button type="submit" class="btn mark wide" id="sub">확인</button></div>
     </form>`;
