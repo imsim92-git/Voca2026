@@ -74,6 +74,20 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 /* list */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px}
 .wl{list-style:none;margin:0;padding:0}
+@media print{
+  @page{margin:14mm 12mm 16mm;@bottom-center{content:counter(page) " / " counter(pages);font-size:10px;color:#555}}   /* page / pages at the bottom (Chrome, Edge) */
+  body.print-list{background:#fff!important;color:#000!important}
+  body.print-list .stickybar,body.print-list .tools,body.print-list .help,body.print-list .listfoot,body.print-list .say,body.print-list [data-star],body.print-list [data-done],body.print-list #toast,body.print-list .toast{display:none!important}
+  body.print-list .wrap{max-width:none;gap:8px}
+  body.print-list h2{color:#000;margin:0 0 6px}
+  body.print-list .panel{border:0;box-shadow:none;background:#fff;padding:0}
+  body.print-list .wl{columns:2;column-gap:28px}
+  body.print-list .wl li{break-inside:avoid;display:block;padding:5px 0;border-top:0;border-bottom:1px solid #bbb}
+  body.print-list .wl .en{color:#000;font-size:15px;font-weight:700}
+  body.print-list .wl .ko,body.print-list .wl .rels,body.print-list .wl .note{display:block;color:#222!important;font-size:12px}
+  body.print-list .wl.hideko .ko{color:transparent!important;background:none;border-bottom:1px solid #999;min-height:16px;border-radius:0}
+  body.print-list .wl.hideko li{border-bottom:0}body.print-list .wl.hideko .rels,body.print-list .wl.hideko .note,body.print-list #pvbar{display:none!important}   /* 뜻 가리기 sheet: only the word and a line to write the meaning */
+}
 .wl li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 16px;border-top:1px solid var(--line);align-items:center}
 .wl li:first-child{border-top:0}
 .wl .en{font-family:var(--f-word);font-size:18px;min-width:0;overflow-wrap:anywhere}
@@ -312,6 +326,7 @@ tr.event td{color:var(--muted)}
 /* team race */
 .chip.ok{color:var(--good);background:var(--good-bg)}
 .chip.go{color:var(--navy-fg);background:var(--navy)}
+.chip.closed{color:var(--muted);background:var(--line)}   /* 마감: gray, unlike 준비 */
 .chip.run{color:var(--mark-ink);background:var(--mark)}
 .racetile{gap:6px;align-items:flex-start}
 .racetile:disabled{opacity:.6;cursor:default;transform:none}
@@ -2264,7 +2279,7 @@ const whoClasses = (who, data) => who === 'student' ? ((data || RACE_ADMIN).stud
 const raceClassNames = (race, teams) => race.classes.includes('*') ? (teams ? teams.map(c => c.name) : whoClasses(race.settings.who)) : race.classes;
 const raceClassLabel = race => race.classes.includes('*') ? '전체 반' : race.classes.join(', ');
 async function loadRaceAdmin(){ const r = await api('adminRaces', {token: ADMIN.token, v: setsV()}); applySets(r.setsPack); RACE_ADMIN = {classes: r.classes, studentClasses: r.studentClasses || [], races: r.races, archive: r.archive}; return r; }
-const STATUS_CHIP = {'준비': '<span class="chip">준비</span>', '진행': '<span class="chip go">열림</span>', '마감': '<span class="chip">마감</span>'};
+const STATUS_CHIP = {'준비': '<span class="chip">준비</span>', '진행': '<span class="chip go">열림</span>', '마감': '<span class="chip closed">마감</span>'};
 /* one chip for the whole race: the same state in every class, or "반마다 다름" */
 function raceStateChip(race){
   const names = raceClassNames(race);
@@ -2937,7 +2952,7 @@ function viewList(words){
   if (!conf && SET.heads) words = SET.heads;
   trackActivity('단어 목록', words.length);
   $app.innerHTML = `${stickyTop(back())}
-    <div class="row tools"><button class="btn ghost small" id="hk">뜻 가리기</button><button class="btn ghost small" id="sh">순서 섞기</button><button class="btn ghost small" id="od">원래 순서</button><span class="count" id="wn"></span></div></div>
+    <div class="row tools"><button class="btn ghost small" id="hk">뜻 가리기</button><button class="btn ghost small" id="sh">순서 섞기</button><button class="btn ghost small" id="od">원래 순서</button><button class="btn ghost small" id="pr">인쇄</button><span class="count" id="wn"></span></div></div>
   <h2>${SET.id === 'allconf' ? esc(SET.t) : `${esc(SET.t)} · ${conf ? '헷갈리는 단어' : '단어 목록'}`}</h2>
   <p class="help" style="margin:0">${conf ? '다 외운 단어는 "외웠어요"를 눌러 목록에서 빼세요. 다시 틀리면 또 들어와요.' : '뜻을 가린 상태에서 단어를 누르면 뜻이 보여요. ☆을 누르면 헷갈리는 단어에 들어가요.'}</p>
   <div class="panel"><ul class="wl${conf ? ' conf' : ''}" id="wl"></ul></div>
@@ -2962,6 +2977,14 @@ function viewList(words){
   document.getElementById('hk').onclick = e => { hide = !hide; wl.classList.toggle('hideko', hide); wl.querySelectorAll('.peek').forEach(l => l.classList.remove('peek')); e.target.textContent = hide ? '뜻 보이기' : '뜻 가리기'; };
   document.getElementById('sh').onclick = () => draw(shuffle(shown));
   document.getElementById('od').onclick = () => draw(words.filter(w => shown.includes(w)));
+  /* 인쇄: the list as it is on screen (order, and 뜻 가리기 prints blank meaning boxes for a test sheet) */
+  document.getElementById('pr').onclick = () => {
+    document.body.classList.add('print-list');
+    const done = () => { document.body.classList.remove('print-list'); removeEventListener('afterprint', done); };
+    addEventListener('afterprint', done);
+    print();
+    setTimeout(done, 1000);   // some phones do not send afterprint
+  };
 }
 
 /* ---------- flashcards: tap to flip, swipe or arrows to move, star to keep ---------- */
