@@ -75,17 +75,21 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px}
 .wl{list-style:none;margin:0;padding:0}
 @media print{
-  @page{margin:14mm 12mm 16mm;@bottom-center{content:counter(page) " / " counter(pages);font-size:10px;color:#555}}   /* page / pages at the bottom (Chrome, Edge) */
+  @page{margin:10mm 10mm 12mm;@bottom-center{content:counter(page) " / " counter(pages);font-size:9px;color:#555}}   /* page / pages at the bottom (Chrome, Edge) */
   body.print-list{background:#fff!important;color:#000!important}
   body.print-list .stickybar,body.print-list .tools,body.print-list .help,body.print-list .listfoot,body.print-list .say,body.print-list [data-star],body.print-list [data-done],body.print-list #toast,body.print-list .toast{display:none!important}
   body.print-list .wrap{max-width:none;gap:8px}
-  body.print-list h2{color:#000;margin:0 0 6px}
+  body.print-list h2{color:#000;margin:0 0 4px;font-size:16px}
   body.print-list .panel{border:0;box-shadow:none;background:#fff;padding:0}
-  body.print-list .wl{columns:2;column-gap:28px}
-  body.print-list .wl li{break-inside:avoid;display:block;padding:5px 0;border-top:0;border-bottom:1px solid #bbb}
-  body.print-list .wl .en{color:#000;font-size:15px;font-weight:700}
-  body.print-list .wl .ko,body.print-list .wl .rels,body.print-list .wl .note{display:block;color:#222!important;font-size:12px}
-  body.print-list .wl.hideko .ko{color:transparent!important;background:none;border-bottom:1px solid #999;min-height:16px;border-radius:0}
+  body.print-list .wl{columns:2;column-gap:24px}
+  body.print-list .wl li{break-inside:avoid;display:block;padding:3px 0 4px;border-top:0;border-bottom:1px solid #ccc;line-height:1.35}
+  body.print-list .wl .en{color:#000;font-size:13px;font-weight:700}
+  body.print-list .wl .ko,body.print-list .wl .rels,body.print-list .wl .note{display:block;color:#222!important;font-size:11px}
+  body.print-list .wl .rels{gap:0}body.print-list .rel-en{font-size:11px}body.print-list .rel b{font-size:9px;padding:0 4px}
+  body.print-list .wl.hideko .ko{color:transparent!important;background:none;border-bottom:1px solid #999;min-height:18px;border-radius:0}
+  body.print-list .wl.hideen li{display:flex;flex-direction:column;align-items:stretch;text-align:left;border-bottom:0}body.print-list .wl.hideen .ko{order:-1;font-size:12px;color:#000!important}
+  body.print-list .wl.hideen .en{display:block;width:100%;color:transparent!important;background:none;border-bottom:1px solid #999;min-height:20px;border-radius:0}
+  body.print-list .wl.hideen .rels,body.print-list .wl.hideen .note{display:none!important}   /* 영어 가리기 sheet: the meaning, then a line to write the spelling */
   body.print-list .wl.hideko li{border-bottom:0}body.print-list .wl.hideko .rels,body.print-list .wl.hideko .note,body.print-list #pvbar{display:none!important}   /* 뜻 가리기 sheet: only the word and a line to write the meaning */
 }
 .wl li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 16px;border-top:1px solid var(--line);align-items:center}
@@ -94,6 +98,8 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 .wl .ko{grid-column:1;color:var(--muted);font-size:14px;min-width:0}
 .wl.hideko .ko{color:transparent;background:var(--line);border-radius:4px;user-select:none}
 .wl.hideko li.peek .ko{color:var(--muted);background:none}
+.wl.hideen .en{color:transparent;background:var(--line);border-radius:4px;user-select:none}.wl.hideen .say,.wl.hideen .rels,.wl.hideen .note{visibility:hidden}
+.wl.hideen li.peek .en{color:inherit;background:none}.wl.hideen li.peek .say,.wl.hideen li.peek .rels,.wl.hideen li.peek .note{visibility:visible}
 .wl .say{grid-row:1/3;grid-column:2}
 .say{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--paper);display:grid;place-items:center}
 .say svg{width:18px;height:18px}
@@ -377,6 +383,8 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 .wrap.wide{max-width:1100px}
 /* 학생 기록 → 학생별: the list scrolls by itself, so the clicked student's record shows right below it */
 .recgrid{display:flex;flex-direction:column;gap:18px}
+.printbtn{display:inline-flex;align-items:center;gap:6px;background:var(--navy);color:var(--navy-fg)}.printbtn svg{width:16px;height:16px}
+.actcell{display:inline-block;font-size:11px;line-height:1.25;vertical-align:middle}   /* 카드 넘기기: cards and time in two small lines, row height unchanged */
 .regbox{padding:12px 16px}.regbox summary{cursor:pointer}.regbox #regsum,.regbox #regtestsum{display:block;margin:4px 0 0 18px}.regbox #regtestsum[hidden]{display:none}   /* the saved numbers start on their own line */.regbox[open]{display:flex;flex-direction:column;gap:10px}.regbox textarea{font:inherit}
 .detail .dhead{align-items:center;flex-wrap:wrap;gap:10px}.detail .dhead #dx{margin-left:auto}.detail .dhead .reset{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap;margin:0;padding:0;border:0}.detail .dhead .reset .btn{white-space:nowrap}   /* the two buttons on one line */.detail .dhead .reset .help{margin:0}.detail .dhead .reset.confirm{flex-basis:100%;order:3;flex-direction:column;align-items:flex-start;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .recgrid.split #tb .tablewrap{max-height:40vh;overflow:auto}
@@ -536,7 +544,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 
 <script src="lib/lz-string.min.js"></script>
 <script src="lib/qrcode.js"></script>
-<script src="config.js"></script>
+<script>/* config.js is read fresh every time, so a changed server address works at once (no 10-minute browser cache) */ document.write('<script src="config.js?v=' + Date.now() + '"><\/script>');</script>
 <script src="words.js"></script>
 <script>
 const BASE_URL = "";  // 비워 두면 지금 접속한 주소를 그대로 씁니다
@@ -1150,7 +1158,7 @@ async function viewAdmin(next){
     } else if (tab === 'recent') {
       const rows = r.recent.filter(l => match(l.sid, l.name));
       tb.innerHTML = rows.length ? `<div class="tablewrap"><table class="rectable"><thead><tr><th>시각</th><th>학번</th><th>이름</th><th>학습지</th><th>연습</th><th class="num">점수</th></tr></thead><tbody>
-        ${rows.map(l => `<tr class="${l.total || l.act ? '' : 'event'}"><td>${esc(fmtTime(l.at))}</td><td>${esc(l.sid)}</td><td>${esc(l.name)}</td><td class="wt">${cell2(recPage(l.page, l.pageTitle))}</td><td>${esc(l.mode)}</td><td class="num">${l.act ? `<span class="muted">${l.mode === '카드 넘기기' ? `${l.seen}/${l.total}장 · ` : ''}${fmtDur(l.secs || 0)}</span>` : l.total ? `${l.score}/${l.total}` : ''}</td></tr>`).join('')}
+        ${rows.map(l => `<tr class="${l.total || l.act ? '' : 'event'}"><td>${esc(fmtTime(l.at))}</td><td>${esc(l.sid)}</td><td>${esc(l.name)}</td><td class="wt">${cell2(recPage(l.page, l.pageTitle))}</td><td>${esc(l.mode)}</td><td class="num">${l.act ? (l.mode === '카드 넘기기' ? `<span class="muted actcell">${l.seen}/${l.total}장<br>${fmtDur(l.secs || 0)}</span>` : `<span class="muted">${fmtDur(l.secs || 0)}</span>`) : l.total ? `${l.score}/${l.total}` : ''}</td></tr>`).join('')}
         </tbody></table></div><p class="help">최근 300건이에요. 단어 목록·카드 넘기기는 점수 대신 본 카드 수와 걸린 시간이 나와요.</p>` : '<div class="panel empty">아직 기록이 없어요.</div>';
     } else {
       tb.innerHTML = r.wrongTop.length ? `<div class="tablewrap"><table><thead><tr><th>단어</th><th>뜻</th><th class="num">틀린 횟수</th><th class="num">학생 수</th></tr></thead><tbody>
@@ -2952,7 +2960,7 @@ function viewList(words){
   if (!conf && SET.heads) words = SET.heads;
   trackActivity('단어 목록', words.length);
   $app.innerHTML = `${stickyTop(back())}
-    <div class="row tools"><button class="btn ghost small" id="hk">뜻 가리기</button><button class="btn ghost small" id="sh">순서 섞기</button><button class="btn ghost small" id="od">원래 순서</button><button class="btn ghost small" id="pr">인쇄</button><span class="count" id="wn"></span></div></div>
+    <div class="row tools"><button class="btn ghost small" id="hk">뜻 가리기</button><button class="btn ghost small" id="he">영어 가리기</button><button class="btn ghost small" id="sh">순서 섞기</button><button class="btn ghost small" id="od">원래 순서</button><button class="btn small printbtn" id="pr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>인쇄</button><span class="count" id="wn"></span></div></div>
   <h2>${SET.id === 'allconf' ? esc(SET.t) : `${esc(SET.t)} · ${conf ? '헷갈리는 단어' : '단어 목록'}`}</h2>
   <p class="help" style="margin:0">${conf ? '다 외운 단어는 "외웠어요"를 눌러 목록에서 빼세요. 다시 틀리면 또 들어와요.' : '뜻을 가린 상태에서 단어를 누르면 뜻이 보여요. ☆을 누르면 헷갈리는 단어에 들어가요.'}</p>
   <div class="panel"><ul class="wl${conf ? ' conf' : ''}" id="wl"></ul></div>
@@ -2972,9 +2980,17 @@ function viewList(words){
     const st = e.target.closest('[data-star]'); if (st) { toggleStar(st, shown[+st.dataset.star]); return; }
     const d = e.target.closest('[data-done]');
     if (d) { confRemove(shown[+d.dataset.done]); draw(shown.filter((_, i) => i !== +d.dataset.done)); toast('헷갈리는 단어에서 뺐어요'); return; }
-    const li = e.target.closest('li'); if (li && hide) li.classList.toggle('peek');
+    const li = e.target.closest('li'); if (li && (hide || hideEn)) li.classList.toggle('peek');
   };
-  document.getElementById('hk').onclick = e => { hide = !hide; wl.classList.toggle('hideko', hide); wl.querySelectorAll('.peek').forEach(l => l.classList.remove('peek')); e.target.textContent = hide ? '뜻 보이기' : '뜻 가리기'; };
+  /* 뜻 가리기 / 영어 가리기: one at a time. Tap a word to peek. Printing keeps it: blank meanings (or blank spellings) for a test sheet */
+  let hideEn = false;
+  const setHide = (ko, en) => {
+    hide = ko; hideEn = en; wl.classList.toggle('hideko', ko); wl.classList.toggle('hideen', en);
+    wl.querySelectorAll('.peek').forEach(l => l.classList.remove('peek'));
+    document.getElementById('hk').textContent = ko ? '뜻 보이기' : '뜻 가리기'; document.getElementById('he').textContent = en ? '영어 보이기' : '영어 가리기';
+  };
+  document.getElementById('hk').onclick = () => setHide(!hide, false);
+  document.getElementById('he').onclick = () => setHide(false, !hideEn);
   document.getElementById('sh').onclick = () => draw(shuffle(shown));
   document.getElementById('od').onclick = () => draw(words.filter(w => shown.includes(w)));
   /* 인쇄: the list as it is on screen (order, and 뜻 가리기 prints blank meaning boxes for a test sheet) */
