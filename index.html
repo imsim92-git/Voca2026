@@ -74,10 +74,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 /* list */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px}
 .wl{list-style:none;margin:0;padding:0}
+.wlprint{display:none}
 @media print{
   @page{margin:10mm 10mm 12mm;@bottom-center{content:counter(page) " / " counter(pages);font-size:9px;color:#555}}   /* page / pages at the bottom (Chrome, Edge) */
   body.print-list{background:#fff!important;color:#000!important}
-  body.print-list .stickybar,body.print-list .tools,body.print-list .help,body.print-list .listfoot,body.print-list .say,body.print-list [data-star],body.print-list [data-done],body.print-list #toast,body.print-list .toast{display:none!important}
+  body.print-list .top,body.print-list .admintabs,body.print-list .tbar,body.print-list .userbar,body.print-list .stickybar,body.print-list .tools,body.print-list .help,body.print-list .listfoot,body.print-list .say,body.print-list [data-star],body.print-list [data-done],body.print-list #toast,body.print-list .toast{display:none!important}
   body.print-list .wrap{max-width:none;gap:8px}
   body.print-list h2{color:#000;margin:0 0 4px;font-size:16px}
   body.print-list .panel{border:0;box-shadow:none;background:#fff;padding:0}
@@ -90,6 +91,11 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
   body.print-list .wl.hideen li{display:flex;flex-direction:column;align-items:stretch;text-align:left;border-bottom:0}body.print-list .wl.hideen .ko{order:-1;font-size:12px;color:#000!important}
   body.print-list .wl.hideen .en{display:block;width:100%;color:transparent!important;background:none;border-bottom:1px solid #999;min-height:20px;border-radius:0}
   body.print-list .wl.hideen .rels,body.print-list .wl.hideen .note{display:none!important}   /* 영어 가리기 sheet: the meaning, then a line to write the spelling */
+  body.print-list .wlprint.on{display:block}body.print-list.print-x .panel:has(> #wl){display:none}
+  body.print-list .wlprint .ptag{display:block;font-size:10px;color:#555}
+  body.print-list .wlprint li{display:flex!important;flex-direction:column;align-items:stretch;text-align:left}   /* the tag sits with the word or meaning it explains, above the line to write on */
+  body.print-list .wlprint.hideko .en{order:0}body.print-list .wlprint.hideko .ptag{order:1}body.print-list .wlprint.hideko .ko{order:2}
+  body.print-list .wlprint.hideen .ko{order:0}body.print-list .wlprint.hideen .ptag{display:none}body.print-list .wlprint.hideen .en{order:2}   /* 영어 가리기 sheet: no 'xx의 유의어' (it would give away the English) */
   body.print-list .wl.hideko li{border-bottom:0}body.print-list .wl.hideko .rels,body.print-list .wl.hideko .note,body.print-list #pvbar{display:none!important}   /* 뜻 가리기 sheet: only the word and a line to write the meaning */
 }
 .wl li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 16px;border-top:1px solid var(--line);align-items:center}
@@ -383,6 +389,7 @@ input[type=number]{font:inherit;padding:11px 12px;border-radius:10px;border:1px 
 .wrap.wide{max-width:1100px}
 /* 학생 기록 → 학생별: the list scrolls by itself, so the clicked student's record shows right below it */
 .recgrid{display:flex;flex-direction:column;gap:18px}
+.tools .btn.ghost.on{background:color-mix(in srgb, #8fa3e0 24%, var(--surface));border-color:color-mix(in srgb, #8fa3e0 55%, var(--surface));color:var(--ink)}   /* 뜻·영어 가리기 on: a soft pastel blue */
 .printbtn{display:inline-flex;align-items:center;gap:6px;background:var(--navy);color:var(--navy-fg)}.printbtn svg{width:16px;height:16px}
 .actcell{display:inline-block;font-size:11px;line-height:1.25;vertical-align:middle}   /* 카드 넘기기: cards and time in two small lines, row height unchanged */
 .regbox{padding:12px 16px}.regbox summary{cursor:pointer}.regbox #regsum,.regbox #regtestsum{display:block;margin:4px 0 0 18px}.regbox #regtestsum[hidden]{display:none}   /* the saved numbers start on their own line */.regbox[open]{display:flex;flex-direction:column;gap:10px}.regbox textarea{font:inherit}
@@ -703,6 +710,13 @@ const header = right => isTeacher()
   ? `<div class="top"><div class="brand">${esc(SITE_NAME)}</div><button class="link" id="tostu">← 학생 화면</button></div>${adminTabs('student')}${teacherBar()}${right ? `<div class="tback">${right}</div>` : ''}`
   : `<div class="top"><div class="brand">${esc(SITE_NAME)}</div>${right || ''}</div>`;
 /* related words beside a head word: "유의어 only, exclusively" / "반의어 trivial 사소한" */
+/* the related words without their meanings (수업용 카드의 영어 쪽: "유의어 only, exclusively") */
+function relEnHTML(w){
+  const rel = Array.isArray(w[3]) ? w[3] : []; if (!rel.length) return '';
+  const groups = [];
+  rel.forEach(r => { let g = groups.find(x => x.type === r[0]); if (!g) groups.push(g = {type: r[0], items: []}); g.items.push(r); });
+  return groups.map(g => `<span class="rel"><b>${esc(g.type)}</b> ${g.items.map(r => `<span class="rel-en">${esc(r[1])}</span>`).join(', ')}</span>`).join('');
+}
 function relHTML(w){
   const rel = Array.isArray(w[3]) ? w[3] : []; if (!rel.length) return '';
   const groups = [];
@@ -1817,6 +1831,7 @@ async function viewTeamHome(force){
   store.set(ck, r); show(r);
   return;
   function show(r){
+    r = Object.assign({}, r, {races: (r.races || []).filter(x => x.status === '진행')});   // closed races do not show for the team either
     $app.innerHTML = `${header()}${bar}${card}
     ${r.races.length ? `<div class="pages">${r.races.map(raceTile).join('')}</div>` : '<div class="panel empty">아직 열린 레이스가 없어요. 선생님이 레이스를 열면 여기에 나와요.</div>'}
     <div class="foot"><button class="link" id="trefresh">새로고침</button></div>`;
@@ -1852,7 +1867,7 @@ function loadMyRaces(){
 }
 function myRacesList(){
   const c = AUTH && store.get(myRacesKey(), null);
-  return c ? c.races.filter(x => x.status === '진행' || (x.mine && x.mine.status !== '완료')) : [];
+  return c ? c.races.filter(x => x.status === '진행') : [];   // a race closed for the class never shows, even one left half run
 }
 const myRacesHTML = () => { const list = myRacesList();   // no open race: no race section at all, the same as a student sees
   return list.length ? `<div class="section-label" id="myraces-h">레이스</div><div class="pages" id="myraces">${list.map(raceTile).join('')}</div>` : ''; };
@@ -2985,7 +3000,7 @@ function viewList(words){
     <div class="row tools"><button class="btn ghost small" id="hk">뜻 가리기</button><button class="btn ghost small" id="he">영어 가리기</button><button class="btn ghost small" id="sh">순서 섞기</button><button class="btn ghost small" id="od">원래 순서</button><button class="btn small printbtn" id="pr"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V3h10v6M7 17H4v-7h16v7h-3M7 14h10v7H7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>인쇄</button><span class="count" id="wn"></span></div></div>
   <h2>${SET.id === 'allconf' ? esc(SET.t) : `${esc(SET.t)} · ${conf ? '헷갈리는 단어' : '단어 목록'}`}</h2>
   <p class="help" style="margin:0">${conf ? '다 외운 단어는 "외웠어요"를 눌러 목록에서 빼세요. 다시 틀리면 또 들어와요.' : '뜻을 가린 상태에서 단어를 누르면 뜻이 보여요. ☆을 누르면 헷갈리는 단어에 들어가요.'}</p>
-  <div class="panel"><ul class="wl${conf ? ' conf' : ''}" id="wl"></ul></div>
+  <div class="panel"><ul class="wl${conf ? ' conf' : ''}" id="wl"></ul></div><ul class="wl wlprint" id="wlprint"></ul>
   <div class="listfoot" id="lfoot" hidden><button class="btn backbig" id="back2">← 연습 고르기로 돌아가기</button><button class="btn ghost" id="totop">↑ 맨 위로</button></div>`;
   bindBack();
   document.getElementById('back2').onclick = () => { stopTimers(); viewHome(); };
@@ -3010,6 +3025,7 @@ function viewList(words){
     hide = ko; hideEn = en; wl.classList.toggle('hideko', ko); wl.classList.toggle('hideen', en);
     wl.querySelectorAll('.peek').forEach(l => l.classList.remove('peek'));
     document.getElementById('hk').textContent = ko ? '뜻 보이기' : '뜻 가리기'; document.getElementById('he').textContent = en ? '영어 보이기' : '영어 가리기';
+    document.getElementById('hk').classList.toggle('on', ko); document.getElementById('he').classList.toggle('on', en);   // the button that is on gets a soft color
   };
   document.getElementById('hk').onclick = () => setHide(!hide, false);
   document.getElementById('he').onclick = () => setHide(false, !hideEn);
@@ -3017,8 +3033,16 @@ function viewList(words){
   document.getElementById('od').onclick = () => draw(words.filter(w => shown.includes(w)));
   /* 인쇄: the list as it is on screen (order, and 뜻 가리기 prints blank meaning boxes for a test sheet) */
   document.getElementById('pr').onclick = () => {
-    document.body.classList.add('print-list');
-    const done = () => { document.body.classList.remove('print-list'); removeEventListener('afterprint', done); };
+    /* 뜻 가리기 / 영어 가리기 sheets: every word the cards have, related words (유의어·반의어·파생어…) on their own lines */
+    const wp = document.getElementById('wlprint');
+    if (hide || hideEn) {
+      const rel = h => conf ? [] : (SET.w || []).filter(x => x.head === h);
+      const all = shown.flatMap(h => [h, ...rel(h)]);
+      wp.className = 'wl wlprint on' + (hide ? ' hideko' : ' hideen');
+      wp.innerHTML = all.map(w => `<li><span class="en">${esc(w[0])}</span><span class="ko">${esc(w[1])}</span>${w.rel ? `<span class="ptag">${esc(w[2])}</span>` : ''}</li>`).join('');
+    } else { wp.className = 'wl wlprint'; wp.innerHTML = ''; }
+    document.body.classList.add('print-list'); document.body.classList.toggle('print-x', hide || hideEn);
+    const done = () => { document.body.classList.remove('print-list', 'print-x'); removeEventListener('afterprint', done); };
     addEventListener('afterprint', done);
     print();
     setTimeout(done, 1000);   // some phones do not send afterprint
@@ -3110,7 +3134,7 @@ function viewCards(words, opt){
   </div>`;
   if (cls) document.getElementById('back').onclick = () => { stopTimers(); viewSetsAdmin(); }; else bindBack();
   const $ = id => document.getElementById(id);
-  const side = (w, ko) => ko ? `<div class="ko big-ko">${esc(w[1])}</div>${relHTML(w) ? `<div class="rels">${relHTML(w)}</div>` : w[2] ? `<div class="note">${esc(w[2])}</div>` : ''}` : `<div class="big">${esc(w[0])}</div>${w.rel ? `<div class="tag">${esc(w.rel)}</div>` : ''}`;
+  const side = (w, ko) => ko ? `<div class="ko big-ko">${esc(w[1])}</div>${relHTML(w) ? `<div class="rels">${relHTML(w)}</div>` : w[2] ? `<div class="note">${esc(w[2])}</div>` : ''}` : `<div class="big">${esc(w[0])}</div>${w.rel ? `<div class="tag">${esc(w.rel)}</div>` : ''}${cls && !O.koFirst && relEnHTML(w) ? `<div class="rels relen">${relEnHTML(w)}</div>` : ''}`;   // 수업용 카드, English side in front: the related words (no meanings) under the word; the back stays as it was
   const draw = () => {
     const w = order[i];
     $('cnum').textContent = `${i + 1} / ${order.length}`;
