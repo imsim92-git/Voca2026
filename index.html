@@ -1769,6 +1769,23 @@ function raceQuiz(race){
   return list;
 }
 const raceItems = race => race.settings.mode === 'quiz' ? raceQuiz(race) : raceWords(race);
+/* Quiz text with a little formatting: **word** → underline (밑줄 친 …), and these HTML tags only:
+   <u> <b> <strong> <i> <em> <mark> <sup> <sub> <br>, <span style="color:red"> / <font color="#c00"> for colored text.
+   Everything else is shown as plain text, so nothing a question contains can run on the page */
+function fmtQ(t){
+  let h = esc(String(t == null ? '' : t));
+  h = h.replace(/&lt;(\/?)(u|b|strong|i|em|mark|sup|sub)&gt;/gi, '<$1$2>').replace(/&lt;br\s*\/?&gt;/gi, '<br>');
+  const col = c => /^(#[0-9a-f]{3}|#[0-9a-f]{6}|[a-z]{3,20})$/i.test(c) ? c : '';
+  h = h.replace(/&lt;span\s+style=(?:&quot;|&#39;)\s*color\s*:\s*([#a-z0-9]+)\s*;?\s*(?:&quot;|&#39;)\s*&gt;/gi, (m, c) => col(c) ? `<span style="color:${col(c)}">` : m)
+       .replace(/&lt;font\s+color=(?:&quot;|&#39;)?([#a-z0-9]+)(?:&quot;|&#39;)?\s*&gt;/gi, (m, c) => col(c) ? `<span style="color:${col(c)}">` : m)
+       .replace(/&lt;\/(span|font)&gt;/gi, '</span>');
+  return h.replace(/\*\*([^*\n]+?)\*\*/g, '<u>$1</u>');
+}
+/* the choices of a question, marked 정답 (dark box) and 내 답 (green / red text) */
+function revOptsHTML(q, mine){
+  if (q.type !== 'choice') return '';
+  return `<ol class="revopts">${q.options.map((o, k) => o ? `<li class="${k === q.answer ? 'ans' : mine === k ? 'my' : ''}"><span>${CIRCLED[k] || k + 1}</span> <span>${fmtQ(o)}</span>${k === q.answer ? ' <span class="chip dark">정답</span>' : ''}${mine === k ? ` <span class="mytag${k === q.answer ? ' ok' : ''}">내 답</span>` : ''}</li>` : '').join('')}</ol>`;
+}
 const quizAnswerText = q => q.type === 'choice' ? `${CIRCLED[q.answer] || q.answer + 1} ${q.options[q.answer] || ''}` : q.answer.join(' / ');
 const normQ = s => String(s || '').toLowerCase().replace(/[‘’`]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').replace(/^[\s"']+|[\s.!?,;:"']+$/g, '');
 /* matching rounds of up to 8 pairs, no repeated word or meaning inside a round */
@@ -1892,7 +1909,7 @@ function qimgLoad(id){
   if (!QIMG[id]) QIMG[id] = api('qimg', {id}).then(r => `data:${r.mime};base64,${r.data}`).catch(e => { delete QIMG[id]; throw e; });
   return QIMG[id];
 }
-const qPassHTML = q => `${q.img ? `<div class="qimg" data-qimg="${esc(q.img)}"><span class="muted small">그림을 불러오는 중…</span></div>` : ''}${q.passage ? `<div class="qpass">${esc(q.passage)}</div>` : ''}`;
+const qPassHTML = q => `${q.img ? `<div class="qimg" data-qimg="${esc(q.img)}"><span class="muted small">그림을 불러오는 중…</span></div>` : ''}${q.passage ? `<div class="qpass">${fmtQ(q.passage)}</div>` : ''}`;
 function fillQImgs(){
   $app.querySelectorAll('[data-qimg]:not([data-on])').forEach(el => {
     el.dataset.on = '1';
@@ -1901,26 +1918,29 @@ function fillQImgs(){
   });
 }
 new MutationObserver(() => { if ($app.querySelector('[data-qimg]:not([data-on])')) fillQImgs(); }).observe($app, {childList: true, subtree: true});
+/* the questions with 지문, 선지(정답·내 답 표시; 선다형은 아래 내 답·정답 줄 없이), 단답형 내 답·정답, 해설 — the same on the result screen and on 다시 보기.
+   A[i] = {a: the answer given (choice number or text), r: ok | wrong | skip | blank}, or null when not known */
+function quizItemsHTML(items, A){
+  const RES = {ok: '<span class="chip ok">맞힘</span>', wrong: '<span class="chip">틀림</span>', skip: '<span class="chip">건너뜀</span>', blank: '<span class="chip">답 안 함</span>'};
+  let lastPass = '';
+  return `<ol class="qres">${items.map((q, i) => {
+    const pk = (q.img || '') + '\n' + (q.passage || ''), pass = pk !== '\n' && pk !== lastPass ? qPassHTML(q) : ''; if (pk !== '\n') lastPass = pk;
+    const my = A && A[i], mine = my && my.a !== null && my.a !== undefined && my.a !== '' ? my.a : null;
+    const bad = my ? (my.r === 'ok' ? ' good-ans' : ' bad-ans') : '';   // 내 답 in the same green / red as the 맞힘 / 틀림 chip
+    const myLine = my ? `<div class="small${bad}">내 답: <b>${mine === null ? '–' : q.type === 'choice' ? fmtQ(`${CIRCLED[mine] || mine + 1} ${q.options[mine] || ''}`) : esc(mine)}</b></div>` : '';
+    return `<li>${pass}<div class="row" style="gap:8px"><b>${i + 1}번</b>${my ? RES[my.r] || '' : ''}</div><div class="qtext">${fmtQ(q.q)}</div>${revOptsHTML(q, mine)}
+      ${q.type === 'choice' ? '' : `${myLine}<div class="small">정답: <b>${fmtQ(quizAnswerText(q))}</b></div>`}${q.exp ? `<div class="qexp">${fmtQ(q.exp)}</div>` : ''}</li>`;
+  }).join('')}</ol>`;
+}
 function viewRaceReview(race, ctx){
   stopTimers();
   if (!race) return ctx.home();
   const m = race.mine, quiz = race.settings.mode === 'quiz', items = raceItems(race), A = m && Array.isArray(m.answers) ? m.answers : null;
-  const RES = {ok: '<span class="chip ok">맞힘</span>', wrong: '<span class="chip">틀림</span>', skip: '<span class="chip">건너뜀</span>', blank: '<span class="chip">답 안 함</span>'};
   const rec = m && m.best != null ? (isAcc(race) ? `${m.bestDone}/${m.bestTotal} (${pctOf(m.bestDone, m.bestTotal)})` : fmtSec(m.best)) : '';
-  let lastPass = '';
-  const qHTML = (q, i) => {
-    const pk = (q.img || '') + '\n' + (q.passage || ''), pass = pk !== '\n' && pk !== lastPass ? qPassHTML(q) : ''; if (pk !== '\n') lastPass = pk;
-    const my = A && A[i], mine = my && my.a !== null && my.a !== undefined && my.a !== '' ? my.a : null;
-    const opts = q.type === 'choice' ? `<ol class="revopts">${q.options.map((o, k) => o ? `<li class="${k === q.answer ? 'ans' : mine === k ? 'my' : ''}"><span>${CIRCLED[k] || k + 1}</span> ${esc(o)}${k === q.answer ? ' <span class="chip dark">정답</span>' : ''}${mine === k ? ` <span class="mytag${k === q.answer ? ' ok' : ''}">내 답</span>` : ''}</li>` : '').join('')}</ol>` : '';
-    const bad = my ? (my.r === 'ok' ? ' good-ans' : ' bad-ans') : '';   // 내 답 in the same green / red as the 맞힘 / 틀림 chip
-    const myLine = my ? `<div class="small${bad}">내 답: <b>${mine === null ? '–' : q.type === 'choice' ? esc(`${CIRCLED[mine] || mine + 1} ${q.options[mine] || ''}`) : esc(mine)}</b></div>` : '';
-    return `<li>${pass}<div class="row" style="gap:8px"><b>${i + 1}번</b>${my ? RES[my.r] || '' : ''}</div><div class="qtext">${esc(q.q)}</div>${opts}
-      ${myLine}<div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`;
-  };
   $app.innerHTML = `${header(`<button class="link" id="back">${ctx.backText}</button>`)}
-  <div class="setcard"><div class="eyebrow">${esc(ctx.label)}</div><h1>${esc(race.name)}</h1><div class="meta">다시 보기 · 선생님이 마감하기 전까지 볼 수 있어요${rec ? ` · 내 기록 ${rec}` : ''}</div></div>
+  <div class="setcard"><div class="eyebrow">${esc(ctx.label)}</div><h1>${esc(race.name)}</h1><div class="meta">다시 보기 · 선생님이 마감하기 전까지 볼 수 있어요${rec ? `<br>내 기록 ${rec}` : ''}</div></div>
   ${quiz ? `<div class="section-label">문제 ${items.length}개 · 정답과 해설${A ? ` · 내 답은 ${race.settings.multi ? '마지막으로 끝낸 도전' : '내가 처음 고른 답'} 기준` : ''}</div>
-      ${A ? '' : '<p class="help">내 답은 이번 업데이트 뒤에 끝낸 레이스부터 보여요.</p>'}<div class="panel"><ol class="qres">${items.map(qHTML).join('')}</ol></div>`
+      ${A ? '' : '<p class="help">내 답은 이번 업데이트 뒤에 끝낸 레이스부터 보여요.</p>'}<div class="panel">${quizItemsHTML(items, A)}</div>`
     : (() => { const miss = new Set((m && m.wrongWords) || []), bad = items.filter(w => miss.has(w[0])), good = items.filter(w => !miss.has(w[0]));
         return `${bad.length ? `<div class="section-label">틀렸던 단어 ${bad.length}개</div><div class="panel"><ul class="wl">${bad.map(wordRow).join('')}</ul></div>` : ''}
           <div class="section-label">${bad.length ? `맞힌 단어 ${good.length}개` : `이 레이스의 단어 ${items.length}개`}</div><div class="panel"><ul class="wl">${good.map(wordRow).join('')}</ul></div>`; })()}
@@ -1981,7 +2001,7 @@ function runRace(race, words, st, ctx){
   };
   const send = force => {
     if (finished) return;
-    const wait = 2000 - (Date.now() - lastSent);
+    const wait = 5000 - (Date.now() - lastSent);   // progress at most every 5 seconds (the 순위판 refreshes every 5 seconds too)
     if (force || wait <= 0) { if (pending) { clearTimeout(pending); pending = null; } push(); }
     else if (!pending) { pending = setTimeout(() => { pending = null; push(); }, wait); timers.push(pending); }
   };
@@ -2000,13 +2020,14 @@ function runRace(race, words, st, ctx){
   const tick = setInterval(() => { const tm = document.getElementById('rtime'); if (tm) tm.textContent = fmtSec(elapsed()); }, 100); timers.push(tick);
   const prog = () => { const b = document.getElementById('rbar'), c = document.getElementById('rcount'); if (b) b.style.width = (R.done / total * 100) + '%'; if (c) c.textContent = `${R.done} / ${total}${R.wrong ? ` · 틀림 ${R.wrong}` : ''}`; };
   const finish = async () => {
+    const clock = Math.round((performance.now() - t0) / 100) / 10;   // the race time at the moment of 제출 / the last answer, before any waiting for the server
     finished = true; stopTimers();
     $app.innerHTML = `<div class="countdown small">도착!</div><div class="panel empty" style="text-align:center">${ctx.trial ? '' : '기록을 저장하는 중…'}</div>`;
     let r = null;
     const answers = S.mode === 'quiz' ? words.map((q, i) => R.qres[i] ? {a: R.mine && i in R.mine ? (R.mine[i] === undefined ? null : R.mine[i]) : (R.pick[i] === undefined ? null : R.pick[i]), r: R.qres[i]} : null) : undefined;
-    for (let k = 0; k < 3 && !r; k++) { try { r = await raceApi(ctx, 'raceFinish', Object.assign({race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords}, answers ? {answers} : {})); } catch(e){ if (e.code === 'auth') break; await new Promise(z => setTimeout(z, 1500)); } }
+    for (let k = 0; k < 3 && !r; k++) { try { r = await raceApi(ctx, 'raceFinish', Object.assign({race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords, clock}, answers ? {answers} : {})); } catch(e){ if (e.code === 'auth') break; await new Promise(z => setTimeout(z, 1500)); } }
     if (ctx.kind === 'student') myRacesStale();
-    viewRaceResult(race, r, R, elapsed(), ctx, words);
+    viewRaceResult(race, r, R, r && typeof r.seconds === 'number' ? r.seconds : clock + (isAcc(race) ? 0 : R.penalty), ctx, words);   // the saved time, not the time spent waiting to save
   };
 
   if (S.mode === 'quiz' && S.scoring === 'acc') return accQuiz();
@@ -2107,11 +2128,11 @@ function runRace(race, words, st, ctx){
       const i = R.done, q = words[i], label = [q.no + '번'];
       const mark = v => { if (!R.qres[i]) R.qres[i] = v; };
       const passage = qPassHTML(q);
-      const head = `<div class="qtext"><span class="qno">${i + 1}.</span> ${esc(q.q)}</div>`;
+      const head = `<div class="qtext"><span class="qno">${i + 1}.</span> ${fmtQ(q.q)}</div>`;
       const next = () => { R.done++; prog(); send(); timers.push(setTimeout(draw, 350)); };
       if (q.type === 'choice') {
         $app.innerHTML = `${top()}<div class="card qcard">${passage}${head}</div>
-        <div class="choices">${q.options.map((o, k) => `<button class="choice qopt" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${esc(o)}</span></button>`).join('')}</div>`;
+        <div class="choices">${q.options.map((o, k) => `<button class="choice qopt" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${fmtQ(o)}</span></button>`).join('')}</div>`;
         $app.querySelectorAll('.qopt').forEach(b => b.onclick = () => {
           if (R.pick[i] === undefined) R.pick[i] = +b.dataset.k;   // the first answer is the one shown later in 다시 보기
           if (+b.dataset.k === q.answer) { mark('ok'); b.classList.add('ok'); $app.querySelectorAll('.qopt').forEach(c => c.disabled = true); next(); }
@@ -2167,9 +2188,9 @@ function runRace(race, words, st, ctx){
       const q = words[cur];
       const passage = qPassHTML(q);
       const body = q.type === 'choice'
-        ? `<div class="choices">${q.options.map((o, k) => `<button class="choice qopt${ans[cur] === k ? ' sel' : ''}" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${esc(o)}</span></button>`).join('')}</div>`
+        ? `<div class="choices">${q.options.map((o, k) => `<button class="choice qopt${ans[cur] === k ? ' sel' : ''}" data-k="${k}"><span class="qnum">${CIRCLED[k]}</span><span>${fmtQ(o)}</span></button>`).join('')}</div>`
         : `<input class="answer" id="ans" type="text" autocomplete="off" name="${ansName()}" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="답을 쓰세요" aria-label="답" value="${esc(ans[cur] || '')}">`;
-      $app.innerHTML = `${head()}<div class="card qcard">${passage}<div class="qtext"><span class="qno">${cur + 1}.</span> ${esc(q.q)}</div></div>${body}
+      $app.innerHTML = `${head()}<div class="card qcard">${passage}<div class="qtext"><span class="qno">${cur + 1}.</span> ${fmtQ(q.q)}</div></div>${body}
         <div class="row"><button class="btn ghost" id="qprev" ${cur ? '' : 'disabled'}>‹ 이전</button>${cur < total - 1 ? '<button class="btn mark wide" id="qnext">다음 ›</button>' : '<button class="btn mark wide" id="qsubmit">제출하기</button>'}</div>
         <div class="count" id="qleft">${answered()} / ${total}문제 답함</div>`;
       $app.querySelectorAll('.qopt').forEach(b => b.onclick = () => { ans[cur] = +b.dataset.k; keep(); upd(); $app.querySelectorAll('.qopt').forEach(c => c.classList.toggle('sel', c === b)); });
@@ -2229,12 +2250,7 @@ function viewRaceResult(race, r, R, localSec, ctx, items){
     <div class="help">틀림 ${R.wrong}번${R.penalty ? ` · 벌점 ${R.penalty}초 포함` : ''}${multi && r && r.best != null && r.best < sec ? ` · 최고 기록 <b>${fmtSec(r.best)}</b>` : ''}${r && !ctx.trial && race.settings.showRank && r.rank ? ` · <b>${esc(where)} ${r.rank}위</b> (지금까지 ${r.of}${unit})` : ''}</div>
     ${r || ctx.trial ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
   </div>
-  ${quiz ? `<div class="section-label">정답과 해설</div><div class="panel"><ol class="qres">${items.map((q, i) => `<li>
-      <div class="row" style="gap:8px"><b>${i + 1}번</b>${qmark(i)}</div>
-      <div class="qtext small">${esc(q.q)}</div>
-      ${R.qres[i] && R.qres[i] !== 'ok' && R.pick[i] !== undefined ? `<div class="small bad-ans">내 답: <b>${esc(q.type === 'choice' ? `${CIRCLED[R.pick[i]] || ''} ${q.options[R.pick[i]] || ''}` : R.pick[i])}</b></div>` : ''}
-      <div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>
-      ${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`).join('')}</ol></div>`
+  ${quiz ? `<div class="section-label">정답과 해설</div><div class="panel">${quizItemsHTML(items, items.map((q, i) => R.qres[i] ? {a: R.pick[i] === undefined ? null : R.pick[i], r: R.qres[i]} : null))}</div>`
     : R.wrongWords.length ? `<div class="section-label">헷갈린 단어 ${R.wrongWords.length}개</div><div class="panel"><ul class="wl">${R.wrongWords.map(en => wordRow(raceWords(race).find(w => w[0] === en) || [en, ''])).join('')}</ul></div>` : ''}
   <div class="row">${multi && race.status === '진행' ? '<button class="btn ghost" id="again">다시 도전</button>' : ''}<button class="btn wide" id="home">${ctx.homeText}</button></div>`;
   document.getElementById('home').onclick = () => ctx.home();
@@ -2256,12 +2272,7 @@ function viewAccResult(race, r, R, localSec, ctx, items){
     <div class="help">걸린 시간 ${fmtSecW(sec)}${multi && r && r.bestDone != null && (r.bestDone > right) ? ` · 최고 점수 <b>${r.bestDone}/${total}</b>` : ''}${r && !ctx.trial && race.settings.showRank && r.rank ? ` · <b>${esc(where)} ${r.rank}위</b> (지금까지 ${r.of}${unit})` : ''}</div>
     ${r || ctx.trial ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
   </div>
-  <div class="section-label">정답과 해설</div><div class="panel"><ol class="qres">${items.map((q, i) => `<li>
-      <div class="row" style="gap:8px"><b>${i + 1}번</b>${mark(i)}</div>
-      <div class="qtext small">${esc(q.q)}</div>
-      <div class="small${R.qres[i] === 'ok' ? ' good-ans' : ' bad-ans'}">내 답: ${esc(mineText(q, i))}</div>
-      <div class="small">정답: <b>${esc(quizAnswerText(q))}</b></div>
-      ${q.exp ? `<div class="qexp">${esc(q.exp)}</div>` : ''}</li>`).join('')}</ol></div>
+  <div class="section-label">정답과 해설</div><div class="panel">${quizItemsHTML(items, items.map((q, i) => ({a: (R.mine || {})[i] === undefined || String((R.mine || {})[i]).trim() === '' ? null : R.mine[i], r: R.qres[i] || 'blank'})))}</div>
   <div class="row">${multi && race.status === '진행' ? '<button class="btn ghost" id="again">다시 도전</button>' : ''}<button class="btn wide" id="home">${ctx.homeText}</button></div>`;
   document.getElementById('home').onclick = () => ctx.home();
   const ag = document.getElementById('again');
@@ -2508,7 +2519,7 @@ function viewRaceEdit(race, draft){
   stopTimers();
   if (needAdmin(() => viewRaceEdit(race, draft))) return;
   const base = draft || race || {};
-  const s = Object.assign({mode: 'time', who: 'team', multi: false, shuffle: false, count: 20, penalty: 0, rel: false, live: true, showRank: true, scoring: 'acc'}, base.settings || {});   // a new Quiz is scored by 정확도 unless the teacher picks 빠르기
+  const s = Object.assign({mode: 'quiz', who: 'student', multi: false, shuffle: false, count: 20, penalty: 0, rel: false, live: true, showRank: true, scoring: 'acc'}, base.settings || {});   // a new Quiz is scored by 정확도 unless the teacher picks 빠르기
   let who = s.who, Q = JSON.parse(JSON.stringify(base.questions || []));
   let allCls = !base.classes || base.classes.includes('*');
   const src = new Set(base.sources || []), cls = new Set(base.classes && !allCls ? base.classes : []);
@@ -2519,19 +2530,20 @@ function viewRaceEdit(race, draft){
   ${race && (race.done || race.running) ? `<div class="badlines">이미 달린 ${people}이(가) 있어요. 문제나 문제 수를 바꾸면 사람마다 문제가 달라져요.</div>` : ''}
   <div class="field"><label for="re-name">레이스 이름</label><input type="text" id="re-name" maxlength="40" placeholder="예: 모의고사 1·2번 레이스" value="${esc(base.name || '')}"></div>
   <div class="field"><span class="flabel">누가 달리나요</span><div class="seg two">
-    <label class="segopt"><input type="radio" name="re-who" value="team" ${who === 'team' ? 'checked' : ''}><span><b>모둠 레이스</b><span class="muted small">모둠이 '모둠 입장'으로 들어와 한 기기로 달려요.</span></span></label>
-    <label class="segopt"><input type="radio" name="re-who" value="student" ${who === 'student' ? 'checked' : ''}><span><b>개인 레이스</b><span class="muted small">학생이 로그인한 첫 화면에 나와요. 반은 학번으로 알아요.</span></span></label></div></div>
+    <label class="segopt"><input type="radio" name="re-who" value="student" ${who === 'student' ? 'checked' : ''}><span><b>개인 레이스</b><span class="muted small">학생이 로그인한 첫 화면에 나와요. 반은 학번으로 알아요.</span></span></label>
+    <label class="segopt"><input type="radio" name="re-who" value="team" ${who === 'team' ? 'checked' : ''}><span><b>모둠 레이스</b><span class="muted small">모둠이 '모둠 입장'으로 들어와 한 기기로 달려요.</span></span></label></div></div>
   <div class="field"><span class="flabel">레이스 방식</span><div class="seg">${['time', 'match', 'spell', 'quiz'].map(m => `<label class="segopt"><input type="radio" name="re-mode" value="${m}" ${s.mode === m ? 'checked' : ''}><span><b>${MODE_NAME[m]}</b><span class="muted small">${m === 'quiz' ? '문제를 직접 만들어 내요. 선다형과 단답형, 지문, 정답과 해설을 넣을 수 있어요.' : MODE_HELP[m]}</span></span></label>`).join('')}</div></div>
   <div class="field" id="re-words"><span class="flabel">지문 묶기</span><div class="checks">${srcList.map(x => `<label class="check"><input type="checkbox" data-src="${esc(x.id)}" ${src.has(x.id) ? 'checked' : ''}><span>${esc(x.label)} <span class="muted small">${x.n}개</span></span></label>`).join('')}</div>
     <label class="check"><input type="checkbox" id="re-rel" ${s.rel ? 'checked' : ''}><span>유의어·반의어 같은 관련어도 넣기</span></label></div>
   <div class="field" id="re-quiz"><span class="flabel">Quiz 문제</span>
-    <div id="qedit"></div>
-    <div class="row"><button type="button" class="btn ghost" id="q-add-c">+ 선다형 문제</button><button type="button" class="btn ghost" id="q-add-t">+ 단답형 문제</button></div>
-    <details class="panel qbulkbox"><summary><b>여러 문제 한꺼번에 붙여 넣기</b></summary>
+    <details class="panel qbulkbox" id="qbulkbox" open><summary><b>여러 문제 한꺼번에 붙여 넣기</b></summary>
       <textarea id="qbulk" spellcheck="false" placeholder="지문: (여러 문제가 함께 쓰는 지문, 없으면 이 줄을 빼요)&#10;The study shows that ...&#10;&#10;1. 다음 글의 주제로 가장 적절한 것은?&#10;① the effect of ...&#10;② the reason ...&#10;③ ...&#10;정답: ②&#10;해설: 첫 문장에서 ...&#10;&#10;2. 빈칸에 들어갈 단어를 쓰시오.&#10;People ______ more when ...&#10;정답: spend / spending&#10;해설: 주어가 복수이므로 ..."></textarea>
       <p class="help">"1." 처럼 번호로 문제를 시작해요. 보기(①②③… 또는 (1)(2)… 또는 A. B.)가 있으면 선다형, 없으면 단답형이에요. 단답형 정답이 여러 개면 / 로 나눠요. "지문:" 아래 글은 다음 "지문:"이 나올 때까지 뒤의 문제에 함께 붙어요.</p>
       <div class="row"><button type="button" class="btn mark" id="qparse">문제로 바꿔 아래에 넣기</button><span class="muted small" id="qparse-msg"></span></div>
     </details>
+    <div id="qedit"></div>
+    <div class="row"><button type="button" class="btn ghost" id="q-add-c">+ 선다형 문제</button><button type="button" class="btn ghost" id="q-add-t">+ 단답형 문제</button></div>
+    <p class="help">글자 꾸미기(지문·문제·보기·해설):<br>밑줄 <code>**if**</code> 또는 <code>&lt;u&gt;if&lt;/u&gt;</code> · 굵게 <code>&lt;b&gt;…&lt;/b&gt;</code> · 기울임 <code>&lt;i&gt;…&lt;/i&gt;</code> · 형광펜 <code>&lt;mark&gt;…&lt;/mark&gt;</code> · 색 <code>&lt;span style="color:red"&gt;…&lt;/span&gt;</code> · 줄바꿈 <code>&lt;br&gt;</code></p>
     <span class="flabel" style="margin-top:6px">채점 방식</span>
     <div class="seg two">
       <label class="segopt"><input type="radio" name="re-scoring" value="speed" ${s.scoring === 'acc' ? '' : 'checked'}><span><b>빠르기</b><span class="muted small">맞혀야 다음 문제로 넘어가요. 걸린 시간(+벌점)으로 순위를 매겨요.</span></span></label>
@@ -2680,12 +2692,13 @@ function viewRaceEdit(race, draft){
     $('re-n').innerHTML = quiz ? (c.questions.length ? `Quiz <b>${all}문제</b>를 모두 내요.` : '') : c.sources.length ? `단어 <b>${all}개</b> 중 <b>${items.length}문제</b>를 모든 ${who === 'student' ? '학생' : '모둠'}에게 같은 순서로 내요.` : '레이스에 쓸 지문을 골라 주세요.';
     $('re-cnt-help').textContent = (quiz ? c.questions.length : c.sources.length) ? (c.settings.count && c.settings.count > all ? `${quiz ? '문제' : '단어'}가 ${all}개뿐이라 ${all}문제로 해요.` : quiz ? (c.settings.shuffle ? `${all}문제 중에서 섞어 뽑아요.` : `앞에서부터 차례로 내요.`) : `고른 지문의 단어 ${all}개 중에서 무작위로 뽑아요.`) : '';
     $('re-prev-n').textContent = `${items.length}문제 · 학생에게 나오는 순서`;
-    $('re-prev').innerHTML = items.map(x => quiz ? `<li><div class="qtext small">${x.img ? '<span class="muted">[그림] </span>' : ''}${x.passage ? '<span class="muted">[지문] </span>' : ''}${esc(x.q)}</div><div class="small">정답: <b>${esc(quizAnswerText(x))}</b>${x.exp ? ` · <span class="muted">해설 있음</span>` : ''}</div></li>` : `<li><b class="en">${esc(x[0])}</b> <span class="muted">${esc(x[1])}</span></li>`).join('') || '<li class="muted">아직 문제가 없어요.</li>';
+    $('re-prev').innerHTML = items.map(x => quiz ? `<li><div class="qtext small">${x.img ? '<span class="muted">[그림] </span>' : ''}${x.passage ? '<span class="muted">[지문] </span>' : ''}${fmtQ(x.q)}</div><div class="small">정답: <b>${fmtQ(quizAnswerText(x))}</b>${x.exp ? ` · <span class="muted">해설 있음</span>` : ''}</div></li>` : `<li><b class="en">${esc(x[0])}</b> <span class="muted">${esc(x[1])}</span></li>`).join('') || '<li class="muted">아직 문제가 없어요.</li>';
   };
   $app.querySelectorAll('[data-cnt]').forEach(b => b.onclick = () => { cntPick = +b.dataset.cnt; $app.querySelectorAll('[data-cnt],.fchip.custom:not(.lim)').forEach(x => x.classList.toggle('on', x === b)); upd(); });
   $('re-count').addEventListener('focus', () => { cntPick = 'custom'; $app.querySelectorAll('[data-cnt]').forEach(x => x.classList.remove('on')); $app.querySelector('.fchip.custom:not(.lim)').classList.add('on'); upd(); });
   [...$app.querySelectorAll('input')].filter(el => !el.closest('#qedit')).forEach(el => el.addEventListener('input', upd));
   $app.querySelectorAll('[name=re-mode],[name=re-scoring]').forEach(el => el.addEventListener('change', upd));
+  $app.querySelectorAll('[name=re-mode]').forEach(el => el.addEventListener('change', () => { if (el.checked && el.value === 'quiz') $('qbulkbox').open = true; }));
   $app.querySelectorAll('[data-lim]').forEach(b => b.onclick = () => { limPick = +b.dataset.lim; $app.querySelectorAll('[data-lim],.fchip.custom.lim').forEach(x => x.classList.toggle('on', x === b)); });
   $('re-limit').addEventListener('focus', () => { limPick = 'custom'; $app.querySelectorAll('[data-lim]').forEach(x => x.classList.remove('on')); $app.querySelector('.fchip.custom.lim').classList.add('on'); });
   $('re-pen').addEventListener('focus', () => { $app.querySelector('[name=re-penon][value="1"]').checked = true; });
