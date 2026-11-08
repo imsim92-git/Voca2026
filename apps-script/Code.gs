@@ -33,7 +33,7 @@ const RECENT_KEEP = 30;                  // 학생 줄에 남기는 최근 연�
 const WRONG_KEEP = 200;                  // 학생 줄에 남기는 틀린 단어 수
 const LOG_HEADERS = ['시각', '학번', '이름', '학습지', '연습', '점수', '문항 수', '정답률', '틀린 단어', '페이지 ID'];
 const SHEET_SETS = '지문';
-const SET_HEADERS = ['ID', '이름', '순서', '단어 수', '단어(JSON)', '만든 시각', '고친 시각', '수업 카드 순서(JSON)'];   // H열: 선생님이 정한 수업용 카드 넘기기 단어 순서
+const SET_HEADERS = ['ID', '이름', '순서', '단어 수', '단어(JSON)', '만든 시각', '고친 시각', '수업 카드 순서(JSON)', '내용 그림(JSON)'];   // H열: 선생님이 정한 수업용 카드 넘기기 단어 순서 · I열: 지문 내용 그림 ID ('퀴즈 이미지' 시트)
 const SHEET_TEAMS = '모둠';
 const TEAM_HEADERS = ['반', '모둠', '순서'];
 const SHEET_RACES = '레이스';
@@ -714,13 +714,17 @@ function readSets_() {
   return sh.getRange(2, 1, n - 1, SET_HEADERS.length).getValues().map((r, i) => {
     let words = []; try { words = JSON.parse(String(r[4] || '[]')); } catch (e) {}
     const cardOrder = parseJ_(r[7], []);
-    return {row: i + 2, id: String(r[0]).trim(), name: String(r[1]), order: Number(r[2]) || 0, words: words, updated: iso_(r[6]), cardOrder: Array.isArray(cardOrder) ? cardOrder : []};
+    return {row: i + 2, id: String(r[0]).trim(), name: String(r[1]), order: Number(r[2]) || 0, words: words, updated: iso_(r[6]), cardOrder: Array.isArray(cardOrder) ? cardOrder : [], imgs: cleanImgs_(parseJ_(r[8], []))};
   }).filter(x => x.id).sort((a, b) => a.order - b.order || a.row - b.row);
+}
+/* 지문 내용 그림: '퀴즈 이미지' 시트의 그림 ID를 3개까지 */
+function cleanImgs_(v) {
+  return (Array.isArray(v) ? v : []).map(String).filter(x => /^q[0-9a-f]{8}$/.test(x)).slice(0, 3);
 }
 /* 지문 꾸러미: 지문과 학생에게 보이는 공지를 내용으로 만든 짧은 버전과 함께 보냄. 브라우저가 가진 버전과 같으면 내용은 보내지 않음 */
 function setsBundle_() {
-  return cached_('c_sets3', () => {
-    const sets = readSets_().map(x => Object.assign({id: x.id, name: x.name, words: x.words, updated: x.updated}, x.cardOrder.length ? {cardOrder: x.cardOrder} : {}));
+  return cached_('c_sets4', () => {
+    const sets = readSets_().map(x => Object.assign({id: x.id, name: x.name, words: x.words, updated: x.updated}, x.cardOrder.length ? {cardOrder: x.cardOrder} : {}, x.imgs.length ? {imgs: x.imgs} : {}));
     const notices = readNotices_().filter(x => x.show).map(x => ({id: x.id, title: x.title, body: x.body, created: x.created, updated: x.updated}));
     const v = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify([sets, notices]), Utilities.Charset.UTF_8)).slice(0, 12);
     return {v: v, sets: sets, notices: notices};
@@ -758,7 +762,7 @@ function adminNoticeSave_(req) {
     if (req.id && !cur) fail_('그 공지를 찾을 수 없어요. 새로고침해 주세요.');
     if (cur) sh.getRange(cur.row, 2, 1, 3).setValues([[asText_(title), asText_(body), show]]), sh.getRange(cur.row, 6).setValue(now);
     else sh.appendRow(['n' + Utilities.getUuid().replace(/-/g, '').slice(0, 7), asText_(title), asText_(body), show, now, now]);
-    forget_('c_sets3');
+    forget_('c_sets4');
     return {ok: true, notices: noticesAdmin_(), setsPack: setsFor_('')};
   });
 }
@@ -767,7 +771,7 @@ function adminNoticeDelete_(req) {
   return withLock_(() => {
     const cur = readNotices_().find(x => x.id === String(req.id || ''));
     if (cur) sheet_(SHEET_NOTICES).deleteRow(cur.row);
-    forget_('c_sets3');
+    forget_('c_sets4');
     return {ok: true, notices: noticesAdmin_(), setsPack: setsFor_('')};
   });
 }
@@ -792,20 +796,23 @@ function adminSetSave_(req) {
   const words = cleanWords_(req.words || []);
   const json = JSON.stringify(words);
   if (json.length > 45000) fail_('단어가 너무 많아요. 지문을 둘로 나눠 주세요.');
+  const imgs = cleanImgs_(req.imgs), keepImgs = !Array.isArray(req.imgs);   // 그림 칸을 보내지 않은 저장(예전 화면)은 그림을 그대로 둠
   return withLock_(() => {
     const sh = sheet_(SHEET_SETS), now = new Date(), list = readSets_();
+    if (!keepImgs && sh.getRange(1, 9).getValue() !== SET_HEADERS[8]) sh.getRange(1, 9).setValue(SET_HEADERS[8]).setFontWeight('bold');
     const cur = req.id ? list.find(x => x.id === String(req.id)) : null;
     if (req.id && !cur) fail_('그 지문을 찾을 수 없어요. 새로고침해 주세요.');
     if (cur) {
       sh.getRange(cur.row, 2, 1, 4).setValues([[asText_(name), cur.order, words.length, json]]);
       sh.getRange(cur.row, 7).setValue(now);
-      forget_('c_sets3');
+      if (!keepImgs) sh.getRange(cur.row, 9).setValue(imgs.length ? JSON.stringify(imgs) : '');
+      forget_('c_sets4');
       return {ok: true, id: cur.id, setsPack: setsFor_('')};
     }
     const id = 's' + Utilities.getUuid().replace(/-/g, '').slice(0, 7);
     const order = list.reduce((m, x) => Math.max(m, x.order), 0) + 1;
-    sh.appendRow([id, asText_(name), order, words.length, json, now, now]);
-    forget_('c_sets3');
+    sh.appendRow([id, asText_(name), order, words.length, json, now, now, '', imgs.length ? JSON.stringify(imgs) : '']);
+    forget_('c_sets4');
     return {ok: true, id: id, setsPack: setsFor_('')};
   });
 }
@@ -818,7 +825,7 @@ function adminCardOrderSave_(req) {
     if (!cur) fail_('그 지문을 찾을 수 없어요. 새로고침해 주세요.');
     if (sh.getRange(1, 8).getValue() !== SET_HEADERS[7]) sh.getRange(1, 8).setValue(SET_HEADERS[7]).setFontWeight('bold');
     sh.getRange(cur.row, 8).setValue(order.length ? asText_(JSON.stringify(order)) : '');
-    forget_('c_sets3');
+    forget_('c_sets4');
     return {ok: true, setsPack: setsFor_('')};
   });
 }
@@ -828,7 +835,7 @@ function adminSetDelete_(req) {
     const cur = readSets_().find(x => x.id === String(req.id || ''));
     if (!cur) fail_('그 지문을 찾을 수 없어요.');
     sheet_(SHEET_SETS).deleteRow(cur.row);
-    forget_('c_sets3');
+    forget_('c_sets4');
     return {ok: true, setsPack: setsFor_('')};
   });
 }
@@ -838,7 +845,7 @@ function adminSetOrder_(req) {
   return withLock_(() => {
     const sh = sheet_(SHEET_SETS);
     readSets_().forEach(x => { const k = ids.indexOf(x.id); sh.getRange(x.row, 3).setValue(k < 0 ? ids.length + x.order : k + 1); });
-    forget_('c_sets3');
+    forget_('c_sets4');
     return {ok: true, setsPack: setsFor_('')};
   });
 }
@@ -1060,7 +1067,7 @@ function adminRaceDelete_(req) {
     return {ok: true};
   });
 }
-/* 퀴즈 지문 그림: 숨긴 '퀴즈 이미지' 시트에 한 줄에 그림 하나 (사진 파일을 글자로 바꾼 값을 여러 칸에 나눠 저장).
+/* 퀴즈 지문 그림·지문 내용 그림: 숨긴 '퀴즈 이미지' 시트에 한 줄에 그림 하나 (사진 파일을 글자로 바꾼 값을 여러 칸에 나눠 저장).
    구글 드라이브는 쓰지 않음. 레이스 문제에는 그림 ID만 들어가고, 학생 화면은 그 ID로 그림을 받아 감 */
 const SHEET_QIMG = '퀴즈 이미지';
 const QIMG_HEADERS = ['ID', '만든 시각', '종류', '조각 수', '그림 데이터 (사이트가 쓰는 칸이니 고치지 마세요)'];
@@ -1107,6 +1114,7 @@ function qimgPrune_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet(), sh = ss.getSheetByName(SHEET_QIMG); if (!sh) return;
   const n = sh.getLastRow(); if (n < 2) return;
   const used = {}; readRaces_().forEach(x => (x.questions || []).forEach(q => { if (q && q.img) used[q.img] = 1; }));
+  readSets_().forEach(x => x.imgs.forEach(id => { used[id] = 1; }));   // 지문 내용 그림도 남김
   const rows = sh.getRange(2, 1, n - 1, 2).getValues(), old = Date.now() - 24 * 3600 * 1000;
   for (let i = rows.length - 1; i >= 0; i--) {
     const at = rows[i][1] instanceof Date ? rows[i][1].getTime() : Date.parse(rows[i][1]) || 0;

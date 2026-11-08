@@ -65,6 +65,28 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 .setcard .eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.75}
 .setcard h1{font-size:28px;font-weight:700}
 .setcard .meta{font-size:14px;opacity:.8}
+/* 지문 내용 그림: the passage box shows the pictures; a tap opens them big */
+.setpics{display:flex;gap:8px;margin-top:10px}
+.setpic{flex:1 1 0;min-width:0;height:150px;padding:4px;border:0;border-radius:10px;background:#fff;cursor:zoom-in;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.setpics.n1 .setpic{flex:0 1 auto;height:210px}
+.setpic .qimg{margin:0;width:100%;height:100%;align-items:center}
+.setpic .qimg img{max-width:100%;max-height:100%;border:0;border-radius:6px}
+.setpics.n1 .setpic .qimg img{width:auto;height:100%;object-fit:contain}
+.setcard .pichint{font-size:12px;opacity:.7}
+.picview{position:fixed;inset:0;z-index:60;background:rgba(10,14,30,.92);display:flex;flex-direction:column}
+.picview .pv-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;color:#fff;font-size:14px}
+.picview .pv-x{background:none;border:0;color:#fff;font-size:30px;line-height:1;cursor:pointer;padding:4px 8px}
+.picview .pv-stage{flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;padding:0 12px 16px}
+.picview .pv-stage img{max-width:100%;max-height:100%;background:#fff;border-radius:8px;cursor:zoom-in}
+.picview .pv-stage.zoom{align-items:flex-start;justify-content:flex-start}
+.picview .pv-stage.zoom img{max-width:none;max-height:none;cursor:zoom-out}
+.picview .pv-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.18);border:0;color:#fff;font-size:28px;width:44px;height:64px;border-radius:12px;cursor:pointer}
+.picview .pv-prev{left:8px}.picview .pv-next{right:8px}
+.picedit{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.picedit .pe-item{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.picedit .pe-item .qimg img{max-height:110px}
+.picdrop{border:2px dashed var(--line);border-radius:12px;padding:14px 16px;min-width:220px;cursor:pointer;outline:none}
+.picdrop:focus{border-color:var(--navy)}
 /* modes */
 .modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mode{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:left;display:flex;flex-direction:column;gap:2px;transition:transform .12s,border-color .12s}
@@ -1414,7 +1436,7 @@ let setsLoaded = false;
 let NOTICES = store.get('wordroom-notices', null) || [];   // the teacher's notices for the first screen (newest first)
 function toSet(s){
   const heads = (s.words || []).map(w => { const h = [String(w[0]), String(w[1]), String(w[2] || '')]; const rel = relFromNote(h[2]); if (rel.length) h[3] = rel; h.pid = s.id; return h; });
-  return {id: s.id, t: s.name, kind: 'passage', cardOrder: s.cardOrder || [], heads, w: heads.flatMap(h => [h, ...(h[3] || []).map(r => relWord(h, r, s.id)).filter(x => x[1])])};
+  return {id: s.id, t: s.name, kind: 'passage', cardOrder: s.cardOrder || [], imgs: Array.isArray(s.imgs) ? s.imgs.slice(0, 3) : [], heads, w: heads.flatMap(h => [h, ...(h[3] || []).map(r => relWord(h, r, s.id)).filter(x => x[1])])};
 }
 /* the server sends a short version with every passage bundle; words travel only when it changed */
 const setsV = () => (SETS.length || store.get('wordroom-sets', null)) ? store.get('wordroom-sets-v', '') : '';
@@ -1451,7 +1473,6 @@ function viewRoot(){
   if (ACCOUNTS && !SETS.length && setsLoaded && hasBook()) return viewPages();   // nothing registered yet: straight to 교과서
   const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
   $app.innerHTML = `${header()}${userBar()}${speechBanner()}${ACCOUNTS ? noticesHTML() : ''}
-  <div class="setcard"><div class="eyebrow">영어 학습</div><h1>지문을 골라요</h1><div class="meta">연습할 지문을 누르면 단어 연습 메뉴가 열려요.</div></div>
   ${ACCOUNTS && AUTH ? myRacesHTML() : ''}${ACCOUNTS && AUTH && myRacesList().length ? '<div class="section-label">지문</div>' : ''}
   <div class="pages">
     ${hasBook() ? `<button class="page" data-root="book"><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
@@ -1644,10 +1665,15 @@ function viewSetEdit(set){
   if (needAdmin(() => viewSetEdit(set))) return;
   const draftKey = 'wordroom-setdraft-' + (set ? set.id : 'new');
   const draft = store.get(draftKey, null);
+  let imgs = (draft && Array.isArray(draft.imgs) ? draft.imgs : set ? set.imgs || [] : []).slice(0, 3);
   const startText = draft ? draft.text : set ? wordsToText(set.heads) : '';
   $app.innerHTML = `${header('<button class="link" id="up">← 지문 목록</button>')}${adminNav('sets')}
   <h2>${set ? '지문 편집' : '새 지문 만들기'}</h2>
   <div class="field"><label for="se-name">지문 이름</label><input type="text" id="se-name" placeholder="예: 교과서 3과, 모의고사 1번" value="${esc(draft ? draft.name : set ? set.t : '')}" maxlength="40"></div>
+  <div class="field"><span class="flabel">내용 그림 <span class="muted">· 학생이 이 지문을 열면 위쪽 상자에 보여요 · 3개까지 · 없으면 비워 두세요</span></span>
+    <div class="picedit" id="se-pics"></div>
+    <div id="se-picmsg" class="savestate"></div>
+  </div>
   <div class="field"><label for="se-file">단어표 사진</label>
     <label class="upload" for="se-file"><input type="file" id="se-file" accept="image/*" multiple><span class="up-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="15" rx="2"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg></span><span><b>단어표 사진 고르기</b><br><span class="muted">캡처한 그림은 이 화면에서 <b>Ctrl+V</b>로 바로 붙여 넣어도 돼요 · 휴대폰은 카메라로 찍어도 돼요</span></span></label>
     <p class="help">사진 속 영어 단어와 뜻을 읽어서 아래 칸에 넣어요. 표가 반듯하고 글자가 선명할수록 정확해요.</p>
@@ -1667,9 +1693,30 @@ function viewSetEdit(set){
     const r = current(), rel = r.words.reduce((n, w) => n + relFromNote(w[2]).length, 0);
     $('se-count').innerHTML = r.words.length ? `단어 <b>${r.words.length}개</b>${rel ? ` · 관련어 <b>${rel}개</b>` : ''}` : '';
     $('se-bad').innerHTML = r.bad.length ? `<div class="badlines"><b>단어로 읽지 못한 줄 ${r.bad.length}개</b> · "영어 - 뜻" 모양으로 고치거나 지워 주세요.<ul>${r.bad.slice(0, 8).map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>` : '';
-    store.set(draftKey, {name: nameEl.value, text: txt.value});
+    store.set(draftKey, {name: nameEl.value, text: txt.value, imgs});
   };
   txt.addEventListener('input', upd); nameEl.addEventListener('input', upd); upd();
+  /* 내용 그림: picked or pasted (Ctrl+V into the dashed box) → saved right away in the hidden picture sheet; 저장하기 attaches them to the passage */
+  const picMsg = $('se-picmsg');
+  const drawPics = () => {
+    $('se-pics').innerHTML = imgs.map((id, i) => `<div class="pe-item"><div class="qimg small" data-qimg="${esc(id)}"></div><div class="row" style="gap:10px">${i ? `<button type="button" class="link small" data-pleft="${i}">← 앞으로</button>` : ''}<button type="button" class="link small" data-pdel="${i}">빼기</button></div></div>`).join('')
+      + (imgs.length < 3 ? `<div class="picdrop" id="se-picdrop" tabindex="0"><b>그림 넣기</b><br><span class="muted small">여기를 누르고 <b>Ctrl+V</b>로 붙여 넣거나</span><br><label class="link small">파일 고르기<input type="file" id="se-picfile" accept="image/png,image/jpeg,image/*" multiple hidden></label></div>` : '');
+    $('se-pics').querySelectorAll('[data-pdel]').forEach(b => b.onclick = () => { imgs.splice(+b.dataset.pdel, 1); drawPics(); upd(); });
+    $('se-pics').querySelectorAll('[data-pleft]').forEach(b => b.onclick = () => { const i = +b.dataset.pleft; [imgs[i - 1], imgs[i]] = [imgs[i], imgs[i - 1]]; drawPics(); upd(); });
+    const drop = $('se-picdrop'); if (!drop) return;
+    drop.addEventListener('paste', e => { const f = clipPictures(e); if (!f.length) return; e.preventDefault(); addPics(f); });   // not the 단어표 사진 reader
+    $('se-picfile').onchange = e => { const f = [...e.target.files]; e.target.value = ''; addPics(f); };
+  };
+  const addPics = async files => {
+    for (const f of files.slice(0, 3 - imgs.length)) {
+      picMsg.className = 'savestate'; picMsg.textContent = '그림을 올리는 중…';
+      try { const p = await shrinkPic(f); const r = await api('adminQImgSave', {token: ADMIN.token, data: p.data, mime: p.mime}); QIMG[r.id] = Promise.resolve(p.url); imgs.push(r.id); drawPics(); upd();
+        picMsg.className = 'savestate ok'; picMsg.textContent = '그림을 넣었어요. 저장하기를 눌러야 학생 화면에 나와요.'; }
+      catch(err){ if (adminErr(err, () => viewSetEdit(set))) return; picMsg.className = 'savestate wait'; picMsg.textContent = err.error || err.message || '그림을 넣지 못했어요.'; return; }
+    }
+    if (files.length > 3 - imgs.length && imgs.length >= 3) toast('그림은 3개까지 넣을 수 있어요');
+  };
+  drawPics();
   txt.addEventListener('paste', e => {
     const lines = tableToLines((e.clipboardData || {}).getData ? e.clipboardData.getData('text/plain') : '');
     if (!lines || !lines.length) return;
@@ -1707,7 +1754,7 @@ function viewSetEdit(set){
   onPicturePaste('se-file', files => { $('se-file').closest('.field').scrollIntoView({block: 'nearest'}); readPhotos(files); });   // a screenshot pasted anywhere on this screen (Ctrl+V)
   $('se-try').onclick = () => {
     const r = current(); if (!r.words.length) return toast('단어를 먼저 넣어 주세요');
-    SET = toSet({id: set ? set.id : 'preview', name: nameEl.value.trim() || '미리 보기', words: r.words}); origin = 'setedit'; SET.back = () => viewSetEdit(set); SCOPE = 'all'; viewHome();
+    SET = toSet({id: set ? set.id : 'preview', name: nameEl.value.trim() || '미리 보기', words: r.words, imgs}); origin = 'setedit'; SET.back = () => viewSetEdit(set); SCOPE = 'all'; viewHome();
   };
   $('se-save').onclick = async () => {
     const name = nameEl.value.trim(), r = current();
@@ -1715,7 +1762,7 @@ function viewSetEdit(set){
     if (!r.words.length) return toast('단어를 먼저 넣어 주세요');
     const go = $('se-save'); go.disabled = true; go.textContent = '저장하는 중…';
     try {
-      const saved = await api('adminSetSave', {token: ADMIN.token, id: set ? set.id : '', name, words: r.words});
+      const saved = await api('adminSetSave', {token: ADMIN.token, id: set ? set.id : '', name, words: r.words, imgs});
       store.set(draftKey, null); applySets(saved.setsPack);
       toast(r.bad.length ? `저장했어요. 읽지 못한 ${r.bad.length}줄은 빠졌어요` : '저장했어요');
       viewSetsAdmin();
@@ -1905,9 +1952,39 @@ function bindMyRaces(redraw){
    explanation (a word race: its words and meanings). Nothing is sent; once the teacher closes the race it is gone */
 /* ---------- quiz pictures (a chart or table in the passage): kept in the hidden '퀴즈 이미지' sheet, fetched by ID ---------- */
 const QIMG = {};   // id → Promise of a data: address
+/* also kept in this browser (the 10 latest), so a passage picture opens at once the next time */
+const imgKeep = (id, src) => { try { const list = JSON.parse(localStorage.getItem('wordroom-imgs') || '[]').filter(x => x !== id); list.unshift(id);
+  while (list.length > 10) localStorage.removeItem('wordroom-img-' + list.pop());
+  localStorage.setItem('wordroom-img-' + id, src); localStorage.setItem('wordroom-imgs', JSON.stringify(list)); } catch (e) {} };
 function qimgLoad(id){
-  if (!QIMG[id]) QIMG[id] = api('qimg', {id}).then(r => `data:${r.mime};base64,${r.data}`).catch(e => { delete QIMG[id]; throw e; });
+  if (!QIMG[id]) {
+    let kept = null; try { kept = localStorage.getItem('wordroom-img-' + id); } catch (e) {}
+    QIMG[id] = kept ? Promise.resolve(kept) : api('qimg', {id}).then(r => { const src = `data:${r.mime};base64,${r.data}`; imgKeep(id, src); return src; }).catch(e => { delete QIMG[id]; throw e; });
+  }
   return QIMG[id];
+}
+/* 지문 내용 그림 크게 보기: ‹ › (or ← →) for the next picture, a tap on the picture zooms to its real size, Esc or × closes */
+let PICVIEW = null;
+function closePics(){ if (!PICVIEW) return; PICVIEW.el.remove(); document.removeEventListener('keydown', PICVIEW.key, true); PICVIEW = null; }
+function openPics(ids, at){
+  closePics();
+  const el = document.createElement('div'); el.className = 'picview'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', '그림 크게 보기');
+  let i = at || 0;
+  const draw = () => {
+    el.innerHTML = `<div class="pv-top"><span>${ids.length > 1 ? `그림 ${i + 1} / ${ids.length}` : '그림'}</span><button class="pv-x" aria-label="닫기">×</button></div>
+      <div class="pv-stage"><span class="muted small" style="color:#fff">그림을 불러오는 중…</span></div>
+      ${ids.length > 1 ? '<button class="pv-nav pv-prev" aria-label="앞 그림">‹</button><button class="pv-nav pv-next" aria-label="다음 그림">›</button>' : ''}`;
+    const stage = el.querySelector('.pv-stage');
+    qimgLoad(ids[i]).then(src => { stage.innerHTML = `<img src="${src}" alt="지문 그림 ${i + 1}">`; stage.querySelector('img').onclick = e => { e.stopPropagation(); stage.classList.toggle('zoom'); }; })
+      .catch(() => { stage.innerHTML = '<span style="color:#fff">그림을 불러오지 못했어요.</span>'; });
+    stage.onclick = e => { if (e.target === stage) closePics(); };
+    el.querySelector('.pv-x').onclick = closePics;
+    if (ids.length > 1) { el.querySelector('.pv-prev').onclick = () => move(-1); el.querySelector('.pv-next').onclick = () => move(1); }
+  };
+  const move = d => { i = (i + d + ids.length) % ids.length; draw(); };
+  const key = e => { if (e.key === 'Escape') { e.preventDefault(); closePics(); } else if (ids.length > 1 && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); move(e.key === 'ArrowLeft' ? -1 : 1); } };
+  document.addEventListener('keydown', key, true);
+  document.body.appendChild(el); PICVIEW = {el, key}; draw();
 }
 const qPassHTML = q => `${q.img ? `<div class="qimg" data-qimg="${esc(q.img)}"><span class="muted small">그림을 불러오는 중…</span></div>` : ''}${q.passage ? `<div class="qpass">${fmtQ(q.passage)}</div>` : ''}`;
 function fillQImgs(){
@@ -2969,7 +3046,9 @@ function viewHome(){
   const MODE_C = {list: 1, cards: 2, choice: 3, pick: 4, spell: 5, match: 6};
   const tile = (go, title, sub, min) => `<button class="mode" data-go="${go}" ${words.length < (min || 1) ? 'disabled' : ''}><b>${title}</b><span>${sub}</span></button>`;
   $app.innerHTML = `${header(backTo)}${userBar()}${speechBanner()}
-  <div class="setcard"><div class="eyebrow">${SET.id === 'allconf' ? '모든 지문' : SET.kind === 'passage' ? '지문' : SET.id === 'custom' ? '단어장' : esc(BOOK)}</div><h1>${esc(SET.t)}</h1><div class="meta">${SET.id === 'allconf' ? `<span id="confn">${conf.length}</span>개 단어` : countLine(SET)}</div></div>
+  <div class="setcard"><div class="eyebrow">${SET.id === 'allconf' ? '모든 지문' : SET.kind === 'passage' ? '지문' : SET.id === 'custom' ? '단어장' : esc(BOOK)}</div><h1>${esc(SET.t)}</h1><div class="meta">${SET.id === 'allconf' ? `<span id="confn">${conf.length}</span>개 단어` : countLine(SET)}</div>${(SET.imgs || []).length ? `
+    <div class="setpics n${SET.imgs.length}">${SET.imgs.map((id, i) => `<button class="setpic" data-pic="${i}" aria-label="그림 ${i + 1} 크게 보기"><span class="qimg" data-qimg="${esc(id)}"><span class="muted small">그림을 불러오는 중…</span></span></button>`).join('')}</div>
+    <span class="pichint">그림을 누르면 크게 볼 수 있어요</span>` : ''}</div>
   <div class="tabs" role="tablist" aria-label="연습할 단어" ${SET.id === 'allconf' ? 'hidden' : ''}>
     <button role="tab" class="tab" data-scope="all" aria-selected="${SCOPE === 'all'}">전체 <span class="tc">${SET.w.length}</span></button>
     <button role="tab" class="tab" data-scope="conf" aria-selected="${SCOPE === 'conf'}">헷갈리는 단어 <span class="tc" ${SET.id === 'allconf' ? '' : 'id="confn"'}>${conf.length}</span></button>
@@ -2989,6 +3068,7 @@ function viewHome(){
   $app.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { SCOPE = b.dataset.scope; viewHome(); });
   bindToRanks('match', viewHome);
   $app.querySelectorAll('[data-go]').forEach(b => b.onclick = () => MODES[b.dataset.go].run(scopeWords()));
+  $app.querySelectorAll('[data-pic]').forEach(b => b.onclick = () => openPics(SET.imgs, +b.dataset.pic));
   const up = document.getElementById('up'); if (up) up.onclick = () => { SCOPE = 'all'; origin === 'maker' ? viewMake(SET) : origin === 'me' ? viewMe() : origin === 'root' ? viewRoot() : origin === 'setedit' && SET.back ? SET.back() : viewPages(); };
   bindUserBar();
   const tp = document.getElementById('toPages'); if (tp) tp.onclick = viewPages;
@@ -3001,7 +3081,7 @@ const stickyTop = r => isTeacher() ? `${header('')}<div class="stickybar"><div c
 function bindBack(){ document.getElementById('back').onclick = () => { stopTimers(); viewHome(); }; }
 const prog = (i, n) => `<div class="bar"><i style="width:${n ? i / n * 100 : 0}%"></i></div><div class="count">${i} / ${n}</div>`;
 let timers = [];
-function stopTimers(){ $app.classList.remove('wide', 'cardbig'); timers.forEach(t => { if (t && t.off) t.off(); else { clearTimeout(t); clearInterval(t); } }); timers = []; document.onkeydown = null; }
+function stopTimers(){ closePics(); $app.classList.remove('wide', 'cardbig'); timers.forEach(t => { if (t && t.off) t.off(); else { clearTimeout(t); clearInterval(t); } }); timers = []; document.onkeydown = null; }
 
 /* ---------- list ---------- */
 function viewList(words){
