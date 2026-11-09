@@ -141,6 +141,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{
 .bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
 .bar i{display:block;height:100%;background:var(--mark);transition:width .25s}
 .count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.wrap.cardbig .count{font-size:18px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;min-height:240px;padding:28px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;width:100%}
 .card .big{font-family:var(--f-word);font-size:clamp(28px,8vw,40px);line-height:1.2;overflow-wrap:anywhere}
 .card .ko{font-size:20px;font-weight:500}
@@ -3233,7 +3234,7 @@ function viewCards(words, opt){
     $('cnum').textContent = `${i + 1} / ${order.length}`;
     $('cbar').style.width = ((i + 1) / order.length * 100) + '%';
     $('no1').textContent = $('no2').textContent = 'No. ' + (words.indexOf(w) + 1);
-    if (cls) { $('no2').textContent = O.koFirst ? w[1] : w[0]; $('no2').className = 'no corner' + (O.koFirst ? '' : ' en'); }   // classroom: the front's word stays in the corner
+    if (cls) { $('no1').textContent = `${i + 1} / ${order.length}`; $('no2').textContent = O.koFirst ? w[1] : w[0]; $('no2').className = 'no corner' + (O.koFirst ? '' : ' en'); }   // classroom: the front's word stays in the corner
     $('f1').innerHTML = side(w, O.koFirst);
     $('f2').innerHTML = side(w, !O.koFirst);
     fitCard();
