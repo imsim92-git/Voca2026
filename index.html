@@ -644,7 +644,10 @@ const store = {
 
 /* answer key: drop symbols and structure markers that are not typed ("~", "…", "+ 결과", "+O+O.C.") */
 const plain = en => en.replace(/\+.*$/, '').replace(/[~…()]/g, ' ').replace(/[가-힣]/g, '').replace(/\s+/g, ' ').trim();
-const norm = s => plain(s).toLowerCase().replace(/[’`]/g, "'").replace(/\s*-\s*/g, '-');
+/* look-alike characters (from photos, Word or a phone keyboard) count as the plain ones: ‐ – — − → -, ’ ‘ ` → ', a no-break space → a space, invisible marks dropped */
+const tidyChars = s => String(s || '').replace(/[\u00AD\u200B-\u200D\u2060\uFEFF]/g, '').replace(/[\u00A0\u2000-\u200A\u202F\u3000]/g, ' ')
+  .replace(/[\u2010-\u2015\u2212\uFE58\uFE63\uFF0D]/g, '-').replace(/[‘’`´]/g, "'");
+const norm = s => plain(tidyChars(s)).toLowerCase().replace(/\s*-\s*/g, '-');
 const spoken = en => plain(en).replace(/\bto-v\b/g, 'to do').replace(/\bA\b/g, 'A');
 
 /* ---------- link encoding for teacher-made sets (#w…) ---------- */
@@ -1835,7 +1838,7 @@ function revOptsHTML(q, mine){
   return `<ol class="revopts">${q.options.map((o, k) => o ? `<li class="${k === q.answer ? 'ans' : mine === k ? 'my' : ''}"><span>${CIRCLED[k] || k + 1}</span> <span>${fmtQ(o)}</span>${k === q.answer ? ' <span class="chip dark">정답</span>' : ''}${mine === k ? ` <span class="mytag${k === q.answer ? ' ok' : ''}">내 답</span>` : ''}</li>` : '').join('')}</ol>`;
 }
 const quizAnswerText = q => q.type === 'choice' ? `${CIRCLED[q.answer] || q.answer + 1} ${q.options[q.answer] || ''}` : q.answer.join(' / ');
-const normQ = s => String(s || '').toLowerCase().replace(/[‘’`]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').replace(/^[\s"']+|[\s.!?,;:"']+$/g, '');
+const normQ = s => tidyChars(s).toLowerCase().replace(/\s*-\s*/g, '-').replace(/[“”]/g, '"').replace(/\s+/g, ' ').replace(/^[\s"']+|[\s.!?,;:"']+$/g, '');
 /* matching rounds of up to 8 pairs, no repeated word or meaning inside a round */
 function matchRounds(words){
   const rounds = []; let rest = words.slice();
