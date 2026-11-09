@@ -482,8 +482,8 @@ function admin_(req) {
   rows.forEach(r => {
     const sid = String(r[0]).trim(), name = String(r[1]), st = rowStats_(r);
     students.push({sid: sid, name: name, joined: iso_(r[2]), lastSeen: iso_(r[3]), hasPw: !!r[5], sessions: st.sessions, questions: st.questions, correct: st.correct, lastPractice: st.last});
-    st.recent.forEach(e => recent.push(Object.assign({sid: sid, name: name}, e)));
-    const acts = parseJ_(r[ACT_COL - 1], []);   // 단어 목록·카드 넘기기 (점수 없음)
+    uniqRecs_(st.recent).forEach(e => recent.push(Object.assign({sid: sid, name: name}, e)));
+    const acts = uniqRecs_(parseJ_(r[ACT_COL - 1], []));   // 단어 목록·카드 넘기기 (점수 없음) · 예전에 두 번 들어간 기록은 하나만
     if (Array.isArray(acts)) acts.slice(-30).forEach(a => recent.push(Object.assign({sid: sid, name: name, act: 1, score: 0}, a)));
     st.wrong.forEach(w => { const k = w.page + '|' + w.en; const o = wrongCount[k] || (wrongCount[k] = {en: w.en, page: w.page, count: 0, students: 0}); o.count += w.count; o.students++; });
   });
@@ -582,9 +582,9 @@ function statsFor_(sid) {
   return {
     student: {sid: sid, name: String(r[1])},
     stats: {sessions: st.sessions, questions: st.questions, correct: st.correct},
-    recent: st.recent.slice().reverse().map(e => Object.assign({sid: sid}, e)),
+    recent: uniqRecs_(st.recent).slice().reverse().map(e => Object.assign({sid: sid}, e)),
     wrong: st.wrong.slice(0, 60),
-    acts: (() => { let a = []; try { a = parseJ_(sh.getRange(row, ACT_COL).getValue(), []); } catch (e) {} return (Array.isArray(a) ? a : []).slice().reverse(); })()
+    acts: (() => { let a = []; try { a = parseJ_(sh.getRange(row, ACT_COL).getValue(), []); } catch (e) {} return uniqRecs_(a).slice().reverse(); })()
   };
 }
 function isPractice_(l) { return l.total > 0; }
@@ -630,6 +630,7 @@ function mergeStats_(cur, entries) {
   const wrong = {};
   (cur.wrong || []).forEach(w => { wrong[w.page + '|' + w.en] = w; });
   entries.forEach(e => {
+    if ((cur.recent || []).some(x => sameRec_(x, e))) return;   // 이미 받은 연습 결과(다시 보낸 것)
     cur.sessions++; cur.questions += e.total; cur.correct += e.score;
     if (!cur.last || e.at > cur.last) cur.last = e.at;
     (e.wrong || []).forEach(en => { const k = e.page + '|' + en; const o = wrong[k] || (wrong[k] = {en: en, page: e.page, count: 0, last: ''}); o.count++; if (e.at > o.last) o.last = e.at; });
@@ -665,11 +666,18 @@ function addPractice_(sid, entry, cliMy) {
     return out;
   });
 }
+/* 같은 기록이 두 번 오면(응답을 못 받은 학생 화면이 다시 보낸 경우) 한 번만 남김: 학생 화면이 처음 만든 시각·지문·연습이 같으면 같은 기록 */
+const sameRec_ = (a, b) => a && b && a.at === b.at && a.mode === b.mode && String(a.page || '') === String(b.page || '');
+function uniqRecs_(list) {
+  const seen = {};
+  return (Array.isArray(list) ? list : []).filter(x => { const k = x && (x.at + '|' + x.mode + '|' + (x.page || '')); if (!x || seen[k]) return false; seen[k] = 1; return true; });
+}
 function addActivity_(sid, act) {
   withLock_(() => {
     const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
     if (!row) fail_('학생 정보를 찾을 수 없어요. 다시 로그인해 주세요.', 'auth');
     const list = parseJ_(sh.getRange(row, ACT_COL).getValue(), []);
+    if (Array.isArray(list) && list.some(x => sameRec_(x, act))) return;   // 이미 받은 기록
     const all = (Array.isArray(list) ? list : []).concat([act]).sort((a, b) => a.at < b.at ? -1 : 1).slice(-ACT_KEEP);
     if (sh.getRange(1, ACT_COL).getValue() !== ACT_HEADER) sh.getRange(1, ACT_COL).setValue(ACT_HEADER).setFontWeight('bold');
     sh.getRange(row, ACT_COL).setValue(JSON.stringify(all));
