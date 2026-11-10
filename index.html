@@ -157,6 +157,12 @@ button.card{cursor:pointer}
 .answer.ok{border-color:var(--good)} .answer.no{border-color:var(--bad)}
 .feedback{min-height:22px;font-weight:700;text-align:center}
 .feedback.ok{color:var(--good)} .feedback.no{color:var(--bad)}
+.qgo{display:flex;min-height:0}.qgo:empty{display:none}.qgo .btn{flex:1}
+.qtop{display:flex;align-items:center;justify-content:space-between;margin-top:-4px}
+.gear{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.gear svg{width:20px;height:20px}.gear:hover,.gear[aria-expanded="true"]{color:var(--ink);border-color:var(--navy)}
+.qsetbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.qopt-r{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:400;cursor:pointer}.qopt-r .muted{font-size:13px}
 /* result */
 .score{font-family:var(--f-word);font-size:56px;line-height:1;font-variant-numeric:tabular-nums}
 .score small{font-size:22px;color:var(--muted)}
@@ -3308,6 +3314,8 @@ function trackActivity(mode, total){
 }
 
 /* ---------- multiple choice (both directions); distractors come from the same set and never share the answer's meaning ---------- */
+/* 뜻 고르기·단어 고르기: go on by itself (default) or only on the 다음 button; each student's choice is kept in this browser */
+const QNEXT_KEY = 'wordroom-quiz-next', qManual = () => store.get(QNEXT_KEY, 'auto') === 'manual';
 function viewQuiz(words, mode){
   stopTimers();
   const toKo = mode === 'choice';
@@ -3319,18 +3327,38 @@ function viewQuiz(words, mode){
     const pool = SET.id === 'allconf' ? [...PAGES.flatMap(p => p.w), ...SETS.flatMap(s => s.w)] : SET.w;
     const pick = wrongChoices(w, shuffle(pool), 3, x => toKo ? x[1] : x[0]);
     const answer = toKo ? w[1] : w[0], opts = shuffle([answer, ...pick]);
-    $app.innerHTML = `${header(back())}${prog(i, deck.length)}
+    $app.innerHTML = `${header(back())}<div class="bar"><i style="width:${i / deck.length * 100}%"></i></div>
+    <div class="qtop"><div class="count">${i} / ${deck.length}</div><button class="gear" id="qset" aria-label="설정" aria-expanded="false" title="설정"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button></div>
+    <div class="qsetbox" id="qsetbox" hidden><div class="small"><b>답을 고른 뒤 다음 문제로</b></div>
+      <label class="qopt-r"><input type="radio" name="qnx" value="auto" ${qManual() ? '' : 'checked'}> 자동으로 넘어가기 <span class="muted">(기본)</span></label>
+      <label class="qopt-r"><input type="radio" name="qnx" value="manual" ${qManual() ? 'checked' : ''}> '다음' 버튼 눌러 넘어가기</label></div>
     <div class="card has-star" style="min-height:170px">${starBtn(w)}${toKo ? `<div class="big">${esc(w[0])}</div>${sayBtn(w[0])}` : `<div class="ko big-ko">${esc(w[1])}</div>${w.rel ? `<div class="tag">${esc(w[2])}</div>` : ''}<div class="hint">알맞은 영어 단어를 고르세요</div>`}</div>
     <div class="choices">${opts.map((o, k) => `<button class="choice${toKo ? '' : ' en'}" data-k="${k}">${esc(o)}</button>`).join('')}</div>
-    <div class="feedback" id="fb"></div>`;
+    <div class="feedback" id="fb"></div>
+    <div id="qgo" class="qgo"></div>`;
     bindBack(); bindStar(w);
+    let answered = 0, tm = null;   // answered: 1 right, 2 wrong
+    const go = () => { if (tm) clearTimeout(tm); tm = null; i++; draw(); };
+    const after = () => {   // automatic: on after a moment · '다음' 눌러서 넘기기: wait for the 다음 button (or Enter)
+      if (tm) { clearTimeout(tm); tm = null; }
+      const box = document.getElementById('qgo');
+      if (qManual()) { box.innerHTML = '<button class="btn mark wide" id="qnext">다음</button>'; const nb = document.getElementById('qnext'); nb.onclick = go; nb.focus(); }
+      else { box.innerHTML = ''; tm = setTimeout(go, answered === 1 ? 700 : 1600); timers.push(tm); }
+    };
+    const gear = document.getElementById('qset'), box = document.getElementById('qsetbox');
+    gear.onclick = () => { box.hidden = !box.hidden; gear.setAttribute('aria-expanded', !box.hidden); };
+    $app.querySelectorAll('[name=qnx]').forEach(r => r.onchange = () => {
+      store.set(QNEXT_KEY, r.value); box.hidden = true; gear.setAttribute('aria-expanded', 'false');
+      toast(r.value === 'manual' ? "이제 '다음'을 눌러야 넘어가요" : '이제 답을 고르면 자동으로 넘어가요');
+      if (answered) after();
+    });
     $app.querySelectorAll('.choice').forEach(b => b.onclick = () => {
       const ok = opts[+b.dataset.k] === answer;
       $app.querySelectorAll('.choice').forEach(c => { c.disabled = true; if (opts[+c.dataset.k] === answer) c.classList.add('ok'); });
       if (ok) right++; else { b.classList.add('no'); wrong.push(w); markStar(w); }
       if (!toKo) speak(w[0]);
       const fb = document.getElementById('fb'); fb.className = 'feedback ' + (ok ? 'ok' : 'no'); fb.textContent = ok ? '정답!' : '아쉬워요. 초록색이 정답이에요.';
-      timers.push(setTimeout(() => { i++; draw(); }, ok ? 700 : 1600));
+      answered = ok ? 1 : 2; after();
     });
   };
   draw();
