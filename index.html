@@ -264,6 +264,15 @@ tr.event td{color:var(--muted)}
 .face .no{position:absolute;top:14px;left:18px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.04em}
 .face.back .no{color:var(--navy-fg);opacity:.7}
 .face .hint{position:absolute;bottom:14px;left:0;right:0;font-size:12px;color:var(--muted)}
+.peek{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;gap:16px;padding:8px 14px 10px;border-top:1px solid rgba(154,74,50,.18);pointer-events:none;color:#9a4a32;transition:color .2s .15s,border-color .2s .15s}
+.flip-in.on ~ .peek{color:#7cc4ec;border-top-color:rgba(124,196,236,.25)}   /* white front: a reddish brown · navy back: a light sky blue */
+.peek .pk{pointer-events:auto;background:none;border:0;color:inherit;cursor:pointer;display:flex;flex-direction:column;align-items:flex-start;gap:0;line-height:1.2;max-width:45%;padding:4px 8px;border-radius:10px;text-align:left}
+.peek .pk.nx{align-items:flex-end;text-align:right;margin-left:auto}
+.peek .pk:hover{background:rgba(154,74,50,.07)}.flip-in.on ~ .peek .pk:hover{background:rgba(124,196,236,.12)}
+.peek small{font-size:11px;font-weight:700;letter-spacing:.08em;opacity:.65}
+.peek b{font-weight:400;font-size:19px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.peek b.en{font-family:var(--f-word)}
+.flip.cls .face{padding-bottom:70px}
+.cardbig .peek{padding:10px 18px 12px}.cardbig .peek b{font-size:24px}.cardbig .peek small{font-size:12px}
 .face .big{font-family:var(--f-word);font-size:clamp(34px,10vw,64px);line-height:1.15;overflow-wrap:anywhere}
 .face .big-ko{font-size:clamp(24px,7vw,42px)!important}
 /* 크게 보기 on the classroom cards (지문 관리 → 카드 넘기기): big, clear letters; on a big screen the card gets wide too */
@@ -3219,13 +3228,14 @@ function viewCards(words, opt){
   const act = cls ? null : trackActivity('카드 넘기기', words.length);
   let order = !cls && O.shuffle ? shuffle(words) : words.slice(), i = Math.max(0, Math.min(words.length - 1, opt.at || 0)), flipped = false, auto = false, logged = false;
   $app.innerHTML = `${cls ? header('<button class="link" id="back">← 지문 관리</button>') : header(back())}
-  <div class="row" style="justify-content:space-between"><div class="count" id="cnum"></div><div class="count">${esc(SET.t)}</div></div>
+  <div class="row" style="justify-content:space-between"><div class="count" id="cnum"${cls ? ' hidden' : ''}></div><div class="count">${esc(SET.t)}</div></div>
   <div class="bar"><i id="cbar"></i></div>
-  <div class="flip" id="flip" tabindex="0" role="button" aria-label="카드 뒤집기">
+  <div class="flip${cls ? ' cls' : ''}" id="flip" tabindex="0" role="button" aria-label="카드 뒤집기">
     <div class="flip-in" id="flipin">
-      <div class="face front"><span class="no" id="no1"></span><div id="f1"></div><span class="hint">눌러서 뒤집기 · 옆으로 밀어 넘기기</span></div>
+      <div class="face front"><span class="no" id="no1"></span><div id="f1"></div>${cls ? '' : '<span class="hint">눌러서 뒤집기 · 옆으로 밀어 넘기기</span>'}</div>
       <div class="face back"><span class="no" id="no2"></span><div id="f2"></div></div>
     </div>
+    ${cls ? '<div class="peek"><button type="button" class="pk" id="pk-prev" aria-label="이전 단어로"></button><button type="button" class="pk nx" id="pk-next" aria-label="다음 단어로"></button></div>' : ''}
     ${cls ? '' : '<button class="star" id="star" aria-label="헷갈리는 단어로 표시"></button>'}
   </div>
   <div class="row center"><button class="btn ghost" id="prev">‹ 이전</button><button class="btn ghost" id="say">발음</button><button class="btn mark" id="next">다음 ›</button></div>
@@ -3246,6 +3256,10 @@ function viewCards(words, opt){
     if (cls) { $('no1').textContent = `${i + 1} / ${order.length}`; $('no2').textContent = O.koFirst ? w[1] : w[0]; $('no2').className = 'no corner' + (O.koFirst ? '' : ' en'); }   // classroom: the front's word stays in the corner
     $('f1').innerHTML = side(w, O.koFirst);
     $('f2').innerHTML = side(w, !O.koFirst);
+    if (cls) {   // 수업용: the word before (bottom left) and after (bottom right), as their front side shows
+      const pk = (el, x, label) => { el.hidden = !x; el.innerHTML = x ? `<small>${label}</small><b class="${O.koFirst ? 'ko' : 'en'}">${esc(O.koFirst ? x[1] : x[0])}</b>` : ''; };
+      pk($('pk-prev'), i > 0 && order[i - 1], '‹ 이전'); pk($('pk-next'), i < order.length - 1 && order[i + 1], '다음 ›');
+    }
     fitCard();
     $('flipin').classList.toggle('on', flipped);
     if (!cls) { const st = confHas(w); $('star').innerHTML = STAR(st); $('star').classList.toggle('on', st); $('star').setAttribute('aria-pressed', st); }
@@ -3269,6 +3283,7 @@ function viewCards(words, opt){
   card.addEventListener('click', e => { if (e.target.closest('.star') || moved) return; stopAuto(); flip(); });
   if (!cls) $('star').onclick = e => { e.stopPropagation(); const w = order[i]; if (confHas(w)) { confRemove(w); toast('헷갈리는 단어에서 뺐어요'); } else { confAdd([w], true); toast('헷갈리는 단어에 넣었어요'); } draw(); };
   $('prev').onclick = () => { stopAuto(); go(-1); };
+  if (cls) ['pk-prev', 'pk-next'].forEach((id, k) => { const b = $(id); b.addEventListener('pointerdown', e => e.stopPropagation()); b.onclick = e => { e.stopPropagation(); stopAuto(); go(k ? 1 : -1); }; });   // the word below: go straight to it
   $('next').onclick = () => { stopAuto(); go(1); };
   $('say').onclick = () => speak(order[i][0]);
   if (!cls) $('t-shuf').onclick = e => { O.shuffle = !O.shuffle; saveO(); e.target.setAttribute('aria-pressed', O.shuffle); const w = order[i]; order = O.shuffle ? shuffle(words) : words.slice(); i = order.indexOf(w); flipped = false; draw(); };
