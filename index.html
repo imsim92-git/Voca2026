@@ -2538,7 +2538,7 @@ async function viewRaceAdmin(){
   <p class="help">모둠 레이스는 로그인 화면의 <b>모둠 입장</b>에서, 개인 레이스는 학생이 로그인한 첫 화면에서 보여요. 그 반에 열린 레이스만 보여요.</p>
   ${gone.length ? `<details class="panel gonebox"><summary>삭제한 레이스 ${gone.length}개 <span class="muted small">학생·모둠 화면에는 보이지 않아요</span></summary><ul class="setlist">
     ${gone.map(x => `<li><div class="sl-main"><b>${esc(x.name)} <span class="chip who ${x.settings.who}">${WHO_NAME[x.settings.who]}</span></b><span class="muted small">${MODE_NAME[x.settings.mode]} · ${esc(raceClassLabel(x))} · 끝낸 ${x.settings.who === 'student' ? '학생' : '모둠'} ${x.done}</span></div>
-      <div class="sl-act"><button class="btn ghost small" data-gboard="${esc(x.id)}">순위판</button>${x.settings.who === 'student' ? mkBtn(x) : ''}<button class="btn ghost small" data-restore="${esc(x.id)}">되살리기</button><button class="btn danger small" data-hard="${esc(x.id)}">완전 삭제</button></div>
+      <div class="sl-act"><button class="btn ghost small" data-gtry="${esc(x.id)}">풀어보기</button><button class="btn ghost small" data-gboard="${esc(x.id)}">순위판</button>${x.settings.who === 'student' ? mkBtn(x) : ''}<button class="btn ghost small" data-restore="${esc(x.id)}">되살리기</button><button class="btn danger small" data-hard="${esc(x.id)}">완전 삭제</button></div>
       ${x.settings.who === 'student' ? `<div class="mkpanel" data-mkbox="${esc(x.id)}" hidden></div>` : ''}</li>`).join('')}
   </ul></details>` : ''}
   ${archivePanel(RACE_ADMIN.archive)}`;
@@ -2551,6 +2551,7 @@ async function viewRaceAdmin(){
   $app.querySelectorAll('[data-try]').forEach(b => b.onclick = () => viewRaceReady(Object.assign({}, races[+b.dataset.try], {mine: null, status: '진행'}), trialCtx(() => viewRaceAdmin(), true)));   // 풀어보기 right from the list (nothing is recorded)
   $app.querySelectorAll('[data-board]').forEach(b => b.onclick = () => viewBoard(races[+b.dataset.board].id, fcls || undefined));
   $app.querySelectorAll('[data-gboard]').forEach(b => b.onclick = () => viewBoard(b.dataset.gboard));
+  $app.querySelectorAll('[data-gtry]').forEach(b => b.onclick = () => viewRaceReady(Object.assign({}, gone.find(x => x.id === b.dataset.gtry), {mine: null, status: '진행'}), trialCtx(() => viewRaceAdmin(), true)));   // a deleted race can still be tried (nothing is recorded)
   /* 열기·마감: all classes at once, or one class at a time */
   $app.querySelectorAll('[data-oc]').forEach(b => b.onclick = () => {
     const i = +b.dataset.oc, x = races[i], box = document.getElementById('oc-' + i);
