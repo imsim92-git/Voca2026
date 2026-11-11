@@ -517,6 +517,14 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .chip.who{color:var(--ink);background:var(--line)}
 .ocpanel{flex-basis:100%;display:flex;flex-direction:column;gap:6px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .ocrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.countdown.wait{font-size:28px}
+.mkpanel{flex-basis:100%;margin-top:8px;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--paper);display:flex;flex-direction:column;gap:8px}
+.mkpanel .mklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}.mkpanel .mklist li{display:flex;align-items:center;gap:8px;padding:0;border:0}
+.mkpanel .mklist .link{margin-left:auto}
+.mkin{width:100%;box-sizing:border-box;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+.mkwhen{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}.mkwhen .mkw{display:flex;align-items:center;gap:6px}.mkwhen .btn{margin-left:auto}
+.mkdate{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:10px}
+.chip.mk{background:#fdebd3;color:#8a4b12}
 .ocname{font-weight:700;font-size:14px;min-width:96px}
 .ocrow .sl-act{margin-left:auto}
 .gonebox{padding:0}
@@ -1889,9 +1897,10 @@ function raceTile(x){
   const state = running ? '<span class="chip run">달리는 중 · 이어 하기</span>'
     : m && m.best != null ? `<span class="chip ok">${isAcc(x) ? (multi ? `최고 ${m.bestDone}/${m.bestTotal} · ${m.finished}번 도전` : `완료 · ${m.bestDone}/${m.bestTotal} (${pctOf(m.bestDone, m.bestTotal)})`) : multi ? `최고 ${fmtSec(m.best)} · ${m.finished}번 도전` : `완료 · ${fmtSec(m.best)}`}</span>`
     : x.status === '마감' ? '<span class="chip">마감</span>' : '<span class="chip go">출발 가능</span>';
+  const mk = x.makeup ? `<span class="chip mk">보충 · ${mdText(x.makeup)}까지</span>` : '';
   const done = x.settings.mode === 'quiz' && !running && m && m.best != null && x.status === '진행';   // Quiz finished at least once and still open: 다시 보기 until the teacher closes it
   const can = running || (x.status === '진행' && (!m || multi));
-  const tile = `<button class="page racetile" data-race="${esc(x.id)}" ${can ? '' : 'disabled'}><b>${esc(x.name)}</b><span class="pc">${MODE_NAME[x.settings.mode]} · ${n}문제${raceRule(x)}${multi ? ' · 여러 번 도전' : ''}</span>${state}</button>`;
+  const tile = `<button class="page racetile" data-race="${esc(x.id)}" ${can ? '' : 'disabled'}><b>${esc(x.name)}</b><span class="pc">${MODE_NAME[x.settings.mode]} · ${n}문제${raceRule(x)}${multi ? ' · 여러 번 도전' : ''}</span>${mk}${state}</button>`;
   return done ? `<div class="racecell">${tile}<button class="link revbtn" data-review="${esc(x.id)}">눌러서 문제·정답·해설 다시 보기</button></div>` : tile;
 }
 
@@ -2063,16 +2072,30 @@ function viewRaceReady(race, ctx){
   document.getElementById('back').onclick = () => ctx.home();
   document.getElementById('go').onclick = async e => {
     e.target.disabled = true; e.target.textContent = '준비하는 중…';
-    let st;
-    try { st = await raceApi(ctx, 'raceStart', {race: race.id, total: items.length}); }
-    catch(err){ if (err.code === 'auth') return ctx.authFail(); toast(err.error || '출발하지 못했어요'); return ctx.home(); }
-    if (ctx.kind === 'student') myRacesStale();   // the first screen should show "이어 하기" if the student comes back mid-race
-    if (st.resumed) return runRace(race, items, st, ctx);
-    if (!document.getElementById('go')) return;   // left this screen while getting ready
-    if (isAcc(race)) return runRace(race, items, {elapsed: 0, done: 0, wrong: 0, penalty: 0}, ctx);   // 정확도: starts at once, no 3·2·1
+    /* the server is asked while 3·2·1 counts down, so a slow answer hides inside the countdown.
+       The clock starts only when both are done; an attempt left unfinished before is dropped by the server */
+    const ask = raceApi(ctx, 'raceStart', {race: race.id, total: items.length});
+    const fail = err => { if (err.code === 'auth') return ctx.authFail(); toast(err.error || '출발하지 못했어요'); return ctx.home(); };
+    const fresh = {elapsed: 0, done: 0, wrong: 0, penalty: 0};
+    if (isAcc(race)) {   // 정확도: starts at once, no 3·2·1
+      let st; try { st = await ask; } catch(err){ return fail(err); }
+      if (ctx.kind === 'student') myRacesStale();
+      if (!document.getElementById('go')) return;   // left this screen while getting ready
+      return runRace(race, items, st.resumed ? st : fresh, ctx);
+    }
+    let ok = null, bad = null, counted = false, gone = false;
+    const begin = () => { if (gone || !counted || !ok) return; gone = true; runRace(race, items, ok.resumed ? ok : fresh, ctx); };
+    ask.then(st => { ok = st; if (ctx.kind === 'student') myRacesStale(); begin(); }, err => { bad = err; if (counted && !gone) { gone = true; fail(err); } });
     let n = 3;
     $app.innerHTML = `<div class="countdown" id="cd">${n}</div>`;
-    const t = setInterval(() => { n--; if (n > 0) document.getElementById('cd').textContent = n; else { clearInterval(t); runRace(race, items, {elapsed: 0, done: 0, wrong: 0, penalty: 0}, ctx); } }, 800);
+    const t = setInterval(() => {
+      n--; const cd = document.getElementById('cd'); if (!cd) { clearInterval(t); return; }
+      if (n > 0) { cd.textContent = n; return; }
+      clearInterval(t); counted = true;
+      if (bad) { gone = true; return fail(bad); }
+      if (!ok) { cd.classList.add('wait'); cd.textContent = '출발 준비 중…'; }
+      begin();
+    }, 800);
     timers.push(t);
   };
   scrollTo(0, 0);
@@ -2400,7 +2423,7 @@ function bindArchivePanel(){
       RACE_ADMIN.archive = r.archive; store.set('wordroom-raceadmin', RACE_ADMIN);
       toast(now ? `레이스 기록 ${r.moved.race}줄을 옮겼어요` : ($('ar-auto').checked ? '매일 새벽 3시쯤 자동으로 옮겨요' : '설정을 저장했어요'));
       viewRaceAdmin();
-    } catch(e){ btn.disabled = false; if (!adminErr(e, viewRaceAdmin)) toast(e.error || '하지 못했어요'); }
+    } catch(e){ btn.disabled = false; if (!adminErr(e, viewRaceAdmin)) { toast(e.error || '하지 못했어요'); const m = $('ar-msg'); if (m && e.detail) m.textContent = '오류 내용: ' + String(e.detail).slice(0, 200); } }
   };
   $('ar-save').onclick = e => go(false, e.target);
   $('ar-now').onclick = e => go(true, e.target);
@@ -2423,6 +2446,47 @@ async function setRaceStatus(race, cls, status, after, retry){
   catch(e){ if (!adminErr(e, retry || after)) toast(e.error || '바꾸지 못했어요'); }
 }
 
+/* 보충 열기: 결석한 학생에게만 개인 레이스를 정한 날까지 열어 줌 (마감·삭제한 레이스도) */
+const mkBtn = x => { const n = (x.makeupList || []).length; return `<button class="btn ghost small${n ? ' on' : ''}" data-mk="${esc(x.id)}">보충 열기${n ? ` · ${n}명` : ''}</button>`; };
+const ymd = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const hm = t => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const mdText = t => { const d = new Date(t), h = d.getHours(), m = d.getMinutes();
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(m).padStart(2, '0')}`; };
+function drawMakeup(x, box){
+  const list = x.makeupList || [];
+  const now = Date.now(), id = esc(x.id);
+  box.innerHTML = `<div class="small"><b>보충 열기</b> <span class="muted">결석한 학생에게만 이 레이스를 정한 시작부터 마감까지 열어 줘요. 마감했거나 삭제한 레이스도 돼요. 다른 학생에게는 보이지 않아요.</span></div>
+    ${list.length ? `<ul class="mklist">${list.map(m => `<li><b>${esc(m.sid)}</b> ${esc(m.name)} <span class="muted small">· ${mdText(m.from)} ~ ${mdText(m.until)}</span>${Date.parse(m.from) > now ? '<span class="chip">시작 전</span>' : '<span class="chip go">열림</span>'}<button class="link small" data-mkdel="${esc(m.sid)}">빼기</button></li>`).join('')}</ul>` : ''}
+    <input id="mk-sids-${id}" class="mkin" placeholder="학번 (여러 명은 쉼표나 띄어쓰기로: 20415, 20722)" inputmode="numeric" autocomplete="off">
+    <div class="mkwhen small">
+      <span class="mkw"><b>시작</b><input type="date" class="mkdate" id="mk-fd-${id}" value="${ymd(now)}"><input type="time" class="mkdate" id="mk-ft-${id}" value="${hm(now)}"></span>
+      <span class="mkw"><b>마감</b><input type="date" class="mkdate" id="mk-ud-${id}" value="${ymd(now + 7 * 864e5)}"><input type="time" class="mkdate" id="mk-ut-${id}" value="23:59"></span>
+      <button class="btn mark small" data-mkgo>보충 열기</button></div>
+    <div class="savestate" data-mkmsg></div>`;
+  const msg = box.querySelector('[data-mkmsg]');
+  const save = async (body, done) => {
+    try { const r = await api('adminRaceMakeup', Object.assign({token: ADMIN.token, id: x.id}, body));
+      x.state = r.state; x.makeupList = r.makeupList; store.set('wordroom-raceadmin', RACE_ADMIN);
+      const btn = $app.querySelector(`[data-mk="${CSS.escape(x.id)}"]`); if (btn) btn.outerHTML = mkBtn(x);
+      const nb = $app.querySelector(`[data-mk="${CSS.escape(x.id)}"]`); if (nb) nb.onclick = () => { if (!box.hidden) { box.hidden = true; return; } drawMakeup(x, box); box.hidden = false; };
+      drawMakeup(x, box); toast(done); }
+    catch(e){ if (!adminErr(e, viewRaceAdmin)) { msg.className = 'savestate wait'; msg.textContent = e.error || '하지 못했어요'; } }
+  };
+  box.querySelector('[data-mkgo]').onclick = e => {
+    const sids = [...new Set((document.getElementById('mk-sids-' + x.id).value.match(/\d+/g) || []))];
+    const bad = sids.filter(v => !/^\d{5}$/.test(v));
+    if (!sids.length || bad.length) { msg.className = 'savestate wait'; msg.textContent = bad.length ? `학번은 다섯 자리로 써 주세요: ${bad.join(', ')}` : '학번을 써 주세요.'; return; }
+    const at = (d, t) => { const v = document.getElementById(d + x.id).value, h = document.getElementById(t + x.id).value; return v && h ? new Date(v + 'T' + h) : null; };   // this computer's time (KST)
+    const from = at('mk-fd-', 'mk-ft-'), until = at('mk-ud-', 'mk-ut-');
+    const say = t => { msg.className = 'savestate wait'; msg.textContent = t; };
+    if (!from || !until || isNaN(from) || isNaN(until)) return say('시작과 마감 날짜·시각을 모두 골라 주세요.');
+    if (until <= from) return say('마감은 시작보다 뒤여야 해요.');
+    if (until <= Date.now()) return say('마감이 이미 지났어요.');
+    e.target.disabled = true;
+    save({sids, from: from.toISOString(), until: until.toISOString()}, `${sids.length}명에게 보충을 열었어요`);
+  };
+  box.querySelectorAll('[data-mkdel]').forEach(b => b.onclick = () => save({remove: b.dataset.mkdel}, `${b.dataset.mkdel} 보충을 닫았어요`));
+}
 async function viewRaceAdmin(){
   stopTimers();
   if (needAdmin(viewRaceAdmin)) return;
@@ -2445,6 +2509,7 @@ async function viewRaceAdmin(){
   return;
   function show(keep){
   const keepOpen = keep ? [...$app.querySelectorAll('.ocpanel:not([hidden])')].map(b => b.dataset.rid) : [], keepY = scrollY;
+  const keepMk = keep ? [...$app.querySelectorAll('.mkpanel:not([hidden])')].map(b => b.dataset.mkbox) : [];
   const C = RACE_ADMIN.classes, allNames = [...new Set([...C.map(c => c.name), ...(RACE_ADMIN.studentClasses || []).map(c => c.name)])];
   let fcls = store.get('wordroom-race-filter', '');
   if (fcls && !allNames.includes(fcls)) fcls = '';
@@ -2457,8 +2522,8 @@ async function viewRaceAdmin(){
         <button class="btn ghost small" data-board="${i}">순위판</button>
         <button class="btn ghost small" data-edit="${i}">편집하기</button>
         <button class="btn ghost small" data-try="${i}">풀어보기</button>
-        <button class="btn ghost small" data-del="${i}">삭제</button></div>
-      <div class="ocpanel" id="oc-${i}" data-rid="${esc(x.id)}" hidden></div></li>`;
+        ${x.settings.who === 'student' ? mkBtn(x) : ''}<button class="btn ghost small" data-del="${i}">삭제</button></div>
+      <div class="ocpanel" id="oc-${i}" data-rid="${esc(x.id)}" hidden></div>${x.settings.who === 'student' ? `<div class="mkpanel" data-mkbox="${esc(x.id)}" hidden></div>` : ''}</li>`;
   $app.innerHTML = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('race')}
   <div class="row" style="justify-content:space-between"><h2>레이스</h2><button class="btn mark" id="new">+ 새 레이스</button></div>
   <div class="panel teamsum">
@@ -2473,7 +2538,8 @@ async function viewRaceAdmin(){
   <p class="help">모둠 레이스는 로그인 화면의 <b>모둠 입장</b>에서, 개인 레이스는 학생이 로그인한 첫 화면에서 보여요. 그 반에 열린 레이스만 보여요.</p>
   ${gone.length ? `<details class="panel gonebox"><summary>삭제한 레이스 ${gone.length}개 <span class="muted small">학생·모둠 화면에는 보이지 않아요</span></summary><ul class="setlist">
     ${gone.map(x => `<li><div class="sl-main"><b>${esc(x.name)} <span class="chip who ${x.settings.who}">${WHO_NAME[x.settings.who]}</span></b><span class="muted small">${MODE_NAME[x.settings.mode]} · ${esc(raceClassLabel(x))} · 끝낸 ${x.settings.who === 'student' ? '학생' : '모둠'} ${x.done}</span></div>
-      <div class="sl-act"><button class="btn ghost small" data-gboard="${esc(x.id)}">순위판</button><button class="btn ghost small" data-restore="${esc(x.id)}">되살리기</button><button class="btn danger small" data-hard="${esc(x.id)}">완전 삭제</button></div></li>`).join('')}
+      <div class="sl-act"><button class="btn ghost small" data-gboard="${esc(x.id)}">순위판</button>${x.settings.who === 'student' ? mkBtn(x) : ''}<button class="btn ghost small" data-restore="${esc(x.id)}">되살리기</button><button class="btn danger small" data-hard="${esc(x.id)}">완전 삭제</button></div>
+      ${x.settings.who === 'student' ? `<div class="mkpanel" data-mkbox="${esc(x.id)}" hidden></div>` : ''}</li>`).join('')}
   </ul></details>` : ''}
   ${archivePanel(RACE_ADMIN.archive)}`;
   document.getElementById('up').onclick = () => route(); bindAdminNav();
@@ -2515,12 +2581,18 @@ async function viewRaceAdmin(){
     act.querySelector('[data-no]').onclick = viewRaceAdmin;
     act.querySelector('[data-yes]').onclick = async () => { try { await api('adminRaceDelete', {token: ADMIN.token, id: x.id, how: 'soft'}); toast('삭제했어요. 학생·모둠 화면에서 보이지 않아요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '지우지 못했어요'); } };
   });
+  $app.querySelectorAll('[data-mk]').forEach(b => b.onclick = () => {
+    const box = $app.querySelector(`[data-mkbox="${CSS.escape(b.dataset.mk)}"]`);
+    if (!box.hidden) { box.hidden = true; return; }
+    drawMakeup(RACE_ADMIN.races.find(z => z.id === b.dataset.mk), box); box.hidden = false;
+  });
   $app.querySelectorAll('[data-restore]').forEach(b => b.onclick = async () => { try { await api('adminRaceDelete', {token: ADMIN.token, id: b.dataset.restore, how: 'restore'}); toast('되살렸어요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '되살리지 못했어요'); } });
   $app.querySelectorAll('[data-hard]').forEach(b => b.onclick = async () => {
     if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '정말 완전 삭제 (되돌릴 수 없어요)'; return; }
     try { await api('adminRaceDelete', {token: ADMIN.token, id: b.dataset.hard, how: 'hard'}); toast('완전히 삭제했어요. 기록은 시트에 남아요'); viewRaceAdmin(); } catch(e){ if (!adminErr(e, viewRaceAdmin)) toast(e.error || '지우지 못했어요'); }
   });
   if (keep) {   // reopen the 열기·마감 panels that were open and stay where the teacher was
+    keepMk.forEach(id => { const btn = $app.querySelector(`[data-mk="${CSS.escape(id)}"]`); if (btn) btn.click(); });
     keepOpen.forEach(id => { const box = [...$app.querySelectorAll('.ocpanel')].find(b => b.dataset.rid === id); const btn = box && $app.querySelector(`[data-oc="${box.id.slice(3)}"]`); if (btn) btn.click(); });
     scrollTo(0, keepY);
   } else scrollTo(0, 0);
@@ -2845,7 +2917,7 @@ function viewBoard(raceId, cls){
     const label = (c, t) => allMode && !stu ? c + ' ' + t : t;
     const teams = data.teams.filter(c => inSel(c.name)).flatMap(c => c.teams.map(t => ({cls: c.name, team: t})));
     const by = {};
-    data.rows.filter(r => inSel(r.cls)).forEach(r => { const k = r.cls + '\n' + r.team; (by[k] = by[k] || []).push(r); });
+    data.rows.filter(r => inSel(r.cls) && r.status !== '중단').forEach(r => { const k = r.cls + '\n' + r.team; (by[k] = by[k] || []).push(r); });
     const ppl = Object.keys(by).map(k => {
       const list = by[k], fin = list.filter(r => r.status === '완료' && r.seconds != null), last = list[list.length - 1];
       const better = (a, b) => acc ? (a.done > b.done || (a.done === b.done && a.seconds < b.seconds)) : a.seconds < b.seconds;

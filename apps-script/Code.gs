@@ -150,7 +150,8 @@ const ACTIONS = {
   adminRaceDelete: adminRaceDelete_,
   adminBoard: adminBoard_,
   adminRaceReset: adminRaceReset_,
-  adminArchive: adminArchive_
+  adminArchive: adminArchive_,
+  adminRaceMakeup: adminRaceMakeup_
 };
 
 /* ---------------- 학생 ---------------- */
@@ -959,9 +960,23 @@ function readRaces_() {
 const RACE_STATUS = ['준비', '진행', '마감'];
 function raceState_(v) {
   const s = String(v == null ? '' : v).trim();
-  if (s[0] === '{') { try { const o = JSON.parse(s); return {open: o.open || {}, del: !!o.del}; } catch (e) {} }
+  if (s[0] === '{') { try { const o = JSON.parse(s); const st = {open: o.open || {}, del: !!o.del}; const mk = cleanMakeup_(o.makeup); if (Object.keys(mk).length) st.makeup = mk; return st; } catch (e) {} }
   return {open: {'*': RACE_STATUS.indexOf(s) >= 0 ? s : '준비'}, del: false};
 }
+/* 보충(결석한 학생): {학번: {from: 열리는 시각, until: 닫히는 시각}} (ISO) · 그 학생에게만, 마감·삭제한 레이스도 열림. 끝난 것은 지움 */
+function cleanMakeup_(v) {
+  const out = {}, now = Date.now();
+  if (v && typeof v === 'object' && !Array.isArray(v)) Object.keys(v).slice(0, 200).forEach(sid => {
+    const x = v[sid], until = Date.parse(typeof x === 'string' ? x : x && x.until), from = typeof x === 'string' ? 0 : Date.parse(x && x.from) || 0;
+    if (/^\d{5}$/.test(sid) && until > now) out[sid] = {from: new Date(from).toISOString(), until: new Date(until).toISOString()};
+  });
+  return out;
+}
+const makeupFor_ = (race, who) => {
+  const m = who && who.who === 'student' && who.sid && race.settings.who === 'student' && race.state.makeup && race.state.makeup[who.sid];
+  if (!m) return false;
+  const now = Date.now(); return Date.parse(m.from) <= now && now < Date.parse(m.until);
+};
 /* 한 반에서 이 레이스가 지금 어떤 상태인지: 그 반에 따로 정한 것이 먼저, 없으면 전체 반 설정 */
 function raceStatusFor_(race, cls) { return race.state.open[cls] || race.state.open['*'] || '준비'; }
 /* 학번에서 반을 계산: 21201 → 2학년 12반 (학년 1자리 + 반 2자리 + 번호 2자리). 맞지 않으면 '기타' */
@@ -1063,6 +1078,36 @@ function adminRaceStatus_(req) {
     return {ok: true, state: cur.state};
   });
 }
+/* 보충 열기: 개인 레이스를 고른 학생(학번)에게만 정한 시작 시각부터 마감 시각까지 열어 줌. remove는 그 학생 빼기 */
+function adminRaceMakeup_(req) {
+  checkToken_(req.token, 'a');
+  return withLock_(() => {
+    const cur = readRaces_().find(x => x.id === String(req.id || ''));
+    if (!cur) fail_('그 레이스를 찾을 수 없어요.');
+    if (cur.settings.who !== 'student') fail_('보충은 개인 레이스에서만 열 수 있어요.');
+    const mk = cleanMakeup_(cur.state.makeup);
+    if (req.remove) delete mk[String(req.remove)];
+    else {
+      const sids = (Array.isArray(req.sids) ? req.sids : []).map(x => String(x).trim()).filter(x => /^\d{5}$/.test(x)).slice(0, 60);
+      if (!sids.length) fail_('학번(다섯 자리)을 하나 이상 써 주세요.');
+      const from = Date.parse(req.from), until = Date.parse(req.until);   // 학생 화면(선생님 컴퓨터) 시각으로 고른 날짜·시각
+      if (!isFinite(from) || !isFinite(until)) fail_('시작과 마감 날짜·시각을 골라 주세요.');
+      if (until <= from) fail_('마감은 시작보다 뒤여야 해요.');
+      if (until <= Date.now()) fail_('마감이 이미 지났어요. 뒤 날짜·시각을 골라 주세요.');
+      if (until > Date.now() + 120 * 864e5) fail_('보충은 120일 안쪽으로만 열 수 있어요.');
+      sids.forEach(sid => { mk[sid] = {from: new Date(from).toISOString(), until: new Date(until).toISOString()}; });
+    }
+    if (Object.keys(mk).length) cur.state.makeup = mk; else delete cur.state.makeup;
+    writeState_(cur);
+    return {ok: true, state: cur.state, makeupList: makeupList_(cur)};
+  });
+}
+function makeupList_(race, names) {
+  const mk = race.state.makeup || {}, sids = Object.keys(mk);
+  if (!sids.length) return [];
+  if (!names) { names = {}; readStudents_().forEach(s => { names[s.sid] = s.name; }); }
+  return sids.sort().map(sid => ({sid: sid, name: names[sid] || '', from: mk[sid].from, until: mk[sid].until}));
+}
 /* 삭제: soft는 학생·모둠 화면에서만 숨김(선생님 화면엔 남음), restore는 되살리기, hard는 완전 삭제(기록은 시트에 남음) */
 function adminRaceDelete_(req) {
   checkToken_(req.token, 'a');
@@ -1135,10 +1180,12 @@ function raceSummary_(x) {
 function adminRaces_(req) {
   checkToken_(req.token, 'a');
   const logs = readRaceLogs_();
+  let nm = null; const names = () => nm || (nm = (() => { const o = {}; readStudents_().forEach(s => { o[s.sid] = s.name; }); return o; })());
   const people = (x, st, ok) => { const s = {}; logs.forEach(l => { if (l.race === x.id && l.status === st && (!ok || ok(l))) s[l.cls + '\n' + l.team] = 1; }); return Object.keys(s).length; };
   const open = x => l => raceStatusFor_(x, l.cls) === '진행';   // 달리는 중: 그 반이 아직 열려 있을 때만. 마감된 반은 '마감 전에 못 끝냄'
   return {ok: true, setsPack: setsFor_(req.v), archive: archiveInfo_(), classes: readTeams_(), studentClasses: studentClasses_().map(c => ({name: c.name, n: c.students.length})),
-    races: readRaces_().map(x => Object.assign(raceSummary_(x), {done: people(x, '완료'), running: people(x, '진행 중', open(x)), stopped: people(x, '진행 중', l => !open(x)(l))}))};
+    races: readRaces_().map(x => Object.assign(raceSummary_(x), {done: people(x, '완료'), running: people(x, '진행 중', open(x)), stopped: people(x, '진행 중', l => !open(x)(l)),
+      makeupList: x.state.makeup ? makeupList_(x, names()) : []}))};
 }
 
 /* ---------------- 레이스 기록 ---------------- */
@@ -1147,7 +1194,8 @@ function readRaceLogs_() {
   return sh.getRange(2, 1, n - 1, RACELOG_HEADERS.length).getValues().map((r, i) => raceLogRow_(r, i + 2)).filter(l => l.race);
 }
 /* 진행 중인 레이스 줄 번호를 기억해 두고, 진행 상황을 보낼 때는 그 한 줄만 읽고 씀 (기록 탭 전체를 읽지 않아 빠름) */
-const raceRowKey_ = (raceId, who) => 'rl_' + raceId + '|' + who.cls + '|' + who.team;
+const raceRowKey_ = (raceId, who) => { let g = ''; try { g = PropertiesService.getScriptProperties().getProperty('RACEROW_GEN') || ''; } catch (e) {} return 'rl' + g + '_' + raceId + '|' + who.cls + '|' + who.team; };
+function bumpRaceRows_() { try { PropertiesService.getScriptProperties().setProperty('RACEROW_GEN', String(Date.now())); } catch (e) {} }
 function rememberRaceRow_(raceId, who, row) { try { CacheService.getScriptCache().put(gk_(raceRowKey_(raceId, who)), String(row), 21600); } catch (e) {} }
 function cachedRaceRow_(raceId, who) {
   let row = 0; try { row = Number(CacheService.getScriptCache().get(gk_(raceRowKey_(raceId, who)))) || 0; } catch (e) {}
@@ -1175,7 +1223,7 @@ function participant_(token) {
 }
 function openRaceFor_(raceId, who) {
   const race = racesCached_().find(x => x.id === String(raceId || ''));
-  if (!race || race.state.del || race.settings.who !== who.who || !raceHasClass_(race, who.cls)) fail_('참여할 수 없는 레이스예요.');
+  if (!race || !(makeupFor_(race, who) || (!race.state.del && race.settings.who === who.who && raceHasClass_(race, who.cls)))) fail_('참여할 수 없는 레이스예요.');
   return race;
 }
 function racesCached_() { return cached_('c_races', () => readRaces_().map(raceSummary_)); }
@@ -1187,9 +1235,9 @@ function better_(race, a, b) {
 }
 /* 한 사람(모둠)의 기록 요약: 가장 최근 도전과 가장 좋은 기록 */
 function mineOf_(logs, race, who) {
-  const rows = logs.filter(l => l.race === race.id && l.cls === who.cls && l.team === who.team);
+  const rows = logs.filter(l => l.race === race.id && l.cls === who.cls && l.team === who.team && l.status === '완료');   // 끝낸 도전만 (진행 중·중단은 빼고)
   if (!rows.length) return null;
-  const last = rows[rows.length - 1], done = rows.filter(l => l.status === '완료' && l.seconds !== null);
+  const last = rows[rows.length - 1], done = rows.filter(l => l.seconds !== null);
   const best = done.length ? done.reduce((a, b) => (better_(race, b, a) ? b : a)) : null;
   const lastDone = done[done.length - 1];   // 다시 보기: 마지막으로 끝낸 도전의 답과 틀린 단어
   return {status: last.status, seconds: last.seconds, done: last.done, total: last.total, wrong: last.wrong, tries: rows.length,
@@ -1198,9 +1246,11 @@ function mineOf_(logs, race, who) {
 }
 function raceListFor_(who) {
   const logs = readRaceLogs_().filter(l => l.cls === who.cls && l.team === who.team);
-  return racesCached_().filter(r => !r.state.del && r.settings.who === who.who && raceHasClass_(r, who.cls)).map(r => {
-    const status = raceStatusFor_(r, who.cls);
-    return {id: r.id, name: r.name, sources: r.sources, settings: r.settings, status: status, questions: r.questions, mine: mineOf_(logs, r, who)};
+  return racesCached_().filter(r => makeupFor_(r, who) || (!r.state.del && r.settings.who === who.who && raceHasClass_(r, who.cls))).map(r => {
+    const mk = makeupFor_(r, who), status = mk ? '진행' : raceStatusFor_(r, who.cls);   // 보충: 정한 날까지 그 학생에게만 열림
+    const out = {id: r.id, name: r.name, sources: r.sources, settings: r.settings, status: status, questions: r.questions, mine: mineOf_(logs, r, who)};
+    if (mk) out.makeup = r.state.makeup[who.sid].until;
+    return out;
   }).filter(r => r.status !== '준비');
 }
 function races_(req) {
@@ -1220,16 +1270,14 @@ function raceStart_(req) {
   return withLock_(() => {
     const race = openRaceFor_(req.race, who);
     const rows = readRaceLogs_().filter(l => l.race === race.id && l.cls === who.cls && l.team === who.team);
-    const last = rows[rows.length - 1];
-    if (last && last.status !== '완료') {   // 새로고침·화면 꺼짐 뒤 이어 하기
-      return {ok: true, resumed: true, elapsed: (Date.now() - last.started) / 1000, done: last.done, wrong: last.wrong, penalty: last.penalty};
-    }
-    if (last && !race.settings.multi) fail_('이 레이스는 이미 끝냈어요. 다시 하려면 선생님께 말씀드리세요.', 'race_done');
-    const status = raceStatusFor_(race, who.cls);
+    /* 끝내지 못한 도전(오류·새로고침·화면 꺼짐으로 나감)은 '중단'으로 바꾸고 새로 시작함: 기록은 직전까지 끝낸 도전으로만 봄 */
+    const lsh = sheet_(SHEET_RACELOG);
+    rows.filter(l => l.status === '진행 중').forEach(l => lsh.getRange(l.row, 6).setValue('중단'));
+    if (rows.some(l => l.status === '완료') && !race.settings.multi) fail_('이 레이스는 이미 끝냈어요. 다시 하려면 선생님께 말씀드리세요.', 'race_done');
+    const status = makeupFor_(race, who) ? '진행' : raceStatusFor_(race, who.cls);
     if (status !== '진행') fail_(status === '마감' ? '마감된 레이스예요.' : '아직 열리지 않은 레이스예요.');
     const total = Math.max(0, Math.floor(Number(req.total) || 0));
     const now = new Date();
-    const lsh = sheet_(SHEET_RACELOG);
     lsh.appendRow([now, race.id, asText_(race.name), asText_(who.cls), asText_(who.team), '진행 중', 0, total, '', 0, 0, '', now]);
     rememberRaceRow_(race.id, who, lsh.getLastRow());
     return {ok: true, resumed: false, elapsed: 0, done: 0, wrong: 0, penalty: 0, tries: rows.length + 1};
@@ -1248,6 +1296,7 @@ function raceUpdate_(req, finish) {
     }
     if (!mine) fail_('레이스 기록을 찾을 수 없어요. 처음부터 다시 시작해 주세요.');
     if (mine.status === '완료') return {ok: true, already: true};
+    if (mine.status === '중단') fail_('이 도전은 중단됐어요. 처음부터 다시 출발해 주세요.');
     const done = Math.max(0, Math.floor(Number(req.done) || 0)), wrong = Math.max(0, Math.floor(Number(req.wrong) || 0));
     const penalty = Math.max(0, Number(req.penalty) || 0);
     const sh = sheet_(SHEET_RACELOG);
@@ -1331,8 +1380,12 @@ function moveOld_(name, oldName, headers, cutoff, keepRow) {
   const fix = r => r.map(v => typeof v === 'string' ? asText_(v) : v);
   const osh = ss.getSheetByName(oldName) || ensureSheet_(ss, oldName, headers);
   osh.getRange(osh.getLastRow() + 1, 1, old.length, headers.length).setValues(old.map(fix));   // 먼저 복사하고
-  sh.deleteRows(2, n - 1);                                                                       // 원래 탭을 비운 뒤
-  if (keep.length) sh.getRange(2, 1, keep.length, headers.length).setValues(keep.map(fix));      // 남길 줄을 다시 씀
+  /* 원래 탭: 줄을 지우지 않고 내용만 비운 뒤 남길 줄을 다시 씀.
+     (예전에는 줄을 모두 지웠는데, 시트에 빈 줄이 하나도 없으면 '고정되지 않은 줄을 모두 지울 수 없다'는 오류가 났음) */
+  sh.getRange(2, 1, n - 1, Math.max(headers.length, sh.getLastColumn())).clearContent();
+  if (keep.length) sh.getRange(2, 1, keep.length, headers.length).setValues(keep.map(fix));
+  const extra = sh.getMaxRows() - (keep.length + 1) - 20;   // 남은 빈 줄은 20줄만 두고 정리
+  if (extra > 0) sh.deleteRows(keep.length + 22, extra);
   return old.length;
 }
 function archiveNow_(days) {
@@ -1340,6 +1393,7 @@ function archiveNow_(days) {
   const cutoff = Date.now() - days * 864e5;
   return withLock_(() => {
     const r = {race: moveOld_(SHEET_RACELOG, SHEET_RACELOG_OLD, RACELOG_HEADERS, cutoff, row => String(row[5]) === '진행 중')};
+    if (r.race) bumpRaceRows_();   // 줄 번호가 바뀌었으니 기억해 둔 줄 번호는 버림
     PropertiesService.getScriptProperties().setProperty('ARCHIVE_LAST', new Date().toISOString());
     return r;
   });
