@@ -1893,13 +1893,13 @@ function raceApi(ctx, action, data){
 /* a race button for the team list and for a student's first screen */
 function raceTile(x){
   const m = x.mine, n = raceItems(x).length, multi = x.settings.multi;
-  const running = m && m.status !== '완료';
-  const state = running ? '<span class="chip run">달리는 중 · 이어 하기</span>'
+  const running = m && m.status !== '완료', saving = !!pendGet(x.id);
+  const state = saving ? '<span class="chip run">낸 답 저장 대기 · 눌러서 저장</span>' : running ? '<span class="chip run">달리는 중 · 이어 하기</span>'
     : m && m.best != null ? `<span class="chip ok">${isAcc(x) ? (multi ? `최고 ${m.bestDone}/${m.bestTotal} · ${m.finished}번 도전` : `완료 · ${m.bestDone}/${m.bestTotal} (${pctOf(m.bestDone, m.bestTotal)})`) : multi ? `최고 ${fmtSec(m.best)} · ${m.finished}번 도전` : `완료 · ${fmtSec(m.best)}`}</span>`
     : x.status === '마감' ? '<span class="chip">마감</span>' : '<span class="chip go">출발 가능</span>';
   const mk = x.makeup ? `<span class="chip mk">보충 · ${mdText(x.makeup)}까지</span>` : '';
   const done = x.settings.mode === 'quiz' && !running && m && m.best != null && x.status === '진행';   // Quiz finished at least once and still open: 다시 보기 until the teacher closes it
-  const can = running || (x.status === '진행' && (!m || multi));
+  const can = saving || running || (x.status === '진행' && (!m || multi));
   const tile = `<button class="page racetile" data-race="${esc(x.id)}" ${can ? '' : 'disabled'}><b>${esc(x.name)}</b><span class="pc">${MODE_NAME[x.settings.mode]} · ${n}문제${raceRule(x)}${multi ? ' · 여러 번 도전' : ''}</span>${mk}${state}</button>`;
   return done ? `<div class="racecell">${tile}<button class="link revbtn" data-review="${esc(x.id)}">눌러서 문제·정답·해설 다시 보기</button></div>` : tile;
 }
@@ -1939,6 +1939,27 @@ async function viewTeamHome(force){
 /* ---------- student: individual races on the first screen ---------- */
 const myRacesKey = () => 'wordroom-myraces-' + (AUTH ? AUTH.sid + (AUTH.teacher ? '-' + AUTH.cls : '') : '');
 const teacherRaceCtx = () => ({kind: 'trial', trial: true, label: viewing() ? `선생님 · ${AUTH.view.sid} ${AUTH.view.name} 화면 · 기록되지 않아요` : `선생님 · ${AUTH.cls} · 기록되지 않아요`, home: () => route(), homeText: '처음 화면으로', backText: '← 처음 화면', authFail: () => route()});
+/* 제출했는데 서버가 바빠 저장하지 못한 레이스: 이 기기에 남겨 두고 저장될 때까지 다시 보냄 (화면을 닫거나 새로고침해도 남음) */
+const RPEND_KEY = 'wordroom-race-pending';
+const pendAll = () => store.get(RPEND_KEY, {}) || {};
+const pendGet = id => pendAll()[id] || null;
+const pendSet = (id, v) => { const a = pendAll(); if (v) a[id] = v; else delete a[id]; store.set(RPEND_KEY, a); };
+let pendBusy = false, pendTimer = null;
+async function flushPending(only){
+  if (pendBusy || !API) return false;
+  pendBusy = true; let saved = false;
+  try {
+    for (const [id, p] of Object.entries(pendAll())) {
+      if (only && id !== only) continue;
+      if (Date.now() - p.firstAt > 2 * 864e5) { pendSet(id, null); continue; }   // two days on: give up
+      try { await api('raceFinish', Object.assign({}, p.payload, {token: p.token, wait: (Date.now() - p.firstAt) / 1000})); pendSet(id, null); saved = true; }
+      catch(e){ if (!e.offline) pendSet(id, null); }   // a clear answer (e.g. the attempt is gone): nothing more to send
+    }
+  } finally { pendBusy = false; }
+  if (saved) myRacesStale();
+  if (Object.keys(pendAll()).length && !pendTimer) pendTimer = setTimeout(() => { pendTimer = null; flushPending().then(ok => { if (ok && typeof route === 'function' && !document.querySelector('.racehead')) route(); }); }, 20000 + Math.random() * 10000);
+  return saved;
+}
 function myRacesStale(){ const c = store.get(myRacesKey(), null); if (c) { c.at = 0; store.set(myRacesKey(), c); } }
 let myRacesLoading = null;
 function loadMyRaces(){
@@ -2056,6 +2077,11 @@ function viewRaceReview(race, ctx){
 function viewRaceReady(race, ctx){
   stopTimers();
   if (!race) return ctx.home();
+  if (!ctx.trial && pendGet(race.id)) {   // answers handed in but not saved yet: save them first, then the list shows the record (and 다시 보기)
+    $app.innerHTML = `${header()}<div class="panel empty" style="text-align:center">앞에서 낸 답을 저장하는 중…</div>`;
+    flushPending(race.id).then(ok => { if (ok) toast('기록을 저장했어요'); else toast('아직 저장하지 못했어요. 잠시 후 다시 눌러 주세요'); ctx.home(); });
+    return;
+  }
   if (race.settings.mode === 'quiz' && race.mine && race.mine.status === '완료' && race.mine.best != null && !race.settings.multi) return viewRaceReview(race, ctx);
   const items = raceItems(race), m = race.mine, resume = !ctx.trial && m && m.status !== '완료';
   if (race.settings.mode === 'quiz') items.forEach(q => { if (q.img) qimgLoad(q.img).catch(() => {}); });   // pictures come in while the student reads the rules
@@ -2142,11 +2168,30 @@ function runRace(race, words, st, ctx){
     const clock = Math.round((performance.now() - t0) / 100) / 10;   // the race time at the moment of 제출 / the last answer, before any waiting for the server
     finished = true; stopTimers();
     $app.innerHTML = `<div class="countdown small">도착!</div><div class="panel empty" style="text-align:center">${ctx.trial ? '' : '기록을 저장하는 중…'}</div>`;
-    let r = null;
+    let r = null, gaveUp = false;
     const answers = S.mode === 'quiz' ? words.map((q, i) => R.qres[i] ? {a: R.mine && i in R.mine ? (R.mine[i] === undefined ? null : R.mine[i]) : (R.pick[i] === undefined ? null : R.pick[i]), r: R.qres[i]} : null) : undefined;
-    for (let k = 0; k < 3 && !r; k++) { try { r = await raceApi(ctx, 'raceFinish', Object.assign({race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords, clock}, answers ? {answers} : {})); } catch(e){ if (e.code === 'auth') break; await new Promise(z => setTimeout(z, 1500)); } }
+    const payload = Object.assign({race: race.id, done: R.done, wrong: R.wrong, penalty: R.penalty, wrongWords: R.wrongWords, clock}, answers ? {answers} : {});
+    const firstAt = Date.now();
+    if (!ctx.trial) pendSet(race.id, {payload, token: ctx.token, firstAt});   // kept on this device until the server has it
+    /* when the whole class hands in at once the server may be busy: try again with growing, slightly random waits */
+    const waits = [2000, 4000, 7000, 10000];
+    for (let k = 0; !r; k++) {
+      try { r = await raceApi(ctx, 'raceFinish', Object.assign({}, payload, {wait: (Date.now() - firstAt) / 1000})); }
+      catch(e){
+        if (e.code === 'auth' || !e.offline) { if (!ctx.trial) pendSet(race.id, null); break; }   // a clear answer: nothing more to send
+        if (k >= waits.length) { gaveUp = true; break; }
+        const box = $app.querySelector('.panel.empty'); if (box) box.textContent = '접속한 사람이 많아 저장을 기다리는 중… 화면을 닫지 마세요.';
+        await new Promise(z => setTimeout(z, waits[k] + Math.random() * 2000));
+      }
+    }
+    if (r && !ctx.trial) pendSet(race.id, null);
     if (ctx.kind === 'student') myRacesStale();
     viewRaceResult(race, r, R, r && typeof r.seconds === 'number' ? r.seconds : clock + (isAcc(race) ? 0 : R.penalty), ctx, words);   // the saved time, not the time spent waiting to save
+    if (gaveUp) {   // the answers stay on this device and go to the server by themselves a little later
+      const card = $app.querySelector('.setcard');
+      if (card) card.insertAdjacentHTML('afterend', '<div class="savestate wait" style="margin:0">아직 기록을 저장하지 못했어요. 답은 이 기기에 남아 있어서 잠시 뒤 저절로 다시 저장해요. 처음 화면으로 가도 괜찮아요.</div>');
+      flushPending();
+    }
   };
 
   if (S.mode === 'quiz' && S.scoring === 'acc') return accQuiz();
@@ -2367,7 +2412,7 @@ function viewRaceResult(race, r, R, localSec, ctx, items){
   <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
     <div class="count">${multi ? '이번 기록' : '기록'}</div><div class="score">${fmtSec(sec)}</div>
     <div class="help">틀림 ${R.wrong}번${R.penalty ? ` · 벌점 ${R.penalty}초 포함` : ''}${multi && r && r.best != null && r.best < sec ? ` · 최고 기록 <b>${fmtSec(r.best)}</b>` : ''}${r && !ctx.trial && race.settings.showRank && r.rank ? ` · <b>${esc(where)} ${r.rank}위</b> (지금까지 ${r.of}${unit})` : ''}</div>
-    ${r || ctx.trial ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
+    ${r || ctx.trial || pendGet(race.id) ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
   </div>
   ${quiz ? `<div class="section-label">정답과 해설</div><div class="panel">${quizItemsHTML(items, items.map((q, i) => R.qres[i] ? {a: R.pick[i] === undefined ? null : R.pick[i], r: R.qres[i]} : null))}</div>`
     : R.wrongWords.length ? `<div class="section-label">헷갈린 단어 ${R.wrongWords.length}개</div><div class="panel"><ul class="wl">${R.wrongWords.map(en => wordRow(raceWords(race).find(w => w[0] === en) || [en, ''])).join('')}</ul></div>` : ''}
@@ -2389,7 +2434,7 @@ function viewAccResult(race, r, R, localSec, ctx, items){
   <div class="panel" style="padding:24px;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
     <div class="count">${multi ? '이번 점수' : '점수'}</div><div class="score">${right}<small> / ${total}</small> <small>· 정답률 ${pctOf(right, total)}</small></div>
     <div class="help">걸린 시간 ${fmtSecW(sec)}${multi && r && r.bestDone != null && (r.bestDone > right) ? ` · 최고 점수 <b>${r.bestDone}/${total}</b>` : ''}${r && !ctx.trial && race.settings.showRank && r.rank ? ` · <b>${esc(where)} ${r.rank}위</b> (지금까지 ${r.of}${unit})` : ''}</div>
-    ${r || ctx.trial ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
+    ${r || ctx.trial || pendGet(race.id) ? '' : '<div class="savestate wait">기록을 저장하지 못했어요. 선생님께 말씀드리세요.</div>'}
   </div>
   <div class="section-label">정답과 해설</div><div class="panel">${quizItemsHTML(items, items.map((q, i) => ({a: (R.mine || {})[i] === undefined || String((R.mine || {})[i]).trim() === '' ? null : R.mine[i], r: R.qres[i] || 'blank'})))}</div>
   <div class="row">${multi && race.status === '진행' ? '<button class="btn ghost" id="again">다시 도전</button>' : ''}<button class="btn wide" id="home">${ctx.homeText}</button></div>`;
@@ -3714,6 +3759,7 @@ function viewMake(start){
 let setsPromise = null;
 function boot(){
   const h = decodeURIComponent((location.hash || '').slice(1));
+  if (Object.keys(pendAll()).length) setTimeout(() => flushPending().then(ok => { if (ok && $app.querySelector('#myraces')) route(); }), 1200 + Math.random() * 3000);   // answers handed in earlier but not saved yet
   if (API && !setsPromise) setsPromise = loadSets().then(changed => { if ($app.querySelector('[data-root]') || ($app.querySelector('.pages [data-id]') && hasRoot() && origin === 'root')) viewRoot(); return changed; });
   if (h === 'admin') return isTeacher() ? leaveTeacher() : viewAdmin();
   if (tvGet() && !isTeacher()) { if (adminValid()) return enterTeacher(tvClass()); tvSet(null); }
