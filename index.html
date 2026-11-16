@@ -525,6 +525,34 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .mkwhen{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}.mkwhen .mkw{display:flex;align-items:center;gap:6px}.mkwhen .btn{margin-left:auto}
 .mkdate{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:10px}
 .chip.mk{background:#fdebd3;color:#8a4b12}
+/* 왼쪽 위 메뉴 · 수행평가 */
+.sitemenu{position:relative}
+.smbtn{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font:inherit;font-size:15px;cursor:pointer;color:var(--ink)}
+.smbtn .smic{font-size:16px;color:var(--muted)}.smbtn .smcar{font-size:11px;color:var(--muted)}
+.smdot{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:#e4572e;color:#fff;font-size:11px;font-weight:700}
+.smlist{position:absolute;left:0;top:calc(100% + 6px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(20,24,40,.12);padding:6px;display:flex;flex-direction:column;min-width:220px}
+.smlist[hidden]{display:none}
+.smlist button{display:flex;align-items:center;gap:8px;background:none;border:0;text-align:left;font:inherit;font-size:15px;padding:10px 12px;border-radius:10px;cursor:pointer;color:var(--ink)}
+.smlist button:hover{background:var(--paper)}.smlist button[aria-current="true"]{font-weight:700}
+.assesslist{display:flex;flex-direction:column;gap:14px}
+.smrow{position:static;margin-top:4px}
+.pvphone{max-width:440px;margin:12px auto 0;padding:14px;border:1px solid var(--line);border-radius:24px;background:var(--paper);display:flex;flex-direction:column;gap:14px}
+.omrsum{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;font-size:16px}.omrsum b{font-size:22px}
+.omrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:6px}
+.omr{border:1px solid var(--line);border-radius:10px;padding:6px 4px;text-align:center;background:var(--paper);line-height:1.2}
+.omr .on{font-size:12px;color:var(--muted)}.omr .om{font-size:20px;font-weight:800;margin:2px 0}.omr .ok{font-size:10.5px;color:var(--muted)}
+.omr.o .om{color:var(--good)}
+.omr.x{background:#fdecea;border-color:#f3b8b0}.omr.x .om{color:var(--bad)}.omr.x .ok{color:#8a3b30}
+.aspw{font:inherit;font-size:22px;letter-spacing:.4em;text-align:center;padding:10px;border:1px solid var(--line);border-radius:12px;-webkit-text-security:disc;text-security:disc}
+.assesscard{display:flex;flex-direction:column;gap:12px;padding:18px}
+.scores{margin:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.scores div{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--paper)}
+.scores dt{font-size:13px;color:var(--muted)}.scores dd{margin:2px 0 0;font-size:20px;font-weight:700}
+.scores div.tot{background:var(--navy);border-color:var(--navy);color:#fff}.scores div.tot dt{color:rgba(255,255,255,.75)}
+.apick{display:flex;flex-wrap:wrap;gap:6px 10px;margin-top:6px}
+.apk{display:inline-flex;align-items:center;gap:4px}.aname{font:inherit;font-size:13px;padding:4px 6px;border:1px solid var(--line);border-radius:8px;width:11em}
+.aprevs{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+
 .ocname{font-weight:700;font-size:14px;min-width:96px}
 .ocrow .sl-act{margin-left:auto}
 .gonebox{padding:0}
@@ -864,7 +892,7 @@ $app.addEventListener('click', e => {
   const t = e.target.closest('[data-anav], #tostu'); if (!t) return;
   e.stopPropagation();
   if (t.id === 'tostu') return leaveTeacher(() => route());   // the real student screen: log in with a student number
-  const go = {records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin}[t.dataset.anav];
+  const go = {records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin, assess: viewAssessAdmin}[t.dataset.anav];
   if (go) leaveTeacher(go);
 }, true);
 function leaveTeacher(next){
@@ -872,7 +900,7 @@ function leaveTeacher(next){
   AUTH = store.get('wordroom-auth', null); TEAM = store.get('wordroom-team', null); MY = null;
   (next || viewAdmin)();
 }
-function setAuth(a){ AUTH = a; store.set('wordroom-auth', a); viewHome.synced = false; MY = null; if (a) setTimeout(syncMy, 0); }
+function setAuth(a){ AUTH = a; store.set('wordroom-auth', a); viewHome.synced = false; MY = null; ASSESS = null; ASSESS_FOR = ''; ASSESS_N = null; ASSESS_V = ''; if (a) setTimeout(syncMy, 0); }
 function logout(){ if (AUTH) store.set('wordroom-me-' + AUTH.sid, null); setAuth(null); LOGIN ? viewLogin(route) : route(); }   // a shared device keeps nothing of the last student
 function onAuthError(e, retry){
   if (e && e.code === 'auth' && isTeacher()) { ADMIN = null; store.set('wordroom-admin', null); toast('관리자 로그인이 끝났어요. 다시 들어가 주세요'); leaveTeacher(() => viewAdmin(() => enterTeacher())); return true; }
@@ -1499,7 +1527,7 @@ function viewRoot(){
   SET = null; origin = 'root'; SCOPE = 'all';
   if (ACCOUNTS && !SETS.length && setsLoaded && hasBook()) return viewPages();   // nothing registered yet: straight to 교과서
   const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
-  $app.innerHTML = `${header()}${userBar()}${speechBanner()}${ACCOUNTS ? noticesHTML() : ''}
+  $app.innerHTML = `${siteTop('study')}${userBar()}${speechBanner()}${ACCOUNTS ? noticesHTML() : ''}
   ${ACCOUNTS && AUTH ? myRacesHTML() : ''}${ACCOUNTS && AUTH && myRacesList().length ? '<div class="section-label">지문</div>' : ''}
   <div class="pages">
     ${hasBook() ? `<button class="page" data-root="book"><b>${esc(BOOK)}</b><span class="pc">${PAGES.length}개 구간 · ${countLine(ALL)}</span></button>` : ''}
@@ -1512,7 +1540,7 @@ function viewRoot(){
     if (b.dataset.root === 'book') return viewPages();
     SET = SETS.find(s => s.id === b.dataset.root); origin = 'root'; viewHome();
   });
-  bindConfAll('root'); bindNotices(viewRoot);
+  bindConfAll('root'); bindNotices(viewRoot); bindSiteTop();
   if (ACCOUNTS && AUTH) bindMyRaces(viewRoot);
   bindUserBar();
   scrollTo(0, 0);
@@ -1522,10 +1550,10 @@ function viewRoot(){
 function adminNav(active){ setHash('admin'); return adminTabs(active); }
 function adminTabs(active){
   const item = (k, label) => `<button class="tab" data-anav="${k}" aria-selected="${active === k}">${label}</button>`;
-  return `<div class="tabs admintabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('race', '레이스')}${item('notice', '공지 관리')}${item('student', '반별 화면')}${item('qr', 'QR')}</div>`;
+  return `<div class="tabs admintabs" role="tablist" aria-label="선생님 메뉴">${item('records', '학생 기록')}${item('sets', '지문 관리')}${item('race', '레이스')}${item('notice', '공지 관리')}${item('assess', '평가관리')}${item('student', '반별 화면')}${item('qr', 'QR')}</div>`;
 }
 function bindAdminNav(){
-  $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin, student: () => enterTeacher()})[b.dataset.anav](); });
+  $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin, assess: viewAssessAdmin, student: () => enterTeacher()})[b.dataset.anav](); });
 }
 function needAdmin(next){
   if (!API) { viewAdmin(); return true; }
@@ -1539,6 +1567,452 @@ function adminErr(e, retry){
 
 /* ---------- teacher only: the passage list ---------- */
 /* ---------- teacher: notices on the student's first screen ---------- */
+/* ---------- 왼쪽 위 메뉴(학생): 수업 지문 학습 · 수행평가 점수 확인 ---------- */
+let ASSESS = null, ASSESS_FOR = '', ASSESS_N = null, ASSESS_V = '';   // teacher view: the list and whose · student: only the red count (scores need the password each time)
+const assessWho = () => viewing() ? AUTH.view.sid : AUTH ? AUTH.sid : '';
+const hasSiteMenu = () => ACCOUNTS && AUTH && (!isTeacher() || viewing());   // the teacher sees it while looking at one student's screen
+const myAssess = () => ASSESS_FOR === assessWho() ? ASSESS : null;
+const assessTodo = () => isTeacher() ? (myAssess() || []).filter(a => !a.at && !a.closed).length : (ASSESS_N || 0);
+function siteTop(active){
+  if (!hasSiteMenu()) return header();
+  const n = assessTodo(), name = active === 'assess' ? '지필/수행 점수 확인' : '수업 지문 학습';
+  return `${isTeacher() ? header() : ''}<div class="top${isTeacher() ? ' smrow' : ''}"><div class="sitemenu"><button class="smbtn" id="smbtn" aria-expanded="false" aria-haspopup="true"><span class="smic" aria-hidden="true">☰</span><b>${name}</b>${n && active !== 'assess' ? `<span class="smdot">${n}</span>` : ''}<span class="smcar" aria-hidden="true">▾</span></button>
+    <div class="smlist" id="smlist" role="menu" hidden>
+      <button role="menuitem" data-sm="study" ${active === 'study' ? 'aria-current="true"' : ''}>수업 지문 학습</button>
+      <button role="menuitem" data-sm="assess" ${active === 'assess' ? 'aria-current="true"' : ''}>지필/수행 점수 확인${n ? ` <span class="smdot">${n}</span>` : ''}</button>
+    </div></div></div>`;
+}
+function bindSiteTop(){
+  const b = document.getElementById('smbtn'), l = document.getElementById('smlist');
+  if (!b) return;
+  b.onclick = e => { e.stopPropagation(); l.hidden = !l.hidden; b.setAttribute('aria-expanded', !l.hidden); };
+  const close = e => { if (!l.isConnected) return document.removeEventListener('click', close); if (!e.target.closest('.sitemenu')) { l.hidden = true; b.setAttribute('aria-expanded', 'false'); } };
+  document.addEventListener('click', close);
+  l.querySelectorAll('[data-sm]').forEach(x => x.onclick = () => { stopTimers(); forgetAssess(); x.dataset.sm === 'assess' ? viewAssess() : (hasRoot() || !hasBook() ? viewRoot() : viewPages()); });
+  const need = isTeacher() ? myAssess() === null : ASSESS_N === null;
+  if (need && hasSiteMenu()) (isTeacher() ? loadAssess() : api('assessCount', {token: AUTH.token}).then(r => { ASSESS_N = r.n || 0; })).then(() => {   // a red count on the menu when there is something to confirm
+    const n = assessTodo(), btn = document.getElementById('smbtn');
+    if (n && btn && !document.querySelector('.assesslist') && !btn.querySelector('.smdot')) btn.querySelector('b').insertAdjacentHTML('afterend', `<span class="smdot">${n}</span>`);
+  }).catch(() => {});
+}
+function loadAssess(pw){
+  const who = assessWho();
+  return (viewing() ? api('adminAssessOf', {token: AUTH.token, sid: who}) : api('assessMine', {token: AUTH.token, pw})).then(r => {
+    ASSESS = r.list || []; ASSESS_FOR = who; ASSESS_V = r.vtoken || '';
+    if (!isTeacher()) ASSESS_N = ASSESS.filter(a => !a.at && !a.closed).length;
+    return ASSESS;
+  });
+}
+const forgetAssess = () => { if (!isTeacher()) { ASSESS = null; ASSESS_FOR = ''; ASSESS_V = ''; } };   // scores are not kept once the student leaves
+const fmtWhen = t => { const d = new Date(t), h = d.getHours(); return `${d.getMonth() + 1}월 ${d.getDate()}일 ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`; };
+const isTotalHead = h => /총점|합계|총계|총합|^계$|환산|최종/.test(String(h).replace(/\s+/g, ''));
+const scoresHTML = (heads, vals) => `<dl class="scores">${heads.map((h, k) => `<div class="${isTotalHead(h) ? 'tot' : ''}"><dt>${esc(h)}</dt><dd>${esc(vals[k] == null || vals[k] === '' ? '-' : vals[k])}</dd></div>`).join('')}</dl>`;
+async function viewAssess(){
+  if (!hasSiteMenu()) return viewRoot();
+  stopTimers(); forgetAssess();
+  if (!isTeacher()) {   // nothing to see: say so at once, without asking for the password
+    $app.innerHTML = `${siteTop('assess')}${userBar()}<div class="setcard"><div class="eyebrow">평가</div><h1>지필/수행 점수 확인</h1></div><div class="panel empty">불러오는 중…</div>`;
+    bindSiteTop(); bindUserBar();
+    try { const r = await api('assessCount', {token: AUTH.token}); ASSESS_N = r.n || 0; if (!r.any) { ASSESS = []; ASSESS_FOR = assessWho(); return assessShow(); } }
+    catch(e){ if (e.code === 'auth') { onAuthErrorQuiet(e); return viewRoot(); } }
+    return assessGate();
+  }
+  return assessShow();
+}
+/* 학생: 들어올 때마다 비밀번호를 다시 확인. 브라우저의 비밀번호 자동완성이 끼어들지 않게 '비밀번호 칸'이 아닌 글자 칸을 점으로 가려 씀 */
+function assessGate(msg){
+  $app.innerHTML = `${siteTop('assess')}${userBar()}
+  <div class="setcard"><div class="eyebrow">평가</div><h1>지필/수행 점수 확인</h1><div class="meta">내 점수를 보려면 비밀번호를 한 번 더 입력해 주세요.</div></div>
+  <div class="panel" style="padding:18px;display:flex;flex-direction:column;gap:10px">
+    <label class="small" for="as-pw"><b>${esc(AUTH.sid)}</b> 비밀번호 (숫자 5자리)</label>
+    <input id="as-pw" class="aspw" type="text" inputmode="numeric" maxlength="5" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" name="as-${Math.random().toString(36).slice(2)}" data-lpignore="true" data-1p-ignore data-form-type="other" readonly>
+    <button class="btn mark wide" id="as-go">점수 보기</button>
+    <div class="savestate${msg ? ' wait' : ''}" id="as-msg">${esc(msg || '')}</div>
+  </div>`;
+  bindSiteTop(); bindUserBar();
+  const inp = document.getElementById('as-pw'), go = document.getElementById('as-go'), m = document.getElementById('as-msg');
+  const unlock = () => inp.removeAttribute('readonly');   // readonly until touched: password managers skip the box
+  inp.addEventListener('focus', unlock); inp.addEventListener('pointerdown', unlock);
+  inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, '').slice(0, 5); });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') go.click(); });
+  setTimeout(() => { inp.focus(); }, 50);
+  go.onclick = async () => {
+    const pw = inp.value;
+    if (!/^\d{5}$/.test(pw)) { m.className = 'savestate wait'; m.textContent = '숫자 5자리를 입력해 주세요.'; return; }
+    go.disabled = true; m.className = 'savestate'; m.textContent = '확인하는 중…';
+    try { await loadAssess(pw); inp.value = ''; assessShow(); }
+    catch(e){ if (e.code === 'auth') { onAuthErrorQuiet(e); return viewRoot(); } go.disabled = false; inp.value = ''; m.className = 'savestate wait'; m.textContent = e.error || '확인하지 못했어요'; inp.focus(); }
+  };
+  scrollTo(0, 0);
+}
+/* 학생이 보는 평가 카드 하나 (학생 화면 · 반별 화면 · 열기 전 미리 보기가 모두 같은 모양) */
+function assessCardHTML(a, i, locked){
+  return `<div class="panel assesscard">
+    <div class="row" style="justify-content:space-between;align-items:baseline"><h2 style="margin:0">${esc(a.title)}</h2>${a.at ? '<span class="chip ok">확인함</span>' : a.closed ? '<span class="chip">마감</span>' : '<span class="chip mk">확인 전</span>'}</div>
+    ${a.note ? `<p class="help" style="white-space:pre-line;margin:0">${esc(a.note)}</p>` : ''}
+    ${a.kind === '정오표' ? omrHTML(a) : scoresHTML(a.heads, a.vals)}
+    ${a.at ? `<div class="savestate ok" style="margin:0">${fmtWhen(a.at)}에 확인했어요.</div>` : a.closed ? '<div class="savestate" style="margin:0">확인 기간이 끝났어요.</div>' : `<button class="btn mark wide" data-aok="${i}" ${locked ? 'disabled title="선생님 화면에서는 누를 수 없어요"' : ''}>확인했어요</button>`}
+  </div>`;
+}
+async function assessShow(){
+  const draw = msg => {
+    const list = myAssess() || [], tv = isTeacher();
+    $app.innerHTML = `${siteTop('assess')}${userBar()}
+    <div class="setcard"><div class="eyebrow">평가</div><h1>지필/수행 점수 확인</h1><div class="meta">내 점수가 맞는지 보고 <b>확인했어요</b>를 눌러 주세요. 이 화면에는 학번과 이름이 나오지 않아요. 점수가 이상하면 누르지 말고 선생님께 말씀드려요.</div></div>
+    ${msg ? `<div class="panel empty">${esc(msg)}</div>` : ''}
+    ${tv ? '<div class="savestate">선생님 화면: 이 학생이 보는 그대로예요(열기 전·숨긴 평가는 학생처럼 안 보여요). 여기서는 확인을 누를 수 없어요.</div>' : ''}
+    ${myAssess() && !list.length ? `<div class="panel empty">지금 확인할 평가가 없어요.</div>` : ''}
+    <div class="assesslist">${list.map((a, i) => assessCardHTML(a, i, tv)).join('')}</div>`;
+    bindSiteTop(); bindUserBar();
+    $app.querySelectorAll('[data-aok]').forEach(b => b.onclick = async () => {
+      const a = list[+b.dataset.aok]; b.disabled = true; b.textContent = '보내는 중…';
+      try { const r = await api('assessConfirm', {token: AUTH.token, vtoken: ASSESS_V, id: a.id}); a.at = r.at; ASSESS_N = list.filter(x => !x.at && !x.closed).length; toast('확인했어요'); draw(); }
+      catch(e){ if (e.code === 'auth') { onAuthErrorQuiet(e); return viewRoot(); } if (e.code === 'auth_v') { forgetAssess(); return assessGate(e.error); } b.disabled = false; b.textContent = '확인했어요'; toast(e.error || '보내지 못했어요. 다시 눌러 주세요'); }
+    });
+  };
+  draw(myAssess() ? '' : '불러오는 중…');
+  scrollTo(0, 0);
+  if (!isTeacher()) return;   // the student's list came with the password
+  try { await loadAssess(); if (document.querySelector('.assesslist')) draw(); }
+  catch(e){ if (e.code === 'auth') { onAuthErrorQuiet(e); return viewRoot(); } if (document.querySelector('.assesslist')) draw(e.error || '불러오지 못했어요'); }
+}
+
+/* ---------- 선생님: 수행평가 올리기 · 공개 · 확인 현황 ---------- */
+/* 엑셀에서 복사한 표(탭으로 나뉜 글)를 칸 배열로 */
+function parseTSV(text){
+  const rows = []; let row = [], cell = '', q = false;
+  text = String(text || '').replace(/\r\n?/g, '\n');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; continue; }
+    if (c === '"' && cell === '') { q = true; continue; }
+    if (c === '\t') { row.push(cell); cell = ''; continue; }
+    if (c === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; continue; }
+    cell += c;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.map(r => r.map(x => x.replace(/\s+/g, ' ').trim()));
+}
+const HIDE_HEAD = /^(학번|이름|성명|학생명|반|번호|번|학년|연번|순번|no\.?|비고)$/i;
+/* 표 읽기: '학번'(또는 '반'+'번호') 칸이 있는 줄이 머리글. 그 위 줄에 큰 항목(병합 칸)이 있으면 "큰 항목 작은 항목"으로 합침 */
+function readScoreTable(text, grade){
+  const t = parseTSV(text).filter(r => r.some(x => x !== ''));
+  const norm = x => String(x || '').replace(/\s+/g, '');
+  const hi = t.findIndex(r => r.some(x => norm(x) === '학번') || (r.some(x => norm(x) === '반') && r.some(x => /^(번호|번)$/.test(norm(x)))));
+  if (hi < 0) return {error: "표에 '학번' 칸(또는 '반'과 '번호' 칸)이 있는 머리글 줄이 있어야 해요."};
+  const head = t[hi], up = hi > 0 && t[hi - 1].some(Boolean) && t[hi - 1].filter(Boolean).length < head.filter(Boolean).length ? t[hi - 1] : null;
+  const width = Math.max(...t.slice(hi).map(r => r.length));
+  const labels = []; let fill = '';
+  for (let k = 0; k < width; k++) {
+    const lo = head[k] || '';
+    let top = '';
+    if (up) { if (up[k]) fill = up[k]; else if (!lo) fill = ''; top = up[k] || (lo ? fill : ''); }
+    labels.push(top && lo && top !== lo && !isTotalHead(lo) ? top + ' ' + lo : (lo || top));   // '총점' 같은 칸은 큰 항목을 붙이지 않음
+  }
+  const col = re => labels.findIndex(l => re.test(norm(l)));
+  const cSid = col(/^학번$/), cCls = col(/^반$/), cNo = col(/^(번호|번)$/), cGrade = col(/^학년$/);
+  const rows = [], bad = [], seen = {};
+  t.slice(hi + 1).forEach(r => {
+    let sid = '';
+    if (cSid >= 0) sid = String(r[cSid] || '').replace(/\D/g, '');
+    else if (cCls >= 0 && cNo >= 0) { const g = cGrade >= 0 ? String(r[cGrade] || '').replace(/\D/g, '') : String(grade || '').replace(/\D/g, ''); const c = String(r[cCls] || '').replace(/\D/g, ''), n = String(r[cNo] || '').replace(/\D/g, ''); if (g && c && n) sid = g + c.padStart(2, '0') + n.padStart(2, '0'); }
+    if (/^\d{5}$/.test(sid) && !seen[sid]) { seen[sid] = 1; rows.push({sid, cells: labels.map((_, k) => r[k] == null ? '' : r[k])}); }
+    else if (r.some(x => x)) bad.push(r.filter(x => x).slice(0, 3).join(' '));
+  });
+  const shown = labels.map((l, k) => !!l && !HIDE_HEAD.test(norm(l)) && rows.some(x => x.cells[k] !== ''));
+  return {labels, rows, bad, shown, bySid: cSid >= 0};
+}
+/* ---------- 지필평가 나이스 정오표 ---------- */
+/* .xlsx 파일 읽기(바깥 프로그램 없이): 압축을 풀어 첫 시트의 칸들을 [줄][칸] 글자 배열로 */
+async function readXlsx(file){
+  const buf = new Uint8Array(await file.arrayBuffer()), dv = new DataView(buf.buffer);
+  if (buf[0] !== 0x50 || buf[1] !== 0x4b) throw new Error(".xlsx 파일이 아니에요. 엑셀에서 '다른 이름으로 저장 → Excel 통합 문서(.xlsx)'로 저장해 올려 주세요.");
+  let e = buf.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('엑셀 파일을 읽지 못했어요.');
+  const count = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true);
+  const files = {}, dec = new TextDecoder();
+  for (let i = 0; i < count; i++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+    files[dec.decode(buf.subarray(p + 46, p + 46 + nlen))] = {method, csize, off};
+    p += 46 + nlen + xlen + clen;
+  }
+  const text = async name => {
+    const f = files[name]; if (!f) return null;
+    const start = f.off + 30 + dv.getUint16(f.off + 26, true) + dv.getUint16(f.off + 28, true), raw = buf.subarray(start, start + f.csize);
+    if (f.method === 0) return dec.decode(raw);
+    if (typeof DecompressionStream === 'undefined') throw new Error('이 브라우저는 엑셀 파일을 읽지 못해요. 크롬이나 엣지로 열거나, 표를 복사해 붙여 넣어 주세요.');
+    return dec.decode(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  };
+  const xml = s => new DOMParser().parseFromString(s, 'application/xml');
+  const ss = await text('xl/sharedStrings.xml'), shared = ss ? [...xml(ss).getElementsByTagName('si')].map(si => [...si.getElementsByTagName('t')].map(t => t.textContent).join('')) : [];
+  const sheetName = Object.keys(files).filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort((a, b) => parseInt(a.match(/\d+/)) - parseInt(b.match(/\d+/)))[0];
+  if (!sheetName) throw new Error('엑셀 파일에서 시트를 찾지 못했어요.');
+  const rows = [];
+  [...xml(await text(sheetName)).getElementsByTagName('c')].forEach(c => {
+    const m = /^([A-Z]+)(\d+)$/.exec(c.getAttribute('r') || ''); if (!m) return;
+    const col = [...m[1]].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0) - 1, row = +m[2] - 1, t = c.getAttribute('t');
+    const v = c.getElementsByTagName('v')[0], is = c.getElementsByTagName('is')[0];
+    let val = t === 's' ? (v ? shared[+v.textContent] || '' : '') : t === 'inlineStr' ? (is ? is.textContent : '') : (v ? v.textContent : '');
+    if (t !== 's' && t !== 'inlineStr' && t !== 'str' && /^-?\d+\.\d{6,}$/.test(val)) val = String(Math.round(+val * 1000) / 1000);   // 71.600000001 → 71.6
+    (rows[row] = rows[row] || [])[col] = String(val);
+  });
+  return Array.from(rows, r => Array.from(r || [], x => (x || '').replace(/\s+/g, ' ').trim()));
+}
+/* 나이스 '정기시험 교과목별 학생답 정오표' 읽기: '번호' 줄(문항 번호) · '정답' 줄 · '배점' 줄 · 학생 줄('반/번호'가 13/1처럼) */
+function readNeisOmr(t, gradeIn){
+  const norm = x => String(x || '').replace(/\s+/g, '');
+  const find = w => t.findIndex(r => r && r.some(x => norm(x) === w));
+  const hi = t.findIndex((r, i) => r && r.some(x => norm(x) === '번호') && t[i + 1] && t[i + 1].some(x => norm(x) === '정답'));
+  if (hi < 0) return {error: "나이스 정오표 모양이 아니에요. '번호'·'정답'·'배점' 줄이 있는 정오표 파일을 올려 주세요."};
+  const head = t[hi], keyRow = t[hi + 1], ptsRow = t.find((r, i) => i > hi && r && r.some(x => norm(x) === '배점')) || [];
+  const items = [], extras = [];
+  head.forEach((x, k) => { if (/^\d{1,3}$/.test(norm(x)) && keyRow[k] !== undefined && keyRow[k] !== '') items.push({no: norm(x), k}); else if (/점수|총점/.test(norm(x))) extras.push({label: norm(x), k}); });
+  if (!items.length) return {error: '정오표에서 문항을 찾지 못했어요.'};
+  let grade = String(gradeIn || '').replace(/\D/g, '');
+  // the grade from the title line: '2학년', not '2026학년도'
+  if (!grade) for (const r of t.slice(0, hi)) { const m = (r || []).join(' ').match(/(?<!\d)([1-6])\s*학년(?!도)/); if (m) { grade = m[1]; break; } }
+  const rows = [], bad = [], classes = {};
+  t.slice(hi + 2).forEach(r => {
+    if (!r) return;
+    const cn = r.find(x => /^\d{1,2}\s*\/\s*\d{1,2}$/.test(x || ''));
+    if (!cn) { if (r.some(x => x) && !r.some(x => /배점|※/.test(x || ''))) bad.push(r.filter(Boolean).slice(0, 3).join(' ')); return; }
+    const [c, n] = cn.split('/').map(x => x.trim());
+    if (!grade) return bad.push(cn);
+    const sid = grade + c.padStart(2, '0') + n.padStart(2, '0');
+    classes[`${grade}학년 ${Number(c)}반`] = (classes[`${grade}학년 ${Number(c)}반`] || 0) + 1;
+    rows.push({sid, vals: items.map(it => r[it.k] == null ? '' : r[it.k]).concat(extras.map(x => r[x.k] == null ? '' : r[x.k]))});
+  });
+  if (!grade) return {error: '학년을 알 수 없어요. 아래 학년 칸에 써 주세요.', needGrade: true};
+  return {grade, items: items.map(x => x.no), key: items.map(it => keyRow[it.k] || ''), pts: items.map(it => ptsRow[it.k] || ''), extras: extras.map(x => x.label), rows, bad, classes};
+}
+const OMR_MULTI = {A:'1,2',B:'1,3',C:'1,4',D:'1,5',E:'2,3',F:'2,4',G:'2,5',H:'3,4',I:'3,5',J:'4,5',K:'1,2,3',L:'1,2,4',M:'1,2,5',N:'1,3,4',O:'1,3,5',P:'1,4,5',Q:'2,3,4',R:'2,3,5',S:'2,4,5',T:'3,4,5',U:'1,2,3,4',V:'1,2,3,5',W:'1,2,4,5',X:'1,3,4,5',Y:'2,3,4,5',Z:'1,2,3,4,5'};
+const omrMark = v => OMR_MULTI[String(v).toUpperCase()] || v;
+/* 학생 정오표 화면: 문항마다 칸 하나 (맞음 O / 틀림은 내가 고른 번호) + 맞힌 수·점수 */
+function omrHTML(a){
+  const o = a.omr || {n: 0, key: [], pts: []}, n = o.n, v = a.vals || [];
+  let ok = 0;
+  const cells = a.heads.slice(0, n).map((no, i) => {
+    const raw = String(v[i] == null ? '' : v[i]).trim(), key = omrMark(o.key[i] || '');
+    const right = raw === '.';
+    if (right) ok++;
+    const mine = right ? key : raw === '-' || raw === '' ? '무표기' : /^[A-Z]$/i.test(raw) ? omrMark(raw) + ' (복수)' : raw;
+    return `<div class="omr ${right ? 'o' : 'x'}"><div class="on">${esc(no)}번</div><div class="om">${right ? 'O' : esc(mine)}</div><div class="ok">정답 ${esc(key)}${o.pts[i] !== '' && o.pts[i] != null ? `<br>${esc(o.pts[i])}점` : ''}</div></div>`;
+  }).join('');
+  const ex = a.heads.slice(n);
+  return `<div class="omrsum"><span>맞힌 문항 <b>${ok}</b> / ${n}</span><span class="muted small">O: 맞음 · 숫자: 내가 고른 답(틀림)</span></div>
+    <div class="omrgrid">${cells}</div>
+    ${ex.length ? scoresHTML(ex, v.slice(n)) : ''}`;
+}
+
+async function viewAssessAdmin(){
+  if (needAdmin(viewAssessAdmin)) return;
+  let list = null;
+  const top = `${header('<button class="link" id="up">← 학생 화면</button>')}${adminNav('assess')}`;
+  const bindTop = () => { document.getElementById('up').onclick = () => route(); bindAdminNav(); };
+  const draw = msg => {
+    $app.innerHTML = `${top}
+    <div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><h2>지필/수행 점수 확인</h2><div class="row" style="gap:8px"><button class="btn mark" id="anew">+ 점수표 (엑셀 붙여 넣기)</button><button class="btn mark" id="aomr">+ 지필 정오표 (나이스 파일)</button></div></div>
+    <p class="help"><b>열기</b>: 학생이 보고 확인 · <b>마감</b>: 학생은 보기만(확인 버튼 없음) · <b>숨기기</b>: 학생에게 안 보임.<br>엑셀 표나 나이스 정오표를 올리고 <b>열기</b>를 누르면, 학생은 왼쪽 위 메뉴의 '지필/수행 점수 확인'에서 <b>자기 줄의 항목별 점수만</b>(학번·이름 없이) 보고 '확인했어요'를 눌러요. 누가 확인했는지는 <b>현황</b>에서 봐요.</p>
+    ${msg ? `<div class="panel empty">${esc(msg)}</div>` : ''}
+    ${list ? (list.length ? `<div class="panel"><ul class="setlist">${list.map((a, i) => `<li><div class="sl-main"><b>${esc(a.title)}</b><span class="muted">${a.open ? '<span class="chip go">열림</span>' : a.closed ? '<span class="chip">마감 · 보기만</span>' : '<span class="chip">숨김</span>'} 학생 ${a.count}명 · <b>확인 ${a.confirmed}명</b> · ${a.kind === '정오표' ? `지필 정오표 · 문항 ${a.omr ? a.omr.n : '?'}개` : '항목: ' + esc(a.heads.join(', ').slice(0, 80))}</span></div>
+      <div class="sl-act">${a.open ? `<button class="btn ghost small" data-ast="마감" data-ai="${i}">마감</button>` : `<button class="btn mark small" data-ast="공개" data-ai="${i}">열기</button>`}${a.open || a.closed ? `<button class="btn ghost small" data-ast="숨김" data-ai="${i}">숨기기</button>` : ''}<button class="btn ghost small" data-astat="${i}">현황</button><button class="btn ghost small" data-asample="${i}">학생 화면 미리 보기</button><button class="btn ghost small" data-aedit="${i}">${a.kind === '정오표' ? '반 정오표 더 올리기' : '표 다시 올리기'}</button><button class="btn ghost small" data-adel="${i}">삭제</button></div></li>`).join('')}</ul></div>`
+      : '<div class="panel empty">아직 올린 평가가 없어요.</div>') : ''}`;
+    bindTop();
+    document.getElementById('anew').onclick = () => editAssess(null);
+    document.getElementById('aomr').onclick = () => editOmr(null);
+    $app.querySelectorAll('[data-aedit]').forEach(b => b.onclick = () => { const a = list[+b.dataset.aedit]; a.kind === '정오표' ? editOmr(a) : editAssess(a); });
+    $app.querySelectorAll('[data-astat]').forEach(b => b.onclick = () => assessStatus(list[+b.dataset.astat]));
+    $app.querySelectorAll('[data-asample]').forEach(b => b.onclick = async () => {   // 열기 전에 학생별로 점검: 이 평가 하나를 학생 화면 모양으로
+      b.disabled = true; const a = list[+b.dataset.asample];
+      try { const r = await api('adminAssessStatus', {token: ADMIN.token, id: a.id}); if (r.rows.length) assessPreview(a, r.rows, '', () => draw()); else { b.disabled = false; toast('학생이 없어요'); } }
+      catch(e){ if (!adminErr(e, viewAssessAdmin)) { b.disabled = false; toast(e.error || '하지 못했어요'); } }
+    });
+    $app.querySelectorAll('[data-ast]').forEach(b => b.onclick = async () => {
+      const a = list[+b.dataset.ai], st = b.dataset.ast; b.disabled = true;
+      try { await api('adminAssessState', {token: ADMIN.token, id: a.id, state: st}); a.open = st === '공개'; a.closed = st === '마감';
+        toast(st === '공개' ? '열었어요. 학생이 보고 확인할 수 있어요' : st === '마감' ? '마감했어요. 학생은 보기만 해요' : '숨겼어요. 학생에게 보이지 않아요'); draw(); }
+      catch(e){ if (!adminErr(e, viewAssessAdmin)) { b.disabled = false; toast(e.error || '하지 못했어요'); } }
+    });
+    $app.querySelectorAll('[data-adel]').forEach(b => b.onclick = async () => {
+      const a = list[+b.dataset.adel];
+      if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = '정말 삭제'; b.classList.add('danger'); return; }
+      b.disabled = true;
+      try { await api('adminAssessState', {token: ADMIN.token, id: a.id, del: true}); toast('삭제했어요'); load(); }
+      catch(e){ if (!adminErr(e, viewAssessAdmin)) { b.disabled = false; toast(e.error || '하지 못했어요'); } }
+    });
+  };
+  const load = async () => {
+    try { list = (await api('adminAssessList', {token: ADMIN.token})).list; draw(); }
+    catch(e){ if (!adminErr(e, viewAssessAdmin)) draw(e.error || '불러오지 못했어요'); }
+  };
+  draw('불러오는 중…'); load(); scrollTo(0, 0);
+
+  function editAssess(a){
+    let parsed = null;
+    $app.innerHTML = `${top}
+    <div class="row" style="justify-content:space-between"><h2>${a ? '표 다시 올리기' : '새 수행평가'}</h2><button class="link" id="aback">← 목록</button></div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px;padding:18px">
+      <div class="field"><label for="a-title">이름</label><input id="a-title" maxlength="60" placeholder="예: 영자신문 지문 분석 보고서" value="${a ? esc(a.title) : ''}"></div>
+      <div class="field"><label for="a-note">학생에게 보일 안내 <span class="muted">(없어도 돼요)</span></label><textarea id="a-note" rows="2" placeholder="예: 이의가 있으면 11월 20일까지 선생님께 말씀하세요.">${a ? esc(a.note) : ''}</textarea></div>
+      <div class="field"><label for="a-paste">점수 표</label>
+        <p class="help" style="margin:0">엑셀에서 <b>머리글 줄부터 마지막 학생까지</b> 골라 복사(Ctrl+C)한 뒤 아래 칸에 붙여 넣기(Ctrl+V)해요. '학번' 칸(또는 '반'·'번호' 칸)이 꼭 있어야 해요. 머리글이 두 줄(큰 항목·작은 항목)이어도 돼요.${a ? '<br>다시 올리면 <b>점수가 바뀐 학생만</b> 확인이 풀려요.' : ''}</p>
+        <textarea id="a-paste" rows="6" placeholder="여기에 붙여 넣기"></textarea>
+        <label class="small" id="a-gradebox" hidden>학년 <input id="a-grade" value="2" inputmode="numeric" style="width:3em"> <span class="muted">('학번' 칸이 없어서 학년·반·번호로 학번을 만들어요)</span></label></div>
+      <div id="a-prev"></div>
+      <div class="row"><button class="btn mark wide" id="a-save" disabled>저장하기</button></div>
+      <div class="savestate" id="a-msg"></div>
+    </div>`;
+    bindTop();
+    document.getElementById('aback').onclick = () => draw();
+    const prev = document.getElementById('a-prev'), save = document.getElementById('a-save'), msg = document.getElementById('a-msg');
+    const cols = () => parsed.labels.map((l, k) => ({l, k})).filter(c => c.l);
+    const sample = () => {
+      const show = cols().filter(c => parsed.shown[c.k]);
+      prev.querySelector('.aprevs').innerHTML = parsed.rows.slice(0, 3).map(r => scoresHTML(show.map(c => c.l), show.map(c => r.cells[c.k]))).join('');
+      save.disabled = !parsed.rows.length || !show.length;
+    };
+    const parse = () => {
+      const txt = document.getElementById('a-paste').value;
+      if (!txt.trim()) { prev.innerHTML = ''; save.disabled = true; parsed = null; return; }
+      parsed = readScoreTable(txt, document.getElementById('a-grade').value.trim());
+      document.getElementById('a-gradebox').hidden = !parsed.labels || parsed.bySid;
+      if (parsed.error) { prev.innerHTML = `<div class="savestate wait">${esc(parsed.error)}</div>`; save.disabled = true; return; }
+      prev.innerHTML = `<div class="small"><b>학생 ${parsed.rows.length}명</b>을 찾았어요.${parsed.bad.length ? ` <span class="muted">학번을 알 수 없어 뺀 줄 ${parsed.bad.length}개: ${esc(parsed.bad.slice(0, 3).join(' / '))}${parsed.bad.length > 3 ? ' …' : ''}</span>` : ''}</div>
+        <div class="small" style="margin-top:10px"><b>학생에게 보여 줄 항목</b> <span class="muted">(학번·이름·반·번호는 처음부터 빠져 있어요)</span></div>
+        <div class="small muted">항목 이름은 고쳐 쓸 수 있어요. 머리글이 두 줄이면 엑셀의 병합 칸 때문에 이름이 이상하게 붙을 수 있으니 확인해 주세요.</div>
+        <div class="apick">${cols().map(c => `<label class="small apk"><input type="checkbox" data-acol="${c.k}" ${parsed.shown[c.k] ? 'checked' : ''}><input class="aname" data-aname="${c.k}" value="${esc(c.l)}" maxlength="40"></label>`).join('')}</div>
+        <div class="small" style="margin-top:10px"><b>학생 화면 미리 보기</b> <span class="muted">(앞의 ${Math.min(3, parsed.rows.length)}명 · 학생에게는 자기 것 하나만 보여요)</span></div>
+        <div class="aprevs"></div>`;
+      prev.querySelectorAll('[data-acol]').forEach(x => x.onchange = () => { parsed.shown[+x.dataset.acol] = x.checked; sample(); });
+      prev.querySelectorAll('[data-aname]').forEach(x => x.oninput = () => { const v = x.value.trim(); if (v) { parsed.labels[+x.dataset.aname] = v; sample(); } });
+      sample();
+    };
+    document.getElementById('a-paste').addEventListener('input', parse);
+    document.getElementById('a-grade').addEventListener('input', parse);
+    save.onclick = async () => {
+      const title = document.getElementById('a-title').value.trim();
+      if (!title) { msg.className = 'savestate wait'; msg.textContent = '이름을 써 주세요.'; return; }
+      const ks = cols().filter(c => parsed.shown[c.k]).map(c => c.k);
+      save.disabled = true; msg.className = 'savestate'; msg.textContent = '저장하는 중…';
+      try {
+        await api('adminAssessSave', {token: ADMIN.token, id: a ? a.id : '', title, note: document.getElementById('a-note').value.trim(), heads: ks.map(k => parsed.labels[k]), rows: parsed.rows.map(r => ({sid: r.sid, vals: ks.map(k => r.cells[k] || '')}))});
+        toast(a ? '다시 올렸어요' : "저장했어요. '열기'를 눌러야 학생이 볼 수 있어요"); load();
+      } catch(e){ if (!adminErr(e, viewAssessAdmin)) { save.disabled = false; msg.className = 'savestate wait'; msg.textContent = e.error || '저장하지 못했어요'; } }
+    };
+    scrollTo(0, 0);
+  }
+
+  function editOmr(a){
+    let got = null;
+    $app.innerHTML = `${top}
+    <div class="row" style="justify-content:space-between"><h2>${a ? '반 정오표 더 올리기' : '새 지필 정오표'}</h2><button class="link" id="aback">← 목록</button></div>
+    <div class="panel" style="display:flex;flex-direction:column;gap:12px;padding:18px">
+      <div class="field"><label for="a-title">이름</label><input id="a-title" maxlength="60" placeholder="예: 2학기 1차 지필평가 영어Ⅱ 정오표" value="${a ? esc(a.title) : ''}"></div>
+      <div class="field"><label for="a-note">학생에게 보일 안내 <span class="muted">(없어도 돼요)</span></label><textarea id="a-note" rows="2" placeholder="예: 이의는 11월 20일까지 선생님께 말씀하세요.">${a ? esc(a.note) : ''}</textarea></div>
+      <div class="field"><label for="o-file">나이스 정오표 파일 (.xlsx)</label>
+        <p class="help" style="margin:0">나이스에서 받은 '교과목별 학생답 정오표' 파일을 그대로 골라요. <b>여러 반 파일을 한꺼번에</b> 골라도 되고, 나중에 '반 정오표 더 올리기'로 반을 하나씩 더해도 돼요.${a ? '<br>이미 올린 반의 파일을 다시 올리면 그 반 학생만 바뀌어요(점수가 바뀐 학생은 확인이 풀려요).' : ''}</p>
+        <input type="file" id="o-file" accept=".xlsx" multiple>
+        <details class="small"><summary>파일이 안 열리면: 엑셀에서 표를 복사해 붙여 넣기</summary><textarea id="o-paste" rows="4" placeholder="정오표 시트 전체를 복사(Ctrl+A, Ctrl+C)해 붙여 넣기" style="width:100%;margin-top:6px"></textarea></details>
+        <label class="small" id="o-gradebox" hidden>학년 <input id="o-grade" inputmode="numeric" style="width:3em"></label></div>
+      <div id="a-prev"></div>
+      <div class="row"><button class="btn mark wide" id="a-save" disabled>저장하기</button></div>
+      <div class="savestate" id="a-msg"></div>
+    </div>`;
+    bindTop();
+    document.getElementById('aback').onclick = () => draw();
+    const prev = document.getElementById('a-prev'), save = document.getElementById('a-save'), msg = document.getElementById('a-msg');
+    const show = parts => {   // parts: one parsed 정오표 per file
+      got = null; save.disabled = true;
+      const err = parts.find(x => x.error);
+      document.getElementById('o-gradebox').hidden = !parts.some(x => x.needGrade);
+      if (err) { prev.innerHTML = `<div class="savestate wait">${esc((err.name ? err.name + ': ' : '') + err.error)}</div>`; return; }
+      const first = parts[0];
+      const diff = parts.find(x => JSON.stringify(x.key) !== JSON.stringify(first.key) || x.items.length !== first.items.length);
+      if (diff) { prev.innerHTML = `<div class="savestate wait">${esc(diff.name || '')} 파일의 정답이 다른 파일과 달라요. 같은 시험의 정오표만 함께 올려 주세요.</div>`; return; }
+      if (a && a.omr && JSON.stringify(a.omr.key) !== JSON.stringify(first.key)) { prev.innerHTML = '<div class="savestate wait">앞에서 올린 정오표와 정답이 달라요. 다른 시험이면 목록에서 새 지필 정오표로 만들어 주세요.</div>'; return; }
+      const rows = {}; parts.forEach(x => x.rows.forEach(r => { rows[r.sid] = r; }));
+      const classes = {}; parts.forEach(x => Object.entries(x.classes).forEach(([c, n]) => { classes[c] = (classes[c] || 0) + n; }));
+      got = {items: first.items, key: first.key, pts: first.pts, extras: first.extras, rows: Object.values(rows)};
+      const sample = got.rows[0];
+      prev.innerHTML = `<div class="small"><b>학생 ${got.rows.length}명</b> · ${Object.entries(classes).map(([c, n]) => `${esc(c)} ${n}명`).join(' · ')} · 문항 ${got.items.length}개${got.extras.length ? ' · ' + esc(got.extras.join(', ')) : ''}</div>
+        <div class="small" style="margin-top:10px"><b>학생 화면 미리 보기</b> <span class="muted">(첫 학생 · 학생에게는 자기 것만 보여요)</span></div>
+        <div class="panel assesscard" style="margin-top:6px">${sample ? omrHTML({heads: got.items.map(String).concat(got.extras), vals: sample.vals, omr: {n: got.items.length, key: got.key, pts: got.pts}}) : ''}</div>`;
+      save.disabled = !got.rows.length;
+    };
+    const fromFiles = async () => {
+      const fs = [...document.getElementById('o-file').files]; if (!fs.length) return;
+      prev.innerHTML = '<div class="savestate">파일을 읽는 중…</div>';
+      const grade = document.getElementById('o-grade').value.trim(), parts = [];
+      for (const f of fs) { try { parts.push(Object.assign(readNeisOmr(await readXlsx(f), grade), {name: f.name})); } catch(e){ parts.push({error: e.message || '읽지 못했어요', name: f.name}); } }
+      show(parts);
+    };
+    const fromPaste = () => { const t = document.getElementById('o-paste').value; if (t.trim()) show([readNeisOmr(parseTSV(t), document.getElementById('o-grade').value.trim())]); };
+    document.getElementById('o-file').onchange = fromFiles;
+    document.getElementById('o-paste').addEventListener('input', fromPaste);
+    document.getElementById('o-grade').addEventListener('input', () => document.getElementById('o-file').files.length ? fromFiles() : fromPaste());
+    save.onclick = async () => {
+      const title = document.getElementById('a-title').value.trim();
+      if (!title) { msg.className = 'savestate wait'; msg.textContent = '이름을 써 주세요.'; return; }
+      save.disabled = true; msg.className = 'savestate'; msg.textContent = '저장하는 중…';
+      try {
+        const r = await api('adminAssessSave', {token: ADMIN.token, id: a ? a.id : '', merge: !!a, kind: '정오표', title, note: document.getElementById('a-note').value.trim(),
+          heads: got.items.map(String).concat(got.extras), omr: {n: got.items.length, key: got.key, pts: got.pts}, rows: got.rows});
+        toast(a ? `올렸어요 (모두 ${r.total}명)` : "저장했어요. '열기'를 눌러야 학생이 볼 수 있어요"); load();
+      } catch(e){ if (!adminErr(e, viewAssessAdmin)) { save.disabled = false; msg.className = 'savestate wait'; msg.textContent = e.error || '저장하지 못했어요'; } }
+    };
+    scrollTo(0, 0);
+  }
+
+  /* 학생 화면 미리 보기: 이 평가를 고른 학생에게 보일 모양 그대로 (열기 전·숨김이어도). 학생을 바꿔 가며 점검 */
+  function assessPreview(a, rows, sid, back){
+    rows = rows.slice().sort((p, q) => p.sid.localeCompare(q.sid));
+    let i = Math.max(0, rows.findIndex(x => x.sid === sid));
+    const paint = () => {
+      const x = rows[i];
+      const card = Object.assign({}, a, {vals: x.vals, at: x.at, closed: a.closed});
+      $app.innerHTML = `${top}<div class="row" style="justify-content:space-between"><h2>학생 화면 미리 보기</h2><button class="link" id="aback">← 돌아가기</button></div>
+      <p class="help">${esc(a.title)} · ${a.open ? '열림' : a.closed ? '마감' : '<b>아직 열지 않음</b>(학생에게는 안 보여요)'} · 학생에게 보일 모양 그대로예요. 학번·이름은 이 위쪽에만 보이고 학생 화면에는 나오지 않아요.</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><button class="btn ghost small" id="pv-prev" ${i ? '' : 'disabled'}>‹ 앞 학생</button>
+        <select id="pv-sel">${rows.map((y, k) => `<option value="${k}" ${k === i ? 'selected' : ''}>${esc(y.sid)} ${esc(y.name || '(가입 전)')}</option>`).join('')}</select>
+        <button class="btn ghost small" id="pv-next" ${i < rows.length - 1 ? '' : 'disabled'}>뒤 학생 ›</button><span class="muted small">${i + 1} / ${rows.length}</span></div>
+      <div class="pvphone"><div class="setcard"><div class="eyebrow">평가</div><h1>지필/수행 점수 확인</h1><div class="meta">내 점수가 맞는지 보고 <b>확인했어요</b>를 눌러 주세요.</div></div>${assessCardHTML(card, 0, true)}</div>`;
+      bindTop(); document.getElementById('aback').onclick = back;
+      document.getElementById('pv-prev').onclick = () => { i--; paint(); };
+      document.getElementById('pv-next').onclick = () => { i++; paint(); };
+      document.getElementById('pv-sel').onchange = e => { i = +e.target.value; paint(); };
+    };
+    paint(); scrollTo(0, 0);
+  }
+
+  async function assessStatus(a){
+    $app.innerHTML = `${top}<div class="row" style="justify-content:space-between"><h2>${esc(a.title)} · 확인 현황</h2><button class="link" id="aback">← 목록</button></div><div class="panel empty">불러오는 중…</div>`;
+    bindTop(); document.getElementById('aback').onclick = () => draw();
+    let r;
+    try { r = await api('adminAssessStatus', {token: ADMIN.token, id: a.id}); }
+    catch(e){ if (!adminErr(e, viewAssessAdmin)) toast(e.error || '불러오지 못했어요'); return draw(); }
+    const classes = [...new Set(r.rows.map(x => x.cls))].sort((p, q) => p.localeCompare(q, 'ko', {numeric: true}));
+    const on = r.kind === '정오표' && r.omr ? r.omr.n : 0;   // 정오표: 맞힌 문항 수와 점수 칸만 (문항별 답은 학생 화면에서)
+    const shownCols = on ? [{h: '맞힌 문항', v: x => `${x.vals.slice(0, on).filter(z => String(z).trim() === '.').length} / ${on}`}].concat(r.heads.slice(on).map((h, k) => ({h, v: x => x.vals[on + k] == null ? '' : x.vals[on + k]})))
+      : r.heads.map((h, k) => ({h, v: x => x.vals[k] == null ? '' : x.vals[k]}));
+    let sel = '';
+    const paint = () => {
+      const rows = r.rows.filter(x => !sel || x.cls === sel).sort((p, q) => (!!p.at - !!q.at) || p.sid.localeCompare(q.sid));
+      const ok = rows.filter(x => x.at).length;
+      $app.innerHTML = `${top}<div class="row" style="justify-content:space-between"><h2>${esc(a.title)} · 확인 현황</h2><button class="link" id="aback">← 목록</button></div>
+      ${a.open ? '' : a.closed ? '<div class="savestate">마감했어요. 학생은 점수를 보기만 해요.</div>' : '<div class="savestate wait">아직 열지 않았어요. 학생에게 보이지 않아요.</div>'}
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost small${sel ? '' : ' on'}" data-acls="">전체</button>${classes.map(c => `<button class="btn ghost small${sel === c ? ' on' : ''}" data-acls="${esc(c)}">${esc(c)}</button>`).join('')}</div>
+      <p class="help"><b>확인 ${ok}명</b> / ${rows.length}명 · 확인하지 않은 학생이 위에 보여요. <b>학번을 누르면</b> 그 학생 화면 미리 보기가 열려요(열기 전에도).</p>
+      <div class="panel"><div class="tablewrap"><table><thead><tr><th>학번</th><th>이름</th><th>확인</th>${shownCols.map(c => `<th>${esc(c.h)}</th>`).join('')}</tr></thead><tbody>
+      ${rows.map(x => `<tr><td><button class="link" data-asee="${esc(x.sid)}" title="이 학생 화면으로 보기">${esc(x.sid)}</button></td><td>${esc(x.name || '(가입 전)')}</td><td>${x.at ? `<span class="chip ok">${fmtWhen(x.at)}</span>` : '<span class="chip mk">안 함</span>'}</td>${shownCols.map(c => `<td>${esc(c.v(x))}</td>`).join('')}</tr>`).join('')}
+      </tbody></table></div></div>`;
+      bindTop(); document.getElementById('aback').onclick = () => draw();
+      $app.querySelectorAll('[data-acls]').forEach(b => b.onclick = () => { sel = b.dataset.acls; paint(); });
+      $app.querySelectorAll('[data-asee]').forEach(b => b.onclick = () => assessPreview(a, r.rows, b.dataset.asee, () => assessStatus(a)));
+    };
+    paint();
+  }
+}
+
 async function viewNoticesAdmin(){
   if (needAdmin(viewNoticesAdmin)) return;
   let list = null;
@@ -3022,7 +3496,7 @@ function viewBoard(raceId, cls){
   timers.push(setInterval(() => { if (document.hidden) return; load(); }, 5000));
   scrollTo(0, 0);
 }
-function bindAdminNavStop(){ $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin, student: () => enterTeacher()})[b.dataset.anav](); }); }
+function bindAdminNavStop(){ $app.querySelectorAll('[data-anav]').forEach(b => b.onclick = () => { stopTimers(); ({records: viewAdmin, sets: viewSetsAdmin, race: viewRaceAdmin, qr: () => viewMake(), notice: viewNoticesAdmin, assess: viewAssessAdmin, student: () => enterTeacher()})[b.dataset.anav](); }); }
 
 /* ---------- page picker ---------- */
 function viewPages(){
@@ -3030,7 +3504,7 @@ function viewPages(){
   SET = null; origin = 'pages'; SCOPE = 'all';
   const first = !hasRoot();   // no passages registered: this is the first screen, so the student's races show here
   const last = id => { const r = myLoad().last[id]; return r ? `<span class="best">최근 ${esc(r.m)} ${r.s}/${r.n}</span>` : ''; };
-  $app.innerHTML = `${header(hasRoot() ? '<button class="link" id="toRoot">← 지문 고르기</button>' : '')}${userBar()}${speechBanner()}${first && ACCOUNTS ? noticesHTML() : ''}
+  $app.innerHTML = `${first ? siteTop('study') : header(hasRoot() ? '<button class="link" id="toRoot">← 지문 고르기</button>' : '')}${userBar()}${speechBanner()}${first && ACCOUNTS ? noticesHTML() : ''}
   <div class="setcard"><div class="eyebrow">${esc(BOOK)}</div><h1>학습지 페이지를 골라요</h1><div class="meta">${countLine(ALL)} · ${PAGES.length}개 구간</div></div>
   ${first && ACCOUNTS && AUTH ? myRacesHTML() : ''}${first && ACCOUNTS && AUTH && myRacesList().length ? `<div class="section-label">${esc(BOOK)}</div>` : ''}
   <div class="pages">
@@ -3041,7 +3515,7 @@ function viewPages(){
   const tr = document.getElementById('toRoot'); if (tr) tr.onclick = viewRoot;
   if (first) bindNotices(viewPages);
   if (first && ACCOUNTS && AUTH) bindMyRaces(viewPages);
-  bindUserBar();
+  bindSiteTop(); bindUserBar();
   scrollTo(0, 0);
 }
 

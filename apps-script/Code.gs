@@ -151,6 +151,8 @@ const ACTIONS = {
   adminBoard: adminBoard_,
   adminRaceReset: adminRaceReset_,
   adminArchive: adminArchive_,
+  adminAssessSave: adminAssessSave_, adminAssessList: adminAssessList_, adminAssessStatus: adminAssessStatus_, adminAssessState: adminAssessState_,
+  assessMine: assessMine_, assessConfirm: assessConfirm_, assessCount: assessCount_, adminAssessOf: adminAssessOf_,
   adminRaceMakeup: adminRaceMakeup_
 };
 
@@ -1388,6 +1390,148 @@ function adminRaceReset_(req) {
   });
 }
 
+
+/* ---------------- 수행평가 점수 확인: 선생님이 붙여 넣은 표에서 학생은 자기 줄(항목별 점수)만 보고 '확인'을 누름 ----------------
+   '수행평가' 탭: 평가마다 한 줄 (ID, 제목, 안내, 항목(JSON), 상태: 숨김|공개(열림: 보고 확인)|마감(보기만), 만든 시각)
+   '수행평가 점수' 탭: 학생마다 한 줄 (평가 ID, 학번, 값(JSON), 확인 시각) · 학번·이름은 학생 화면에 보내지 않음 */
+const SHEET_ASSESS = '수행평가';
+const SHEET_ASSESS_ROWS = '수행평가 점수';
+const ASSESS_HEADERS = ['ID', '제목', '안내', '항목(JSON)', '상태', '만든 시각', '종류', '정답·배점(JSON)'];   // 종류: 점수표 | 정오표(지필 나이스)
+const ASSESS_ROW_HEADERS = ['평가 ID', '학번', '값(JSON)', '확인 시각'];
+function assessSheet_(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return ss.getSheetByName(name) || ensureSheet_(ss, name, name === SHEET_ASSESS ? ASSESS_HEADERS : ASSESS_ROW_HEADERS);
+}
+function readAssess_() {
+  const sh = assessSheet_(SHEET_ASSESS), n = sh.getLastRow(); if (n < 2) return [];
+  return sh.getRange(2, 1, n - 1, ASSESS_HEADERS.length).getValues().map((r, i) => ({row: i + 2, id: String(r[0]).trim(), title: String(r[1]), note: String(r[2] || ''),
+    heads: parseJ_(r[3], []), open: String(r[4]) === '공개', closed: String(r[4]) === '마감', created: iso_(r[5]),
+    kind: String(r[6] || '') === '정오표' ? '정오표' : '점수표', omr: parseJ_(r[7], null)})).filter(a => a.id);
+}
+function readAssessRows_(id) {
+  const sh = assessSheet_(SHEET_ASSESS_ROWS), n = sh.getLastRow(); if (n < 2) return [];
+  return sh.getRange(2, 1, n - 1, ASSESS_ROW_HEADERS.length).getValues().map((r, i) => ({row: i + 2, id: String(r[0]).trim(), sid: String(r[1]).trim(), vals: String(r[2] || ''), at: iso_(r[3])}))
+    .filter(x => x.id && (!id || x.id === id));
+}
+const cleanCell_ = v => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 120);
+/* 저장: 항목 이름과 학생별 값. 같은 평가를 다시 올리면 값이 바뀐 학생만 '확인'이 풀림 */
+function adminAssessSave_(req) {
+  checkToken_(req.token, 'a');
+  const title = cleanCell_(req.title).slice(0, 60);
+  if (!title) fail_('수행평가 이름을 써 주세요.');
+  const heads = (Array.isArray(req.heads) ? req.heads : []).slice(0, 110).map(cleanCell_);
+  if (!heads.length || heads.some(h => !h)) fail_('보여 줄 항목 이름이 비어 있어요.');
+  const seen = {}, rows = (Array.isArray(req.rows) ? req.rows : []).slice(0, 600).map(r => ({sid: String(r && r.sid || '').trim(), vals: (Array.isArray(r && r.vals) ? r.vals : []).slice(0, heads.length).map(cleanCell_)}))
+    .filter(r => /^\d{5}$/.test(r.sid) && !seen[r.sid] && (seen[r.sid] = 1));
+  if (!rows.length) fail_('학번(다섯 자리)이 있는 학생 줄이 없어요.');
+  const note = String(req.note || '').slice(0, 500);
+  const kind = req.kind === '정오표' ? '정오표' : '점수표';
+  let omr = null;
+  if (kind === '정오표') {   // 문항마다 정답·배점 (뒤 칸들은 점수 합계: 선택형점수·서답형점수…)
+    const o = req.omr || {}, n = Math.max(0, Math.min(100, Math.floor(Number(o.n) || 0)));
+    if (!n || n > heads.length) fail_('정오표의 문항을 읽지 못했어요.');
+    omr = {n: n, key: (Array.isArray(o.key) ? o.key : []).slice(0, n).map(cleanCell_), pts: (Array.isArray(o.pts) ? o.pts : []).slice(0, n).map(cleanCell_)};
+  }
+  return withLock_(() => {
+    const ash = assessSheet_(SHEET_ASSESS), rsh = assessSheet_(SHEET_ASSESS_ROWS);
+    if (ash.getRange(1, 7).getValue() !== ASSESS_HEADERS[6]) ash.getRange(1, 1, 1, ASSESS_HEADERS.length).setValues([ASSESS_HEADERS]).setFontWeight('bold');
+    let id = String(req.id || '');
+    const cur = id ? readAssess_().find(a => a.id === id) : null;
+    if (id && !cur) fail_('그 수행평가를 찾을 수 없어요.');
+    const merge = !!(cur && req.merge);   // 정오표를 반별로 더 올릴 때: 다른 반 학생 줄은 그대로 둠
+    if (merge && cur.kind === '정오표' && kind === '정오표' && cur.omr && JSON.stringify(cur.omr.key) !== JSON.stringify(omr.key))
+      fail_('앞에서 올린 정오표와 정답이 달라요. 같은 시험의 정오표인지 확인해 주세요. 다른 시험이면 새로 만들어 주세요.');
+    if (cur) ash.getRange(cur.row, 2, 1, 3).setValues([[asText_(title), asText_(note), JSON.stringify(heads)]]);
+    else { id = 'a' + Utilities.getUuid().replace(/-/g, '').slice(0, 7); ash.appendRow([id, asText_(title), asText_(note), JSON.stringify(heads), '숨김', new Date(), kind, omr ? JSON.stringify(omr) : '']); }
+    if (cur) ash.getRange(cur.row, 7, 1, 2).setValues([[kind, omr ? JSON.stringify(omr) : '']]);
+    // 점수 줄: 이 평가의 줄을 새로 씀 (값이 같은 학생은 확인 시각을 그대로 둠 · 반별로 더 올릴 때는 이번에 없는 학생 줄을 남김)
+    const old = {}; readAssessRows_(id).forEach(x => { old[x.sid] = x; });
+    const fresh = {}; rows.forEach(r => { fresh[r.sid] = 1; });
+    const keepRows = readAssessRows_().filter(x => x.id !== id || (merge && !fresh[x.sid]));
+    const out = keepRows.map(x => [x.id, x.sid, x.vals, x.at ? new Date(x.at) : ''])
+      .concat(rows.map(r => { const v = JSON.stringify(r.vals), o = old[r.sid]; return [id, r.sid, v, o && o.vals === v && o.at ? new Date(o.at) : '']; }));
+    const n = rsh.getLastRow();
+    if (n > 1) rsh.getRange(2, 1, n - 1, ASSESS_ROW_HEADERS.length).clearContent();
+    rsh.getRange(2, 2, out.length, 1).setNumberFormat('@');
+    rsh.getRange(2, 1, out.length, ASSESS_ROW_HEADERS.length).setValues(out);
+    return {ok: true, id: id, count: rows.length, total: keepRows.filter(x => x.id === id).length + rows.length};
+  });
+}
+function adminAssessList_(req) {
+  checkToken_(req.token, 'a');
+  const rows = readAssessRows_();
+  return {ok: true, list: readAssess_().reverse().map(a => {
+    const mine = rows.filter(x => x.id === a.id);
+    return {id: a.id, title: a.title, note: a.note, heads: a.heads, open: a.open, closed: a.closed, created: a.created, kind: a.kind, omr: a.omr, count: mine.length, confirmed: mine.filter(x => x.at).length};
+  })};
+}
+/* 현황(선생님만): 학번·이름·반·확인 시각, 그리고 선생님이 올린 값 */
+function adminAssessStatus_(req) {
+  checkToken_(req.token, 'a');
+  const a = readAssess_().find(x => x.id === String(req.id || ''));
+  if (!a) fail_('그 수행평가를 찾을 수 없어요.');
+  const names = {}; readStudents_().forEach(s => { names[s.sid] = s.name; });
+  return {ok: true, heads: a.heads, kind: a.kind, omr: a.omr, rows: readAssessRows_(a.id).map(x => ({sid: x.sid, name: names[x.sid] || '', cls: sidClass_(x.sid), at: x.at, vals: parseJ_(x.vals, [])}))};
+}
+function adminAssessState_(req) {
+  checkToken_(req.token, 'a');
+  return withLock_(() => {
+    const a = readAssess_().find(x => x.id === String(req.id || ''));
+    if (!a) fail_('그 수행평가를 찾을 수 없어요.');
+    if (req.del) {
+      const rsh = assessSheet_(SHEET_ASSESS_ROWS), keep = readAssessRows_().filter(x => x.id !== a.id), n = rsh.getLastRow();
+      if (n > 1) rsh.getRange(2, 1, n - 1, ASSESS_ROW_HEADERS.length).clearContent();
+      if (keep.length) rsh.getRange(2, 1, keep.length, ASSESS_ROW_HEADERS.length).setValues(keep.map(x => [x.id, x.sid, x.vals, x.at ? new Date(x.at) : '']));
+      assessSheet_(SHEET_ASSESS).deleteRow(a.row);
+      return {ok: true};
+    }
+    const st = ['숨김', '공개', '마감'].indexOf(req.state) >= 0 ? req.state : req.open ? '공개' : '숨김';   // 열기 = 공개, 마감 = 보기만
+    assessSheet_(SHEET_ASSESS).getRange(a.row, 5).setValue(st);
+    return {ok: true};
+  });
+}
+/* 학생: 열린(또는 마감한) 평가 중 내 학번이 있는 것만, 내 값만 (학번·이름은 보내지 않음). 마감한 것은 보기만.
+   들어올 때마다 비밀번호를 다시 확인하고, '확인' 누르기에 쓸 짧은(30분) 표를 줌 */
+function assessCount_(req) {   // 메뉴의 빨간 숫자(아직 확인하지 않은 열린 평가 수)와 볼 평가가 있는지만 (점수는 보내지 않음)
+  const sid = checkToken_(req.token, 's'), shown = readAssess_().filter(a => a.open || a.closed);
+  if (!shown.length) return {ok: true, n: 0, any: false};
+  const rows = readAssessRows_().filter(x => x.sid === sid);
+  return {ok: true, n: shown.filter(a => a.open && rows.some(x => x.id === a.id && !x.at)).length, any: shown.some(a => rows.some(x => x.id === a.id))};
+}
+function assessMine_(req) {
+  const sid = checkToken_(req.token, 's');
+  checkStudentPw_(sid, String(req.pw || ''), false);
+  const open = readAssess_().filter(a => a.open || a.closed);
+  const vtoken = makeToken_('v', sid, 0.5);
+  if (!open.length) return {ok: true, list: [], vtoken: vtoken};
+  const rows = readAssessRows_().filter(x => x.sid === sid);
+  return {ok: true, list: open.map(a => { const r = rows.find(x => x.id === a.id); return r ? {id: a.id, title: a.title, note: a.note, heads: a.heads, kind: a.kind, omr: a.omr, vals: parseJ_(r.vals, []), at: r.at, closed: a.closed} : null; }).filter(Boolean), vtoken: vtoken};
+}
+/* 선생님: 반별 화면에서 고른 학생이 보는 그대로 (열린 것·마감한 것만). id를 주면 그 평가 하나를 상태와 상관없이(열기 전 미리 보기) */
+function adminAssessOf_(req) {
+  checkToken_(req.token, 'a');
+  const sid = String(req.sid || '').trim();
+  if (!/^\d{5}$/.test(sid)) fail_('학번을 알 수 없어요.');
+  const rows = readAssessRows_().filter(x => x.sid === sid);
+  const only = String(req.id || '');
+  return {ok: true, list: readAssess_().filter(a => only ? a.id === only : a.open || a.closed).map(a => { const r = rows.find(x => x.id === a.id); return r ? {id: a.id, title: a.title, note: a.note, heads: a.heads, kind: a.kind, omr: a.omr, vals: parseJ_(r.vals, []), at: r.at, closed: a.closed, hidden: !a.open && !a.closed} : null; }).filter(Boolean)};
+}
+function assessConfirm_(req) {
+  const sid = checkToken_(req.token, 's'), id = String(req.id || '');
+  let vok = false; try { vok = checkToken_(req.vtoken, 'v') === sid; } catch (e) {}
+  if (!vok) fail_('시간이 지났어요. 비밀번호를 다시 입력해 주세요.', 'auth_v');   // 학생 로그인은 그대로 둠
+  const a = readAssess_().find(x => x.id === id && x.open);
+  if (!a) fail_('확인 기간이 끝났거나 지금은 확인할 수 없는 수행평가예요.');
+  const r = readAssessRows_(id).find(x => x.sid === sid);
+  if (!r) fail_('이 수행평가에 내 점수가 없어요. 선생님께 말씀드리세요.');
+  return withLock_(() => {
+    const sh = assessSheet_(SHEET_ASSESS_ROWS), cur = sh.getRange(r.row, 1, 1, 4).getValues()[0];
+    if (String(cur[0]).trim() !== id || String(cur[1]).trim() !== sid) fail_('잠시 후 다시 눌러 주세요.', 'busy');   // 선생님이 표를 다시 올리는 중
+    if (cur[3]) return {ok: true, at: iso_(cur[3])};
+    const now = new Date(); sh.getRange(r.row, 4).setValue(now);
+    return {ok: true, at: now.toISOString()};
+  });
+}
 
 /* ---------------- 지난 레이스 기록 옮기기: N일 지난 줄을 '지난 레이스 기록' 탭으로 ---------------- */
 const SHEET_LOG_OLD = '지난 기록';
