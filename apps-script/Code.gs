@@ -347,6 +347,11 @@ function mySync_(req) {
   if (!req.my) {   // 가져가기만: 서버가 기억해 둔 것이 있으면 시트를 열지 않음
     const c = CacheService.getScriptCache().get(gk_('my_' + sid));
     if (c) { const o = JSON.parse(c); return o.v === req.v ? {ok: true, same: true, v: o.v} : {ok: true, my: o.my, v: o.v}; }
+    // 기억해 둔 것이 없으면 읽기만 (쓰지 않으니 줄 서지 않음: 수업 시작에 반 전체가 들어와도 빠름)
+    const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
+    if (!row) fail_('학생 정보를 찾을 수 없어요. 다시 로그인해 주세요.', 'auth');
+    const pack = myPack_(sid, cleanMy_(parseJ_(sh.getRange(row, MY_COL).getValue(), {})));
+    return req.v === pack.v ? {ok: true, same: true, v: pack.v} : Object.assign({ok: true}, pack);
   }
   return withLock_(() => {
     const sh = sheet_(SHEET_STUDENTS), row = findStudentRow_(sh, sid);
@@ -1402,6 +1407,8 @@ function assessSheet_(name) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   return ss.getSheetByName(name) || ensureSheet_(ss, name, name === SHEET_ASSESS ? ASSESS_HEADERS : ASSESS_ROW_HEADERS);
 }
+/* 평가 목록(제목·상태·항목)은 기억해 둠: 학생이 처음 화면을 열 때마다 시트를 읽지 않게. 선생님이 바꾸면 지움 */
+const assessMeta_ = () => cached_('c_assess', () => readAssess_());
 function readAssess_() {
   const sh = assessSheet_(SHEET_ASSESS), n = sh.getLastRow(); if (n < 2) return [];
   return sh.getRange(2, 1, n - 1, ASSESS_HEADERS.length).getValues().map((r, i) => ({row: i + 2, id: String(r[0]).trim(), title: String(r[1]), note: String(r[2] || ''),
@@ -1454,6 +1461,7 @@ function adminAssessSave_(req) {
     if (n > 1) rsh.getRange(2, 1, n - 1, ASSESS_ROW_HEADERS.length).clearContent();
     rsh.getRange(2, 2, out.length, 1).setNumberFormat('@');
     rsh.getRange(2, 1, out.length, ASSESS_ROW_HEADERS.length).setValues(out);
+    forget_('c_assess');
     return {ok: true, id: id, count: rows.length, total: keepRows.filter(x => x.id === id).length + rows.length};
   });
 }
@@ -1483,17 +1491,19 @@ function adminAssessState_(req) {
       if (n > 1) rsh.getRange(2, 1, n - 1, ASSESS_ROW_HEADERS.length).clearContent();
       if (keep.length) rsh.getRange(2, 1, keep.length, ASSESS_ROW_HEADERS.length).setValues(keep.map(x => [x.id, x.sid, x.vals, x.at ? new Date(x.at) : '']));
       assessSheet_(SHEET_ASSESS).deleteRow(a.row);
+      forget_('c_assess');
       return {ok: true};
     }
     const st = ['숨김', '공개', '마감'].indexOf(req.state) >= 0 ? req.state : req.open ? '공개' : '숨김';   // 열기 = 공개, 마감 = 보기만
     assessSheet_(SHEET_ASSESS).getRange(a.row, 5).setValue(st);
+    forget_('c_assess');
     return {ok: true};
   });
 }
 /* 학생: 열린(또는 마감한) 평가 중 내 학번이 있는 것만, 내 값만 (학번·이름은 보내지 않음). 마감한 것은 보기만.
    들어올 때마다 비밀번호를 다시 확인하고, '확인' 누르기에 쓸 짧은(30분) 표를 줌 */
 function assessCount_(req) {   // 메뉴의 빨간 숫자(아직 확인하지 않은 열린 평가 수)와 볼 평가가 있는지만 (점수는 보내지 않음)
-  const sid = checkToken_(req.token, 's'), shown = readAssess_().filter(a => a.open || a.closed);
+  const sid = checkToken_(req.token, 's'), shown = assessMeta_().filter(a => a.open || a.closed);
   if (!shown.length) return {ok: true, n: 0, any: false};
   const rows = readAssessRows_().filter(x => x.sid === sid);
   return {ok: true, n: shown.filter(a => a.open && rows.some(x => x.id === a.id && !x.at)).length, any: shown.some(a => rows.some(x => x.id === a.id))};

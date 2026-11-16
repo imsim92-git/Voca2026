@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="app-ver" content="20261117-0211">
 <title>영어 학습 사이트</title>
 <meta name="description" content="영어 학습지 단어를 페이지별로 연습하는 사이트">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -627,7 +628,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 <script src="lib/lz-string.min.js"></script>
 <script src="lib/qrcode.js"></script>
 <script>/* config.js is read fresh every time, so a changed server address works at once (no 10-minute browser cache) */ document.write('<script src="config.js?v=' + Date.now() + '"><\/script>');</script>
-<script src="words.js"></script>
+<script>/* words.js goes with this page's version, so a new version brings its words too */ document.write('<script src="words.js?v=' + encodeURIComponent((document.querySelector('meta[name="app-ver"]') || {}).content || '') + '"><\/script>');</script>
 <script>
 const BASE_URL = "";  // 비워 두면 지금 접속한 주소를 그대로 씁니다
 const BOOK = window.WORD_BOOK || "교과서";            // name of the built-in list (words.js) on the first screen
@@ -863,20 +864,39 @@ function enterTeacher(cls){
 }
 /* 반별 화면: look at one student's own screen. Their races (done, best), last scores and confusing words come from the
    server and stay in this tab only: practising, stars or races here are never saved to the student */
+/* 반별 화면에서 학생 고르기: 반 목록에 있는 이름으로 그 학생 화면을 바로 그리고, 헷갈리는 단어 같은 개인 정보는 도착하면 채움.
+   한 번 본 학생은 기억해 둔 것으로 바로 보여 주고 뒤에서 새로 받음 */
+const VIEW_CACHE = {}; let VIEWAS = 0;   // which pick is the newest
 async function viewStudentAs(sid){
   stopTimers();
-  const mk = 'v-as-' + (++VIEWSEQ);
-  $app.innerHTML = `${header()}<div class="panel empty">${esc(sid)} 학생 화면을 불러오는 중…</div><i hidden id="${mk}"></i>`;
+  const seq = ++VIEWAS;
+  const known = (((store.get(TSTU_KEY, null) || []).flatMap(c => (c.students || []).map(x => Object.assign({cls: c.name}, x)))).find(x => x.sid === sid));
+  const show = (student, my) => {
+    AUTH = Object.assign({}, AUTH, {sid: '#view:' + student.sid, view: student, cls: student.cls});
+    MY = Object.assign({items: {}, removed: {}, last: {}, best: {}}, my || {}); MY_SID = AUTH.sid; myDirty = false;
+    tvsSet(student.sid); tvSet(student.cls);
+    route();
+  };
+  const hit = VIEW_CACHE[sid];
+  if (hit) show(hit.student, hit.my);
+  else if (known) show({sid, name: known.name, cls: known.cls}, null);
+  else $app.innerHTML = `${header()}<div class="panel empty">${esc(sid)} 학생 화면을 불러오는 중…</div>`;
   let r;
   try { r = await api('adminViewAs', {token: AUTH.token, sid}); }
-  catch(e){ if (!document.getElementById(mk)) return; if (onAuthError(e)) return; toast(e.error || '학생 화면을 불러오지 못했어요'); return backToTeacher(); }
-  if (!document.getElementById(mk)) return;   // the teacher opened something else meanwhile
-  AUTH = Object.assign({}, AUTH, {sid: '#view:' + r.student.sid, view: r.student, cls: r.student.cls});
-  MY = Object.assign({items: {}, removed: {}, last: {}, best: {}}, r.my); MY_SID = AUTH.sid; myDirty = false;
-  tvsSet(r.student.sid); tvSet(r.student.cls);
-  route();
+  catch(e){ if (seq !== VIEWAS) return; if (onAuthError(e)) return; toast(e.error || '학생 화면을 불러오지 못했어요'); return backToTeacher(); }
+  if (seq !== VIEWAS || !isTeacher() || (viewing() && AUTH.view.sid !== sid)) return;   // the teacher picked someone else meanwhile
+  VIEW_CACHE[sid] = {student: r.student, my: r.my};
+  const same = hit && JSON.stringify(hit.my) === JSON.stringify(r.my) && hit.student.name === r.student.name;
+  if (!(viewing() && AUTH.view.sid === sid) || !same) {   // first time, or something changed: fill in (stay on the screen the teacher is looking at)
+    const onAssess = !!document.querySelector('.assesslist');
+    AUTH = Object.assign({}, AUTH, {sid: '#view:' + r.student.sid, view: r.student, cls: r.student.cls});
+    MY = Object.assign({items: {}, removed: {}, last: {}, best: {}}, r.my); MY_SID = AUTH.sid; myDirty = false;
+    tvsSet(r.student.sid); tvSet(r.student.cls);
+    if (onAssess) viewAssess(); else if (document.getElementById('smbtn')) route();   // still on the first screen: redraw it; elsewhere the new data shows on the next screen
+  }
 }
 function backToTeacher(cls){
+  VIEWAS++;
   AUTH = Object.assign({}, AUTH, {sid: '#teacher', view: null}); if (cls !== undefined) AUTH.cls = cls;
   MY = null; tvsSet(''); tvSet(AUTH.cls); route();
 }
@@ -1590,10 +1610,15 @@ function bindSiteTop(){
   document.addEventListener('click', close);
   l.querySelectorAll('[data-sm]').forEach(x => x.onclick = () => { stopTimers(); forgetAssess(); x.dataset.sm === 'assess' ? viewAssess() : (hasRoot() || !hasBook() ? viewRoot() : viewPages()); });
   const need = isTeacher() ? myAssess() === null : ASSESS_N === null;
-  if (need && hasSiteMenu()) (isTeacher() ? loadAssess() : api('assessCount', {token: AUTH.token}).then(r => { ASSESS_N = r.n || 0; })).then(() => {   // a red count on the menu when there is something to confirm
+  if (need && hasSiteMenu()) (isTeacher() ? loadAssess() : assessCountOnce()).then(() => {   // a red count on the menu when there is something to confirm
     const n = assessTodo(), btn = document.getElementById('smbtn');
     if (n && btn && !document.querySelector('.assesslist') && !btn.querySelector('.smdot')) btn.querySelector('b').insertAdjacentHTML('afterend', `<span class="smdot">${n}</span>`);
   }).catch(() => {});
+}
+let ASSESS_NP = null;   // one count request at a time
+function assessCountOnce(){
+  if (!ASSESS_NP) ASSESS_NP = api('assessCount', {token: AUTH.token}).then(r => { ASSESS_N = r.n || 0; return r; }).finally(() => { setTimeout(() => { ASSESS_NP = null; }, 3000); });
+  return ASSESS_NP;
 }
 function loadAssess(pw){
   const who = assessWho();
@@ -1613,7 +1638,7 @@ async function viewAssess(){
   if (!isTeacher()) {   // nothing to see: say so at once, without asking for the password
     $app.innerHTML = `${siteTop('assess')}${userBar()}<div class="setcard"><div class="eyebrow">평가</div><h1>지필/수행 점수 확인</h1></div><div class="panel empty">불러오는 중…</div>`;
     bindSiteTop(); bindUserBar();
-    try { const r = await api('assessCount', {token: AUTH.token}); ASSESS_N = r.n || 0; if (!r.any) { ASSESS = []; ASSESS_FOR = assessWho(); return assessShow(); } }
+    try { ASSESS_NP = null; const r = await assessCountOnce(); if (!r.any) { ASSESS = []; ASSESS_FOR = assessWho(); return assessShow(); } }
     catch(e){ if (e.code === 'auth') { onAuthErrorQuiet(e); return viewRoot(); } }
     return assessGate();
   }
@@ -2436,10 +2461,13 @@ async function flushPending(only){
 }
 function myRacesStale(){ const c = store.get(myRacesKey(), null); if (c) { c.at = 0; store.set(myRacesKey(), c); } }
 let myRacesLoading = null;
+/* 레이스 목록: 페이지를 열거나 새로고침하면 늘 서버에서 새로 받음(선생님이 방금 연 레이스가 바로 보이게).
+   그 뒤 화면을 옮겨 다닐 때만 15초 동안 받은 목록을 다시 씀 */
+let racesFresh = false;
 function loadMyRaces(){
   if (!ACCOUNTS || !AUTH || !API) return Promise.resolve(null);
   const c = store.get(myRacesKey(), null);
-  if (c && Date.now() - c.at < 15000) return Promise.resolve(c);
+  if (c && racesFresh && Date.now() - c.at < 15000) return Promise.resolve(c);
   if (myRacesLoading) return myRacesLoading;
   const sid = AUTH.sid;
   const key = myRacesKey();
@@ -2448,6 +2476,7 @@ function loadMyRaces(){
     if (!AUTH || AUTH.sid !== sid || myRacesKey() !== key) return null;
     if (r.classes) store.set(TCLS_KEY, r.classes);
     if (r.students) store.set(TSTU_KEY, r.students);
+    racesFresh = true;
     const v = {at: Date.now(), races: r.races}; store.set(key, v); return v;
   }).catch(e => { onAuthErrorQuiet(e); return c; }).finally(() => { myRacesLoading = null; });
   return myRacesLoading;
@@ -4231,8 +4260,26 @@ function viewMake(start){
 
 /* ---------- boot: #p1, #p3-4 … opens a page, #all the whole book, #w… a teacher-made set ---------- */
 let setsPromise = null;
+/* 새 버전 알아채기: GitHub Pages는 index.html을 10분쯤 기억해 둬서, 고친 화면이 늦게 나타남.
+   페이지를 열 때 index.html 앞부분(버전 번호)만 새로 받아 보고, 버전이 다르면 그 버전 주소로 한 번 새로 엶 */
+const APP_VER = (document.querySelector('meta[name="app-ver"]') || {}).content || '';
+async function newerVer(){
+  try {
+    const u = new URL('index.html', location.href); u.search = 'vc=' + Date.now();
+    const r = await fetch(u, {cache: 'no-store', headers: {Range: 'bytes=0-2047'}});
+    const m = (await r.text()).match(/name="app-ver" content="([^"]+)"/);
+    return m && m[1] !== APP_VER && APP_VER !== 'dev' ? m[1] : '';
+  } catch (e) { return ''; }
+}
+async function checkVersion(atStart){
+  const v = await newerVer(); if (!v) return;
+  let tried = ''; try { tried = sessionStorage.getItem('wordroom-ver-tried') || ''; } catch (e) {}
+  const go = () => { try { sessionStorage.setItem('wordroom-ver-tried', v); } catch (e) {} const u = new URL(location.href); u.searchParams.set('v', v); location.replace(u.toString()); };
+  if (atStart && tried !== v && !document.querySelector('.countdown, .racehead, .qopt, #ans')) go();   // just opened: nothing in progress, so open the new version now (no message to anyone)
+}
 function boot(){
   const h = decodeURIComponent((location.hash || '').slice(1));
+  setTimeout(() => checkVersion(true), 400);
   if (Object.keys(pendAll()).length) setTimeout(() => flushPending().then(ok => { if (ok && $app.querySelector('#myraces')) route(); }), 1200 + Math.random() * 3000);   // answers handed in earlier but not saved yet
   if (API && !setsPromise) setsPromise = loadSets().then(changed => { if ($app.querySelector('[data-root]') || ($app.querySelector('.pages [data-id]') && hasRoot() && origin === 'root')) viewRoot(); return changed; });
   if (h === 'admin') return isTeacher() ? leaveTeacher() : viewAdmin();
